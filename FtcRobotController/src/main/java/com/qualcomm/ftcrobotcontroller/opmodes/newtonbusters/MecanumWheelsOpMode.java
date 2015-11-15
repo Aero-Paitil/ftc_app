@@ -21,10 +21,10 @@ public class MecanumWheelsOpMode extends OpMode {
     public void init() {
 
         //"initializing" the motors
-        motorFrontLeft = hardwareMap.dcMotor.get("FL");
-        motorFrontRight = hardwareMap.dcMotor.get("FR");
-        motorRearLeft = hardwareMap.dcMotor.get("RL");
-        motorRearRight = hardwareMap.dcMotor.get("RR");
+        motorFrontLeft = hardwareMap.dcMotor.get("DC1");
+        motorFrontRight = hardwareMap.dcMotor.get("DC2");
+        motorRearLeft = hardwareMap.dcMotor.get("DC3");
+        motorRearRight = hardwareMap.dcMotor.get("DC4");
 
         //setting the motors on the right side in reverse so both wheels spin the same way.
         motorFrontRight.setDirection(DcMotor.Direction.REVERSE);
@@ -37,14 +37,15 @@ public class MecanumWheelsOpMode extends OpMode {
         /*defining some movement for the robot. The left joystick right now controls the direction the wheels will spin,
         while the right joystick will make the robot actually turn instead of strafe.*/
         float forward = -gamepad1.left_stick_y;
-        float right = -gamepad1.left_stick_x;
-        float clockwise = -gamepad1.right_stick_y + gamepad1.right_stick_x; //Todo figure out how to translate x and y coordinates into angles
+        float right = gamepad1.left_stick_x;
+        float clockwise = gamepad1.right_stick_x;
 
         //add deadband so you don't strafe when you don't want to. A deadband is essentially if you want to go to the right,
         //and the joystick is 7 degrees short of 90 degrees, instead of having the robot slowly creep forward, the robot will
         //ignore the small degrees and just go to the right.
         //todo adjust the deadband
         if ((right > -0.1) && (right < 0.1)) right = 0;
+        if ((forward > -0.1) && (forward < 0.1)) forward = 0;
 
 
         float front_left = forward + clockwise + right;
