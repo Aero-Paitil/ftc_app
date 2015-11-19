@@ -31,6 +31,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. */
 
 package com.qualcomm.ftcrobotcontroller.opmodes;
 
+import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.GyroDriveMecanumWheels;
 import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.MecanumWheelsOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.OpModeManager;
 import com.qualcomm.robotcore.eventloop.opmode.OpModeRegister;
@@ -64,6 +65,7 @@ public class FtcOpModeRegister implements OpModeRegister {
     manager.register ("PushBotAuto", PushBotAuto.class);
     manager.register ("PushBotManual", PushBotManual.class);
     manager.register("MecanumWheelsOpMode",MecanumWheelsOpMode.class);
+    manager.register("GyroDriveMecanumWheels", GyroDriveMecanumWheels.class);
 
 
     /*
