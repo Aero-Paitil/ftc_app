@@ -64,13 +64,17 @@ public class GyroDriveMecanumWheels extends OpMode {
             sensorGyro.resetZAxisIntegrator(); //current robot heading is new 0.
         }
 
-        double myheading = Math.PI * sensorGyro.getHeading() / 180.0;
+        //get the angle from field's forward to robot's forward
+        double headingDegrees = sensorGyro.getHeading();
+        //headingDegrees is clockwise
+        double myheading = -Math.PI * headingDegrees / 180.0;
 
         //We are using the joystick values in the driver's perspective (field coordinates).
+        //this link gives the formula: http://www.mathematics-online.org/inhalt/aussage/aussage444/
         double fieldForward = -gamepad1.left_stick_y; //field coordinates
         double fieldRight = gamepad1.left_stick_x; //field coordinates
-        double forward = Math.cos(myheading) * fieldForward + Math.sin(myheading) * fieldForward; //robot coordinates
-        double right = -Math.sin(myheading) * fieldRight + Math.cos(myheading) * fieldRight; //robot coordinates
+        double right = Math.cos(myheading) * fieldRight + Math.sin(myheading) * fieldForward; //robot coordinates
+        double forward = -Math.sin(myheading) * fieldRight + Math.cos(myheading) * fieldForward; //robot coordinates
         double clockwise = gamepad1.right_stick_x; //doesn't matter field or robot
 
         //add deadband so you don't strafe when you don't want to. A deadband is essentially if you want to go to the right,
@@ -107,6 +111,17 @@ public class GyroDriveMecanumWheels extends OpMode {
         motorFrontRight.setPower(front_right);
         motorRearLeft.setPower(rear_left);
         motorRearRight.setPower(rear_right);
+
+        // Telemetry - all doubles are scaled to (-100, 100)
+        telemetry.addData("Heading", headingDegrees + " deg");
+        telemetry.addData("Fld Forward", (int)(fieldForward*100));
+        telemetry.addData("Fld Right", (int)(fieldRight*100));
+        telemetry.addData("Robot Forward", (int)(forward*100));
+        telemetry.addData("Robot Right", (int) (right * 100));
+        telemetry.addData("DC1", (int) (front_left * 100));
+        telemetry.addData("DC2", (int) (front_right * 100));
+        telemetry.addData("DC3", (int) (rear_left * 100));
+        telemetry.addData("DC4", (int)(rear_right*100));
 
     }
 }
