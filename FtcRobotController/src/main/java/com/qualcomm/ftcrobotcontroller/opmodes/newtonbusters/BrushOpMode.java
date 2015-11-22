@@ -4,7 +4,9 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.Servo;
 
 /**
- * Created by tatianag on 11/20/15.
+ * Created by Allison 11/20/15
+ * Modified by Jasmine and Simone 11/21/15
+ * -added code to move brush handles and turn brushes
  */
 public class BrushOpMode extends OpMode {
     Servo rightBrushHandle;
@@ -27,13 +29,44 @@ public class BrushOpMode extends OpMode {
 
     @Override
     public void loop() {
+        // when a button is pressed, left trigger position controls the handle position
+        // not pressed trigger means handle is out
+        // pressed all the way trigger means handles in
+        if (gamepad2.a){
+            leftBrushHandle.setPosition(1-gamepad2.left_trigger);
+            rightBrushHandle.setPosition(1-gamepad2.right_trigger);
+        }
 
-        rightBrush.setPosition(0);
-        leftBrush.setPosition(0);
 
-        // docked position is 0
-        rightBrushHandle.setPosition(1); // all the way out
-        leftBrushHandle.setPosition(0);  // all the way in
+        //For continuous servos:
+        //0=inward
+        //1=outward
+        //0.5=stop
+
+        while (gamepad2.left_bumper){
+            if (gamepad2.b) {
+                leftBrush.setPosition(1);
+            }
+            else if(gamepad2.x){
+                leftBrush.setPosition(0);
+            }
+            else if(gamepad2.y){
+                leftBrush.setPosition(0.5);
+            }
+        }
+
+        while (gamepad2.right_bumper){
+            if (gamepad2.b) {
+                rightBrush.setPosition(1);
+            }
+            else if(gamepad2.x){
+                rightBrush.setPosition(0);
+            }
+            else if(gamepad2.y){
+                rightBrush.setPosition(0.5);
+            }
+        }
+
 
 
     }
