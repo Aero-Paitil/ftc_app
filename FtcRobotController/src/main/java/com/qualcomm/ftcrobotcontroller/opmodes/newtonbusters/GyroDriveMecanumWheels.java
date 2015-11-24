@@ -13,46 +13,13 @@ import com.qualcomm.robotcore.hardware.GyroSensor;
 
 public class GyroDriveMecanumWheels extends OpMode {
 
-    //defining the 4 motors
-    DcMotor motorFrontLeft;
-    DcMotor motorFrontRight;
-    DcMotor motorRearLeft;
-    DcMotor motorRearRight;
-    GyroSensor sensorGyro;
+    MecanumWheels mecanumWheels;
 
 
     @Override
     public void init() {
 
-        //"initializing" the motors
-        motorFrontLeft = hardwareMap.dcMotor.get("DC1");
-        motorFrontRight = hardwareMap.dcMotor.get("DC2");
-        motorRearLeft = hardwareMap.dcMotor.get("DC3");
-        motorRearRight = hardwareMap.dcMotor.get("DC4");
-
-        sensorGyro = hardwareMap.gyroSensor.get("Gyro Sensor");
-        // calibrate the gyro.
-        sensorGyro.calibrate();
-        // make sure the gyro is calibrated.
-        long elaspsed = System.currentTimeMillis();
-        while (sensorGyro.isCalibrating()) {
-            try {
-                Thread.sleep(50);
-            }catch (InterruptedException e) {
-                DbgLog.msg("Gyro has not been calibrated");
-                break;
-            }
-            if (System.currentTimeMillis() - elaspsed > 5000 /*5 second*/){
-                DbgLog.msg("Gyro has not been calibrated");
-                break;
-            }
-        }
-        sensorGyro.resetZAxisIntegrator();
-
-        //setting the motors on the right side in reverse so both wheels spin the same way.
-        motorFrontRight.setDirection(DcMotor.Direction.REVERSE);
-        motorRearRight.setDirection(DcMotor.Direction.REVERSE);
-
+       mecanumWheels = new MecanumWheels(hardwareMap, telemetry, true); //We are using the Gyro.
     }
 
     @Override
@@ -61,67 +28,16 @@ public class GyroDriveMecanumWheels extends OpMode {
         while the right joystick will make the robot actually turn instead of strafe.*/
 
         while(gamepad1.a && gamepad2.b){
-            sensorGyro.resetZAxisIntegrator(); //current robot heading is new 0.
+           mecanumWheels.resetGyroHeading();
         }
 
-        //get the angle from field's forward to robot's forward
-        double headingDegrees = sensorGyro.getHeading();
-        //headingDegrees is clockwise
-        double myheading = -Math.PI * headingDegrees / 180.0;
 
         //We are using the joystick values in the driver's perspective (field coordinates).
-        //this link gives the formula: http://www.mathematics-online.org/inhalt/aussage/aussage444/
         double fieldForward = -gamepad1.left_stick_y; //field coordinates
         double fieldRight = gamepad1.left_stick_x; //field coordinates
-        double right = Math.cos(myheading) * fieldRight + Math.sin(myheading) * fieldForward; //robot coordinates
-        double forward = -Math.sin(myheading) * fieldRight + Math.cos(myheading) * fieldForward; //robot coordinates
         double clockwise = gamepad1.right_stick_x; //doesn't matter field or robot
+        mecanumWheels.powerMotors(fieldForward,fieldRight,clockwise,true);
 
-        //add deadband so you don't strafe when you don't want to. A deadband is essentially if you want to go to the right,
-        //and the joystick is 7 degrees short of 90 degrees, instead of having the robot slowly creep forward, the robot will
-        //ignore the small degrees and just go to the right.
-        //todo adjust the deadband
-        if ((right > -0.1) && (right < 0.1)) right = 0;
-        if ((forward > -0.1) && (forward < 0.1)) forward = 0;
-
-        double front_left = forward + clockwise + right;
-        double front_right = forward - clockwise - right;
-        double rear_left = forward + clockwise - right;
-        double rear_right = forward - clockwise + right;
-
-        /*this is scaling the motor power. Since our motors work on a scale between -1 and 1, and when we input
-        values into the controller, they can be greater than one. We want to make sure that all values are between 1 and -1.
-         we do that by first figuring out what the maximum value is, and then dividing all the numbers by the max value. Therefore
-        the max power will be 1 (or -1, if we are going in reverse) and the other powers will be less than one. */
-        //todo find the maximum absolute value for any motor scaled power
-        double max = Math.abs(front_left);
-        max = Math.max(Math.abs(front_right), max);
-        max = Math.max(Math.abs(rear_left), max);
-        max = Math.max(Math.abs(rear_right), max);
-
-        if (max > 1) {
-            front_left /= max;
-            front_right /= max;
-            rear_left /= max;
-            rear_right /= max;
-        }
-
-        /* assigning the motors the scaled powers that we just calculated in the step above. */
-        motorFrontLeft.setPower(front_left);
-        motorFrontRight.setPower(front_right);
-        motorRearLeft.setPower(rear_left);
-        motorRearRight.setPower(rear_right);
-
-        // Telemetry - all doubles are scaled to (-100, 100)
-        telemetry.addData("Heading", headingDegrees + " deg");
-        telemetry.addData("Fld Forward", (int)(fieldForward*100));
-        telemetry.addData("Fld Right", (int)(fieldRight*100));
-        telemetry.addData("Robot Forward", (int)(forward*100));
-        telemetry.addData("Robot Right", (int) (right * 100));
-        telemetry.addData("DC1", (int) (front_left * 100));
-        telemetry.addData("DC2", (int) (front_right * 100));
-        telemetry.addData("DC3", (int) (rear_left * 100));
-        telemetry.addData("DC4", (int)(rear_right*100));
 
     }
 }

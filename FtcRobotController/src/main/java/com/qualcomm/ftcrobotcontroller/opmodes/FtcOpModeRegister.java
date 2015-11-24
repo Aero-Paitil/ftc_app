@@ -32,6 +32,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. */
 package com.qualcomm.ftcrobotcontroller.opmodes;
 
 import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.BrushOpMode;
+import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.DriverOpMode;
 import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.GyroDriveMecanumWheels;
 import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.MecanumWheelsOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.OpModeManager;
@@ -58,6 +59,11 @@ public class FtcOpModeRegister implements OpModeRegister {
      * If two or more op modes are registered with the same name, the app will display an error.
      */
 
+    manager.register("DriverMode", DriverOpMode.class);
+    manager.register("MecanumWheelsOpMode",MecanumWheelsOpMode.class);
+    manager.register("GyroDriveMecanumWheels", GyroDriveMecanumWheels.class);
+    manager.register("BrushOpMode", BrushOpMode.class);
+
     manager.register("NullOp", NullOp.class);
 
     //manager.register("MatrixK9TeleOp", MatrixK9TeleOp.class);
@@ -65,9 +71,8 @@ public class FtcOpModeRegister implements OpModeRegister {
     manager.register("K9Line", K9Line.class);
     manager.register ("PushBotAuto", PushBotAuto.class);
     manager.register ("PushBotManual", PushBotManual.class);
-    manager.register("MecanumWheelsOpMode",MecanumWheelsOpMode.class);
-    manager.register("GyroDriveMecanumWheels", GyroDriveMecanumWheels.class);
-    manager.register("BrushOpMode", BrushOpMode.class);
+
+
 
 
     /*
