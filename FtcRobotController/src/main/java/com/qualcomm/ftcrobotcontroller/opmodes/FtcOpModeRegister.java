@@ -31,6 +31,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. */
 
 package com.qualcomm.ftcrobotcontroller.opmodes;
 
+import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.ArmOpMode;
 import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.BrushOpMode;
 import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.DriverOpMode;
 import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.GyroDriveMecanumWheels;
@@ -59,6 +60,7 @@ public class FtcOpModeRegister implements OpModeRegister {
      * If two or more op modes are registered with the same name, the app will display an error.
      */
 
+    manager.register("ArmOpMode", ArmOpMode.class);
     manager.register("DriverMode", DriverOpMode.class);
     manager.register("MecanumWheelsOpMode",MecanumWheelsOpMode.class);
     manager.register("GyroDriveMecanumWheels", GyroDriveMecanumWheels.class);
