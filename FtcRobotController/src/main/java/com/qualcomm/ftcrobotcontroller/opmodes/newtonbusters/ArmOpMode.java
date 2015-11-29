@@ -39,7 +39,15 @@ public class ArmOpMode extends OpMode {
     }
 
     @Override
+    public void start() {
+        arm.holdShoulderPosition();
+
+    }
+
+    @Override
     public void loop() {
+        arm .telemetry();
+
         //elbow
         if (gamepad2.y) {
             arm.moveElbow(0.01);
@@ -59,7 +67,7 @@ public class ArmOpMode extends OpMode {
 
         //box2
         if (gamepad2.b) {
-            arm.moveWrist(0.1);
+            arm.moveWrist(0.05);
             while(true){
                 if (!gamepad2.b){
                     break;
@@ -75,8 +83,17 @@ public class ArmOpMode extends OpMode {
         }
 
         //arm
-        if (gamepad2.left_stick_y != 0) { //negative is back/up
+        if (gamepad2.left_stick_y != 0) { //negative is up
             arm.moveShoulder(gamepad2.left_stick_y);
+        } else {
+            arm.holdShoulderPosition();
+        }
+
+        if (gamepad2.dpad_up) {
+            arm.undockArm();
+        }
+        if (gamepad2.dpad_down) {
+            arm.dockArm();
         }
     }
 }

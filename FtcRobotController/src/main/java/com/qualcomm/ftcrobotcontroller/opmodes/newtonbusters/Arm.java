@@ -1,6 +1,5 @@
 package com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters;
 
-import com.qualcomm.ftccommon.DbgLog;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorController;
 import com.qualcomm.robotcore.hardware.HardwareMap;
@@ -18,13 +17,14 @@ import com.qualcomm.robotcore.util.Range;
  */
 public class Arm {
 
-    static final double TASK_TIME = 0.5;
+    static final double TASK_TIME = 3;
+    static final double HOLD_POSITION_POWER = 0.1;
 
     boolean movingToPosition = false;
 
     enum State {initial, homeIn, homeInFolded, homeOutFolded, homeOut}
 
-    State armPosition = State.initial;
+    State armState = State.initial;
     DcMotor shoulderMotor;
     Servo elbowServo, wristServo, twistServo;
 
@@ -34,16 +34,16 @@ public class Arm {
 
     public static class ArmPosition {
         static ArmPosition DRIVER_LOW_LIMIT = new ArmPosition(-550, 0/255, 0);
-        static ArmPosition DRIVER_HIGH_LIMIT = new ArmPosition(-903, 195/255, 1);
+        static ArmPosition DRIVER_HIGH_LIMIT = new ArmPosition(-903, 195.0/255, 1);
         //TODO: CHECK ALL POSITIONS!!!
-        static ArmPosition INITIAL = new ArmPosition(0, 115 / 255, 180 / 255);
-        static ArmPosition HOME_IN = new ArmPosition(-42, 122 / 255, 180 / 255);
-        static ArmPosition HOME_IN_FOLDED = new ArmPosition(76, 112 / 255, 1);
-        static ArmPosition HOME_OUT_FOLDED = new ArmPosition(-550, 112 / 255, 1);
-        static ArmPosition HOME_OUT = new ArmPosition(-550, 125 / 255, 1);
+        static ArmPosition INITIAL = new ArmPosition(0, 105.0 / 255, 180.0 / 255);
+        static ArmPosition HOME_IN = new ArmPosition(-149, 120.0 / 255, 187.0 / 255);
+        static ArmPosition HOME_IN_FOLDED = new ArmPosition(76, 112.0 / 255, 1);
+        static ArmPosition HOME_OUT_FOLDED = new ArmPosition(-550, 112.0 / 255, 1);
+        static ArmPosition HOME_OUT = new ArmPosition(-550, 125.0 / 255, 1);
 
         /**
-         * armPosition is defined by encoder counts
+         * armState is defined by encoder counts
          * if 0 is initial position, box is all the way back and on top of color sensor
          * number of counts per rotation is 1140 for AndyMark DC Motor
          */
@@ -67,20 +67,25 @@ public class Arm {
     public Arm(HardwareMap hardwareMap, Telemetry telemetry) {
         time = new ElapsedTime();
         this.telemetry = telemetry;
-        shoulderMotor = hardwareMap.dcMotor.get("ArmPosition");
+        shoulderMotor = hardwareMap.dcMotor.get("Arm");
         shoulderMotor.setMode(DcMotorController.RunMode.RESET_ENCODERS);
+
         elbowServo = hardwareMap.servo.get("Elbow1");
         elbowServo.setPosition(ArmPosition.INITIAL.elbow);
         wristServo = hardwareMap.servo.get("Box2");
         wristServo.setPosition(ArmPosition.INITIAL.wrist);
         twistServo = hardwareMap.servo.get("Box3");
+        twistServo.setPosition(0.45);
+        telemetry();
     }
+
 
     public void telemetry() {
         telemetry.addData("Shoulder", shoulderMotor.getCurrentPosition());
         telemetry.addData("Elbow", elbowServo.getPosition());
         telemetry.addData("Wrist", wristServo.getPosition());
         telemetry.addData("Twist", twistServo.getPosition());
+        telemetry.addData("Arm State", armState);
     }
 
     private void moveArmLoop(int position) {
@@ -104,6 +109,7 @@ public class Arm {
             if (currentDifference <= acceptableDifference) {
                 shoulderMotor.setTargetPosition(position);
                 shoulderMotor.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
+                shoulderMotor.setPower(HOLD_POSITION_POWER);
                 /*while (currentPosition != position) {
                     try {
                         Thread.sleep(100);
@@ -119,18 +125,25 @@ public class Arm {
 //TODO how to set speed
     }
 
+
+
+    public void holdShoulderPosition() {
+        int currentPosition = shoulderMotor.getCurrentPosition();
+        shoulderMotor.setTargetPosition(currentPosition);
+        shoulderMotor.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
+        shoulderMotor.setPower(HOLD_POSITION_POWER);
+    }
+
     /**
      * while speed is not 0, move arm
      * @param speed is from -1 to 1
      */
     public void moveShoulder(double speed){
         if (Math.abs(speed) < 0.1){
-            int currentPosition = shoulderMotor.getCurrentPosition();
-            shoulderMotor.setTargetPosition(currentPosition);
-            shoulderMotor.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
+            holdShoulderPosition();
         }
         shoulderMotor.setMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
-        shoulderMotor.setPower(speed/10);
+        shoulderMotor.setPower(speed / 10);
     }
 
     public void moveElbow(double positionChange){
@@ -144,13 +157,13 @@ public class Arm {
     }
 
     public void dockArm() {
-        if (armPosition == State.homeIn) {
+        if (armState == State.homeIn) {
             return;
         }
         ArmPosition p = null;
         State ns = null; //next state
         double currenttime = time.time();
-        switch (armPosition) {
+        switch (armState) {
             case homeInFolded:
             case initial:
                 p = ArmPosition.HOME_IN;
@@ -173,20 +186,20 @@ public class Arm {
             elbowServo.setPosition(p.elbow);
             wristServo.setPosition(p.wrist);
             if (currenttime > TASK_TIME) {
-                armPosition = ns;
+                armState = ns;
                 time.reset();
             }
         }
     }
 
     public void undockArm() {
-        if (armPosition == State.homeOut) {
+        if (armState == State.homeOut) {
             return;
         }
         ArmPosition p = null;
         State ns = null; //next state
         double currenttime = time.time();
-        switch (armPosition) {
+        switch (armState) {
             case initial:
             case homeIn:
                 p = ArmPosition.HOME_IN_FOLDED;
@@ -206,7 +219,7 @@ public class Arm {
             elbowServo.setPosition(p.elbow);
             wristServo.setPosition(p.wrist);
             if (currenttime > TASK_TIME) {
-                armPosition = ns;
+                armState = ns;
                 time.reset();
             }
         }
