@@ -1,18 +1,17 @@
 package com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
-import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.util.Range;
 
 /**
  * Created by Sangmin Lee on 11/27/15.
+ * Modified by Athena Zheng on 11/29/15.
  */
 public class ArmOpMode extends OpMode {
 
-    Servo elbow1, box2, box3, extension4, extension5, beacon6, skiLiftHandleRight, skiLiftHandleLeft;
+    Servo extension4, extension5, beacon6, skiLiftHandleRight, skiLiftHandleLeft;
     Servo rightBrushHandle, leftBrushHandle, rightBrush, leftBrush;
-    DcMotor arm;
+    Arm arm;
 
     @Override
     public void init() {
@@ -26,17 +25,7 @@ public class ArmOpMode extends OpMode {
         rightBrushHandle.setPosition(1);
         leftBrushHandle.setPosition(1);
 
-        arm = hardwareMap.dcMotor.get("Arm");
-        arm.setPower(0);
-
-        elbow1 = hardwareMap.servo.get("Elbow1");
-        elbow1.setPosition(0.4);
-        telemetry.addData("elbow position", elbow1.getPosition());
-        box2 = hardwareMap.servo.get("Box2");
-        box2.setPosition(0.8); //0 position is flat against forearm
-        telemetry.addData("box2 position", box2.getPosition());
-        box3 = hardwareMap.servo.get("Box3");
-        box3.setPosition(0.5);
+        arm = new Arm(hardwareMap, telemetry);
         extension4 = hardwareMap.servo.get("Extension4");
         extension4.setPosition(1.0);
         extension5 = hardwareMap.servo.get("Extension5");
@@ -53,16 +42,14 @@ public class ArmOpMode extends OpMode {
     public void loop() {
         //elbow
         if (gamepad2.y) {
-            double newposition = Range.clip(elbow1.getPosition() + 0.1, 0, 1);
-            elbow1.setPosition(newposition);
+            arm.moveElbow(0.01);
             while(true){ //makes it so that you have to unpress before you can go again
                 if (!gamepad2.y){
                     break;
                 }
             }
         }else if (gamepad2.x){
-            double newpostion = Range.clip(elbow1.getPosition() - 0.1, 0, 1);
-            elbow1.setPosition(newpostion);
+            arm.moveElbow(-0.01);
             while(true){
                 if (!gamepad2.x){
                     break;
@@ -72,16 +59,14 @@ public class ArmOpMode extends OpMode {
 
         //box2
         if (gamepad2.b) {
-            double newposition = Range.clip(box2.getPosition() + 0.1, 0, 1);
-            box2.setPosition(newposition);
+            arm.moveWrist(0.1);
             while(true){
                 if (!gamepad2.b){
                     break;
                 }
             }
         }else if (gamepad2.a){
-            double newpostion = Range.clip(box2.getPosition() - 0.1, 0, 1);
-            box2.setPosition(newpostion);
+            arm.moveWrist(-0.1);
             while(true){
                 if (!gamepad2.a){
                     break;
@@ -90,12 +75,8 @@ public class ArmOpMode extends OpMode {
         }
 
         //arm
-        if (gamepad2.left_bumper) { //negative is back/up
-            arm.setPower(0.5);
-        }else if (gamepad2.right_bumper){
-            arm.setPower(-0.5);
-        }else{
-            arm.setPower(-0.1);
+        if (gamepad2.left_stick_y != 0) { //negative is back/up
+            arm.moveShoulder(gamepad2.left_stick_y);
         }
     }
 }

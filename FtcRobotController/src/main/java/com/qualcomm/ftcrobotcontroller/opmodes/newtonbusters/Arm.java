@@ -7,6 +7,7 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.robocol.Telemetry;
 import com.qualcomm.robotcore.util.ElapsedTime;
+import com.qualcomm.robotcore.util.Range;
 
 /**
  * Created by jasmine on 11/28/15.
@@ -28,6 +29,7 @@ public class Arm {
     Servo elbowServo, wristServo, twistServo;
 
     ElapsedTime time;
+    Telemetry telemetry;
 
 
     public static class ArmPosition {
@@ -36,9 +38,9 @@ public class Arm {
         //TODO: CHECK ALL POSITIONS!!!
         static ArmPosition INITIAL = new ArmPosition(0, 115 / 255, 180 / 255);
         static ArmPosition HOME_IN = new ArmPosition(-42, 122 / 255, 180 / 255);
-        static ArmPosition HOME_IN_FOLDED = new ArmPosition(76, 112 / 255, 255 / 255);
-        static ArmPosition HOME_OUT_FOLDED = new ArmPosition(-550, 112 / 255, 255 / 255);
-        static ArmPosition HOME_OUT = new ArmPosition(-550, 125 / 255, 255 / 255);
+        static ArmPosition HOME_IN_FOLDED = new ArmPosition(76, 112 / 255, 1);
+        static ArmPosition HOME_OUT_FOLDED = new ArmPosition(-550, 112 / 255, 1);
+        static ArmPosition HOME_OUT = new ArmPosition(-550, 125 / 255, 1);
 
         /**
          * armPosition is defined by encoder counts
@@ -64,22 +66,25 @@ public class Arm {
 
     public Arm(HardwareMap hardwareMap, Telemetry telemetry) {
         time = new ElapsedTime();
-
+        this.telemetry = telemetry;
         shoulderMotor = hardwareMap.dcMotor.get("ArmPosition");
         shoulderMotor.setMode(DcMotorController.RunMode.RESET_ENCODERS);
         elbowServo = hardwareMap.servo.get("Elbow1");
+        elbowServo.setPosition(ArmPosition.INITIAL.elbow);
         wristServo = hardwareMap.servo.get("Box2");
+        wristServo.setPosition(ArmPosition.INITIAL.wrist);
         twistServo = hardwareMap.servo.get("Box3");
-
-
     }
 
-    public void start() {
-        shoulderMotor.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
-        shoulderMotor.setPower(-0.1);
+    public void telemetry() {
+        telemetry.addData("Shoulder", shoulderMotor.getCurrentPosition());
+        telemetry.addData("Elbow", elbowServo.getPosition());
+        telemetry.addData("Wrist", wristServo.getPosition());
+        telemetry.addData("Twist", twistServo.getPosition());
     }
 
     private void moveArmLoop(int position) {
+        telemetry();
         double currentPosition = shoulderMotor.getCurrentPosition();
         if (currentPosition == position) {
             return;
@@ -99,18 +104,17 @@ public class Arm {
             if (currentDifference <= acceptableDifference) {
                 shoulderMotor.setTargetPosition(position);
                 shoulderMotor.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
-                while (currentPosition != position) {
+                /*while (currentPosition != position) {
                     try {
                         Thread.sleep(100);
                     } catch (InterruptedException e) {
                         DbgLog.logStacktrace(e);
                     }
-                }
+                } */
                 movingToPosition = false;
             }
 
         }
-
 
 //TODO how to set speed
     }
@@ -119,7 +123,7 @@ public class Arm {
      * while speed is not 0, move arm
      * @param speed is from -1 to 1
      */
-    public void moveArm(double speed){
+    public void moveShoulder(double speed){
         if (Math.abs(speed) < 0.1){
             int currentPosition = shoulderMotor.getCurrentPosition();
             shoulderMotor.setTargetPosition(currentPosition);
@@ -129,8 +133,14 @@ public class Arm {
         shoulderMotor.setPower(speed/10);
     }
 
-    public void moveElbow(){
+    public void moveElbow(double positionChange){
+        double newPosition = elbowServo.getPosition() + positionChange;
+        elbowServo.setPosition(Range.clip(newPosition, 0, 1));
+    }
 
+    public void moveWrist(double positionChange) {
+        double newPosition = wristServo.getPosition() + positionChange;
+        wristServo.setPosition(Range.clip(newPosition, 0, 1));
     }
 
     public void dockArm() {
@@ -158,7 +168,7 @@ public class Arm {
                 ns = State.homeOutFolded;
                 break;
         }
-        if (p != null && ns != null) {
+        if (p != null) {
             moveArmLoop(p.shoulder);
             elbowServo.setPosition(p.elbow);
             wristServo.setPosition(p.wrist);
@@ -191,7 +201,7 @@ public class Arm {
                 ns = State.homeOut;
                 break;
         }
-        if (p != null && ns != null) {
+        if (p != null) {
             moveArmLoop(p.shoulder);
             elbowServo.setPosition(p.elbow);
             wristServo.setPosition(p.wrist);
