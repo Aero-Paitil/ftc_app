@@ -34,8 +34,8 @@ public class Brushes {
 
     public Brushes(HardwareMap hardwareMap, Telemetry telemetry) {
         this.telemetry = telemetry;
-        rightBrushHandle = hardwareMap.servo.get("SM1");
-        leftBrushHandle = hardwareMap.servo.get("SM2");
+        rightBrushHandle = hardwareMap.servo.get("BrushHandle1");
+        leftBrushHandle = hardwareMap.servo.get("BrushHandle2");
         rightBrush = hardwareMap.servo.get("Brush3");
         leftBrush = hardwareMap.servo.get("Brush4");
 
