@@ -34,13 +34,13 @@ public class Arm {
 
     public static class ArmPosition {
         static ArmPosition DRIVER_LOW_LIMIT = new ArmPosition(-550, 0/255, 0);
-        static ArmPosition DRIVER_HIGH_LIMIT = new ArmPosition(-903, 195/255, 1);
+        static ArmPosition DRIVER_HIGH_LIMIT = new ArmPosition(-903, 195.0/255, 1);
         //TODO: CHECK ALL POSITIONS!!!
-        static ArmPosition INITIAL = new ArmPosition(0, 115 / 255, 180 / 255);
-        static ArmPosition HOME_IN = new ArmPosition(-42, 122 / 255, 180 / 255);
-        static ArmPosition HOME_IN_FOLDED = new ArmPosition(76, 112 / 255, 1);
-        static ArmPosition HOME_OUT_FOLDED = new ArmPosition(-550, 112 / 255, 1);
-        static ArmPosition HOME_OUT = new ArmPosition(-550, 125 / 255, 1);
+        static ArmPosition INITIAL = new ArmPosition(0, 115.0 / 255, 180.0 / 255);
+        static ArmPosition HOME_IN = new ArmPosition(-42, 122.0 / 255, 180.0 / 255);
+        static ArmPosition HOME_IN_FOLDED = new ArmPosition(76, 112.0 / 255, 1);
+        static ArmPosition HOME_OUT_FOLDED = new ArmPosition(-550, 112.0 / 255, 1);
+        static ArmPosition HOME_OUT = new ArmPosition(-550, 125.0 / 255, 1);
 
         /**
          * armPosition is defined by encoder counts
@@ -67,13 +67,18 @@ public class Arm {
     public Arm(HardwareMap hardwareMap, Telemetry telemetry) {
         time = new ElapsedTime();
         this.telemetry = telemetry;
-        shoulderMotor = hardwareMap.dcMotor.get("ArmPosition");
+        shoulderMotor = hardwareMap.dcMotor.get("Arm");
         shoulderMotor.setMode(DcMotorController.RunMode.RESET_ENCODERS);
+        shoulderMotor.setTargetPosition(shoulderMotor.getCurrentPosition());
+        shoulderMotor.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
+        shoulderMotor.setPower(0.5);
         elbowServo = hardwareMap.servo.get("Elbow1");
         elbowServo.setPosition(ArmPosition.INITIAL.elbow);
         wristServo = hardwareMap.servo.get("Box2");
         wristServo.setPosition(ArmPosition.INITIAL.wrist);
         twistServo = hardwareMap.servo.get("Box3");
+        twistServo.setPosition(0.45);
+        telemetry();
     }
 
     public void telemetry() {
