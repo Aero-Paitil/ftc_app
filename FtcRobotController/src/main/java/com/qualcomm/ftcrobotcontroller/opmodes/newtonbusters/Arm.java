@@ -1,5 +1,6 @@
 package com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters;
 
+import com.qualcomm.ftccommon.DbgLog;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorController;
 import com.qualcomm.robotcore.hardware.HardwareMap;
@@ -16,6 +17,10 @@ import com.qualcomm.robotcore.util.ElapsedTime;
  */
 public class Arm {
 
+    static final double TASK_TIME = 0.5;
+
+    boolean movingToPosition = false;
+
     enum State {initial, homeIn, homeInFolded, homeOutFolded, homeOut}
 
     State armPosition = State.initial;
@@ -26,7 +31,9 @@ public class Arm {
 
 
     public static class ArmPosition {
-        //TODO: CHECK ALL POSITIONS
+        static ArmPosition DRIVER_LOW_LIMIT = new ArmPosition(-550, 0/255, 0);
+        static ArmPosition DRIVER_HIGH_LIMIT = new ArmPosition(-903, 195/255, 1);
+        //TODO: CHECK ALL POSITIONS!!!
         static ArmPosition INITIAL = new ArmPosition(0, 115 / 255, 180 / 255);
         static ArmPosition HOME_IN = new ArmPosition(-42, 122 / 255, 180 / 255);
         static ArmPosition HOME_IN_FOLDED = new ArmPosition(76, 112 / 255, 255 / 255);
@@ -72,26 +79,126 @@ public class Arm {
         shoulderMotor.setPower(-0.1);
     }
 
-    public void moveArm(int position){
-        shoulderMotor.setMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
+    private void moveArmLoop(int position) {
+        double currentPosition = shoulderMotor.getCurrentPosition();
+        if (currentPosition == position) {
+            return;
+        } else if (!movingToPosition) {
+            shoulderMotor.setMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
+            double power;
+            if (position - currentPosition < 0) {
+                power = -0.1;
+            } else {
+                power = 0.1;
+            }
+            shoulderMotor.setPower(power);
+            movingToPosition = true;
+        } else {
+            double acceptableDifference = 10;
+            double currentDifference = Math.abs(position - currentPosition);
+            if (currentDifference <= acceptableDifference) {
+                shoulderMotor.setTargetPosition(position);
+                shoulderMotor.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
+                while (currentPosition != position) {
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException e) {
+                        DbgLog.logStacktrace(e);
+                    }
+                }
+                movingToPosition = false;
+            }
+
+        }
+
+
 //TODO how to set speed
     }
 
+    /**
+     * while speed is not 0, move arm
+     * @param speed is from -1 to 1
+     */
+    public void moveArm(double speed){
+        if (Math.abs(speed) < 0.1){
+            int currentPosition = shoulderMotor.getCurrentPosition();
+            shoulderMotor.setTargetPosition(currentPosition);
+            shoulderMotor.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
+        }
+        shoulderMotor.setMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
+        shoulderMotor.setPower(speed/10);
+    }
+
+    public void moveElbow(){
+
+    }
 
     public void dockArm() {
+        if (armPosition == State.homeIn) {
+            return;
+        }
+        ArmPosition p = null;
+        State ns = null; //next state
+        double currenttime = time.time();
         switch (armPosition) {
-            case initial:
-            case homeIn:
             case homeInFolded:
-            case homeOutFolded:
-            case homeOut:
+            case initial:
+                p = ArmPosition.HOME_IN;
+                ns = State.homeIn;
+                break;
+            case homeIn:
                 //time.reset();
                 break;
-
+            case homeOutFolded:
+                p = ArmPosition.HOME_IN_FOLDED;
+                ns = State.homeInFolded;
+                break;
+            case homeOut:
+                p = ArmPosition.HOME_OUT_FOLDED;
+                ns = State.homeOutFolded;
+                break;
+        }
+        if (p != null && ns != null) {
+            moveArmLoop(p.shoulder);
+            elbowServo.setPosition(p.elbow);
+            wristServo.setPosition(p.wrist);
+            if (currenttime > TASK_TIME) {
+                armPosition = ns;
+                time.reset();
+            }
         }
     }
 
     public void undockArm() {
-
+        if (armPosition == State.homeOut) {
+            return;
+        }
+        ArmPosition p = null;
+        State ns = null; //next state
+        double currenttime = time.time();
+        switch (armPosition) {
+            case initial:
+            case homeIn:
+                p = ArmPosition.HOME_IN_FOLDED;
+                ns = State.homeInFolded;
+                break;
+            case homeInFolded:
+                p = ArmPosition.HOME_OUT_FOLDED;
+                ns = State.homeOutFolded;
+                break;
+            case homeOutFolded:
+                p = ArmPosition.HOME_OUT;
+                ns = State.homeOut;
+                break;
+        }
+        if (p != null && ns != null) {
+            moveArmLoop(p.shoulder);
+            elbowServo.setPosition(p.elbow);
+            wristServo.setPosition(p.wrist);
+            if (currenttime > TASK_TIME) {
+                armPosition = ns;
+                time.reset();
+            }
+        }
     }
 }
