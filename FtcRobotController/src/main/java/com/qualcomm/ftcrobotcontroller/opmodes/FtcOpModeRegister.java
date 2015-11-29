@@ -32,10 +32,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. */
 package com.qualcomm.ftcrobotcontroller.opmodes;
 
 import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.ArmOpMode;
+import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.AutoLinearOpMode;
 import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.BrushOpMode;
 import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.DriverOpMode;
 import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.GyroDriveMecanumWheels;
 import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.MecanumWheelsOpMode;
+import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.SensorReadingOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.OpModeManager;
 import com.qualcomm.robotcore.eventloop.opmode.OpModeRegister;
 
@@ -65,14 +67,18 @@ public class FtcOpModeRegister implements OpModeRegister {
     manager.register("MecanumWheelsOpMode",MecanumWheelsOpMode.class);
     manager.register("GyroDriveMecanumWheels", GyroDriveMecanumWheels.class);
     manager.register("BrushOpMode", BrushOpMode.class);
+    manager.register("AutoLinearOpMode", AutoLinearOpMode.class);
+    manager.register("SensorReadingOpMode", SensorReadingOpMode.class);
 
     manager.register("NullOp", NullOp.class);
 
     //manager.register("MatrixK9TeleOp", MatrixK9TeleOp.class);
-    manager.register("K9TeleOp", K9TeleOp.class);
-    manager.register("K9Line", K9Line.class);
+    //manager.register("K9TeleOp", K9TeleOp.class);
+    //manager.register("K9Line", K9Line.class);
     manager.register ("PushBotAuto", PushBotAuto.class);
     manager.register ("PushBotManual", PushBotManual.class);
+
+    manager.register("PushbotFollowLine", PushbotFollowLine.class);
 
 
 
