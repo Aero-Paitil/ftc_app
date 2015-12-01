@@ -17,14 +17,13 @@ import com.qualcomm.robotcore.util.Range;
  */
 public class Arm {
 
-    static final double TASK_TIME = 3;
-    static final double HOLD_POSITION_POWER = 0.1;
+    static final double TASK_TIME = 1.0;
+    static final double HOLD_POSITION_POWER = 0.2;
 
-    boolean movingToPosition = false;
 
-    enum State {initial, homeIn, homeInFolded, homeOutFolded, homeOut}
+    enum State {initial, toHomeIn, homeIn, toHomeInFolded, toHomeOutFolded, toHomeOut, homeOut}
 
-    State armState = State.initial;
+    State armState;
     DcMotor shoulderMotor;
     Servo elbowServo, wristServo, twistServo;
 
@@ -33,14 +32,15 @@ public class Arm {
 
 
     public static class ArmPosition {
-        static ArmPosition DRIVER_LOW_LIMIT = new ArmPosition(-550, 0/255, 0);
-        static ArmPosition DRIVER_HIGH_LIMIT = new ArmPosition(-903, 195.0/255, 1);
+        //static ArmPosition DRIVER_LOW_LIMIT = new ArmPosition(-550, 0/255, 0);
+        //static ArmPosition DRIVER_HIGH_LIMIT = new ArmPosition(-903, 195.0/255, 1);
         //TODO: CHECK ALL POSITIONS!!!
-        static ArmPosition INITIAL = new ArmPosition(0, 105.0 / 255, 180.0 / 255);
-        static ArmPosition HOME_IN = new ArmPosition(-149, 120.0 / 255, 187.0 / 255);
-        static ArmPosition HOME_IN_FOLDED = new ArmPosition(76, 112.0 / 255, 1);
-        static ArmPosition HOME_OUT_FOLDED = new ArmPosition(-550, 112.0 / 255, 1);
-        static ArmPosition HOME_OUT = new ArmPosition(-550, 125.0 / 255, 1);
+        static ArmPosition INITIAL = new ArmPosition(0, 105.0/255, 1);
+        static ArmPosition HOME_IN_FINAL = new ArmPosition(-160, 120.0/255, 185.0/255);
+        static ArmPosition HOME_IN = new ArmPosition(-170, 120.0/255, 1); // wrist is adjusted in the end
+        static ArmPosition HOME_IN_FOLDED = new ArmPosition(-130, 110.0/255, 1);
+        static ArmPosition HOME_OUT_FOLDED = new ArmPosition(-580, 110.0/255, 1);
+        static ArmPosition HOME_OUT = new ArmPosition(-580, 125.0/255, 1);
 
         /**
          * armState is defined by encoder counts
@@ -69,11 +69,12 @@ public class Arm {
         this.telemetry = telemetry;
         shoulderMotor = hardwareMap.dcMotor.get("Arm");
         shoulderMotor.setMode(DcMotorController.RunMode.RESET_ENCODERS);
-
+        armState.equals(State.initial);
+        ArmPosition initialPosition = ArmPosition.INITIAL;
         elbowServo = hardwareMap.servo.get("Elbow1");
-        elbowServo.setPosition(ArmPosition.INITIAL.elbow);
+        elbowServo.setPosition(initialPosition.elbow);
         wristServo = hardwareMap.servo.get("Box2");
-        wristServo.setPosition(ArmPosition.INITIAL.wrist);
+        wristServo.setPosition(initialPosition.wrist);
         twistServo = hardwareMap.servo.get("Box3");
         twistServo.setPosition(0.45);
         telemetry();
@@ -88,50 +89,15 @@ public class Arm {
         telemetry.addData("Arm State", armState);
     }
 
-    private void moveArmLoop(int position) {
-        telemetry();
-        double currentPosition = shoulderMotor.getCurrentPosition();
-        if (currentPosition == position) {
-            return;
-        } else if (!movingToPosition) {
-            shoulderMotor.setMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
-            double power;
-            if (position - currentPosition < 0) {
-                power = -0.1;
-            } else {
-                power = 0.1;
-            }
-            shoulderMotor.setPower(power);
-            movingToPosition = true;
-        } else {
-            double acceptableDifference = 10;
-            double currentDifference = Math.abs(position - currentPosition);
-            if (currentDifference <= acceptableDifference) {
-                shoulderMotor.setTargetPosition(position);
-                shoulderMotor.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
-                shoulderMotor.setPower(HOLD_POSITION_POWER);
-                /*while (currentPosition != position) {
-                    try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException e) {
-                        DbgLog.logStacktrace(e);
-                    }
-                } */
-                movingToPosition = false;
-            }
-
-        }
-
-//TODO how to set speed
+    private void setShoulderPosition(int position) {
+        shoulderMotor.setTargetPosition(position);
+        shoulderMotor.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
+        shoulderMotor.setPower(HOLD_POSITION_POWER);
     }
-
-
 
     public void holdShoulderPosition() {
         int currentPosition = shoulderMotor.getCurrentPosition();
-        shoulderMotor.setTargetPosition(currentPosition);
-        shoulderMotor.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
-        shoulderMotor.setPower(HOLD_POSITION_POWER);
+        setShoulderPosition(currentPosition);
     }
 
     /**
@@ -156,39 +122,49 @@ public class Arm {
         wristServo.setPosition(Range.clip(newPosition, 0, 1));
     }
 
+    private void setArmPosition(ArmPosition p, State followingState, double currenttime) {
+        wristServo.setPosition(p.wrist);
+        elbowServo.setPosition(p.elbow);
+        setShoulderPosition(p.shoulder);
+
+        if (currenttime > TASK_TIME) {
+            armState = followingState;
+            time.reset();
+        }
+    }
+
+    //initial, toHomeIn, homeIn, toHomeInFolded, toHomeOutFolded, toHomeOut, homeOut
+
     public void dockArm() {
         if (armState == State.homeIn) {
+            setArmPosition(ArmPosition.HOME_IN_FINAL, State.homeIn, 0);
             return;
         }
         ArmPosition p = null;
-        State ns = null; //next state
+        State followingState = null;
         double currenttime = time.time();
         switch (armState) {
-            case homeInFolded:
             case initial:
-                p = ArmPosition.HOME_IN;
-                ns = State.homeIn;
-                break;
-            case homeIn:
-                //time.reset();
-                break;
-            case homeOutFolded:
-                p = ArmPosition.HOME_IN_FOLDED;
-                ns = State.homeInFolded;
-                break;
             case homeOut:
+            case toHomeOut:
+                armState = State.toHomeOutFolded;
+                time.reset();
+                break;
+            case toHomeOutFolded:
                 p = ArmPosition.HOME_OUT_FOLDED;
-                ns = State.homeOutFolded;
+                followingState = State.toHomeInFolded;
+                break;
+            case toHomeInFolded:
+                p = ArmPosition.HOME_IN_FOLDED;
+                followingState = State.toHomeIn;
+                break;
+            case toHomeIn:
+                p = ArmPosition.HOME_IN;
+                followingState = State.homeIn;
                 break;
         }
         if (p != null) {
-            moveArmLoop(p.shoulder);
-            elbowServo.setPosition(p.elbow);
-            wristServo.setPosition(p.wrist);
-            if (currenttime > TASK_TIME) {
-                armState = ns;
-                time.reset();
-            }
+            setArmPosition(p, followingState, currenttime);
         }
     }
 
@@ -197,31 +173,31 @@ public class Arm {
             return;
         }
         ArmPosition p = null;
-        State ns = null; //next state
+        State followingState = null;
         double currenttime = time.time();
         switch (armState) {
-            case initial:
+            case toHomeIn:
             case homeIn:
+                armState = State.toHomeInFolded;
+                time.reset();
+                break;
+            case toHomeInFolded:
                 p = ArmPosition.HOME_IN_FOLDED;
-                ns = State.homeInFolded;
+                followingState = State.toHomeOutFolded;
                 break;
-            case homeInFolded:
+            case initial:
+                time.reset();
+            case toHomeOutFolded:
                 p = ArmPosition.HOME_OUT_FOLDED;
-                ns = State.homeOutFolded;
+                followingState = State.toHomeOut;
                 break;
-            case homeOutFolded:
+            case toHomeOut:
                 p = ArmPosition.HOME_OUT;
-                ns = State.homeOut;
+                followingState = State.homeOut;
                 break;
         }
         if (p != null) {
-            moveArmLoop(p.shoulder);
-            elbowServo.setPosition(p.elbow);
-            wristServo.setPosition(p.wrist);
-            if (currenttime > TASK_TIME) {
-                armState = ns;
-                time.reset();
-            }
+            setArmPosition(p, followingState, currenttime);
         }
     }
 }
