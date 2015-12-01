@@ -45,55 +45,60 @@ public class ArmOpMode extends OpMode {
     }
 
     @Override
-    public void loop() {
-        arm .telemetry();
+ public void loop() {
+    arm.telemetry();
 
-        //elbow
+        /*elbow
         if (gamepad2.y) {
             arm.moveElbow(0.01);
-            while(true){ //makes it so that you have to unpress before you can go again
-                if (!gamepad2.y){
+            while (true) { //makes it so that you have to unpress before you can go again
+                if (!gamepad2.y) {
                     break;
                 }
             }
-        }else if (gamepad2.x){
+        } else if (gamepad2.x) {
             arm.moveElbow(-0.01);
-            while(true){
-                if (!gamepad2.x){
+            while (true) {
+                if (!gamepad2.x) {
                     break;
                 }
             }
-        }
+        } */
 
-        //box2
-        if (gamepad2.b) {
-            arm.moveWrist(0.05);
-            while(true){
-                if (!gamepad2.b){
-                    break;
-                }
-            }
-        }else if (gamepad2.a){
-            arm.moveWrist(-0.1);
-            while(true){
-                if (!gamepad2.a){
-                    break;
-                }
+    //box2
+    if (gamepad2.b) {
+        arm.moveWrist(0.05);
+        while (true) {
+            if (!gamepad2.b) {
+                break;
             }
         }
-
-        //arm
-        if (gamepad2.left_stick_y != 0) { //negative is up
-            arm.moveShoulder(gamepad2.left_stick_y);
-        } else {
-            arm.holdShoulderPosition();
-        }
-
-        if (gamepad2.dpad_up) {
-            arm.undockArm();
-        }
-        if (gamepad2.dpad_down) {
-            arm.dockArm();
+    } else if (gamepad2.a) {
+        arm.moveWrist(-0.1);
+        while (true) {
+            if (!gamepad2.a) {
+                break;
+            }
         }
     }
+
+    //shoulder
+    if (gamepad2.left_stick_y != 0) { //negative is up
+        arm.moveShoulder(gamepad2.left_stick_y);
+    } else {
+        arm.holdShoulderPosition();
+    }
+
+    //elbow
+    if (gamepad2.right_stick_y != 0) { //negative is up
+        arm.moveElbow(gamepad2.right_stick_y / 200);
+    }
+
+    if (gamepad2.dpad_up) {
+        arm.undockArm();
+    }
+    if (gamepad2.dpad_down) {
+        arm.dockArm();
+    }
+}
 }
