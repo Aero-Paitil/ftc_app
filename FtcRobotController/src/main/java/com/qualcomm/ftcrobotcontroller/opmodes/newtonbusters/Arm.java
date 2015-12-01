@@ -19,6 +19,7 @@ public class Arm {
 
     static final double TASK_TIME = 1.0;
     static final double HOLD_POSITION_POWER = 0.2;
+    static final double NO_TWIST_POSITION = 0.45;
 
 
     enum State {initial, toHomeIn, homeIn, toHomeInFolded, toHomeOutFolded, toHomeOut, homeOut}
@@ -35,12 +36,12 @@ public class Arm {
         //static ArmPosition DRIVER_LOW_LIMIT = new ArmPosition(-550, 0/255, 0);
         //static ArmPosition DRIVER_HIGH_LIMIT = new ArmPosition(-903, 195.0/255, 1);
         //TODO: CHECK ALL POSITIONS!!!
-        static ArmPosition INITIAL = new ArmPosition(0, 105.0/255, 1);
-        static ArmPosition HOME_IN_FINAL = new ArmPosition(-160, 120.0/255, 185.0/255);
-        static ArmPosition HOME_IN = new ArmPosition(-170, 120.0/255, 1); // wrist is adjusted in the end
-        static ArmPosition HOME_IN_FOLDED = new ArmPosition(-130, 110.0/255, 1);
-        static ArmPosition HOME_OUT_FOLDED = new ArmPosition(-580, 110.0/255, 1);
-        static ArmPosition HOME_OUT = new ArmPosition(-580, 125.0/255, 1);
+        static ArmPosition INITIAL = new ArmPosition(0, 105.0 / 255, 1);
+        static ArmPosition HOME_IN_FINAL = new ArmPosition(-160, 120.0 / 255, 185.0 / 255);
+        static ArmPosition HOME_IN = new ArmPosition(-170, 120.0 / 255, 1); // wrist is adjusted in the end
+        static ArmPosition HOME_IN_FOLDED = new ArmPosition(-130, 110.0 / 255, 1);
+        static ArmPosition HOME_OUT_FOLDED = new ArmPosition(-580, 110.0 / 255, 1);
+        static ArmPosition HOME_OUT = new ArmPosition(-580, 125.0 / 255, 1);
 
         /**
          * armState is defined by encoder counts
@@ -76,7 +77,7 @@ public class Arm {
         wristServo = hardwareMap.servo.get("Box2");
         wristServo.setPosition(initialPosition.wrist);
         twistServo = hardwareMap.servo.get("Box3");
-        twistServo.setPosition(0.45);
+        twistServo.setPosition(NO_TWIST_POSITION);
         telemetry();
     }
 
@@ -104,15 +105,15 @@ public class Arm {
      * while speed is not 0, move arm
      * @param speed is from -1 to 1
      */
-    public void moveShoulder(double speed){
-        if (Math.abs(speed) < 0.1){
+    public void moveShoulder(double speed) {
+        if (Math.abs(speed) < 0.1) {
             holdShoulderPosition();
         }
         shoulderMotor.setMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
         shoulderMotor.setPower(speed / 10);
     }
 
-    public void moveElbow(double positionChange){
+    public void moveElbow(double positionChange) {
         double newPosition = elbowServo.getPosition() + positionChange;
         elbowServo.setPosition(Range.clip(newPosition, 0, 1));
     }
@@ -121,6 +122,12 @@ public class Arm {
         double newPosition = wristServo.getPosition() + positionChange;
         wristServo.setPosition(Range.clip(newPosition, 0, 1));
     }
+
+    public void moveTwist(double positionChange) {
+        double newPosition = twistServo.getPosition() + positionChange;
+        twistServo.setPosition(Range.clip(newPosition, 0, 1));
+    }
+
 
     private void setArmPosition(ArmPosition p, State followingState, double currenttime) {
         wristServo.setPosition(p.wrist);
@@ -146,6 +153,7 @@ public class Arm {
         switch (armState) {
             case initial:
             case homeOut:
+                twistServo.setPosition(NO_TWIST_POSITION);
             case toHomeOut:
                 armState = State.toHomeOutFolded;
                 time.reset();
@@ -178,6 +186,7 @@ public class Arm {
         switch (armState) {
             case toHomeIn:
             case homeIn:
+                twistServo.setPosition(NO_TWIST_POSITION);
                 armState = State.toHomeInFolded;
                 time.reset();
                 break;
@@ -186,7 +195,9 @@ public class Arm {
                 followingState = State.toHomeOutFolded;
                 break;
             case initial:
+                armState = State.toHomeOutFolded;
                 time.reset();
+                break;
             case toHomeOutFolded:
                 p = ArmPosition.HOME_OUT_FOLDED;
                 followingState = State.toHomeOut;

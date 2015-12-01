@@ -2,6 +2,7 @@ package com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.util.ElapsedTime;
 
 /**
  * Created by Sangmin Lee on 11/27/15.
@@ -9,12 +10,15 @@ import com.qualcomm.robotcore.hardware.Servo;
  */
 public class ArmOpMode extends OpMode {
 
+    static final double ELBOW_POS_UPDATE_TIME = 0.1;
     Servo extension4, extension5, beacon6, skiLiftHandleRight, skiLiftHandleLeft;
     Servo rightBrushHandle, leftBrushHandle, rightBrush, leftBrush;
     Arm arm;
+    ElapsedTime elbowTime;
 
     @Override
     public void init() {
+        elbowTime = new ElapsedTime();
         rightBrushHandle = hardwareMap.servo.get("BrushHandle1");
         leftBrushHandle = hardwareMap.servo.get("BrushHandle2");
         rightBrush = hardwareMap.servo.get("Brush3");
@@ -45,60 +49,59 @@ public class ArmOpMode extends OpMode {
     }
 
     @Override
- public void loop() {
-    arm.telemetry();
+    public void loop() {
+        arm.telemetry();
 
-        /*elbow
+
+        //wrist
         if (gamepad2.y) {
-            arm.moveElbow(0.01);
-            while (true) { //makes it so that you have to unpress before you can go again
-                if (!gamepad2.y) {
-                    break;
-                }
-            }
-        } else if (gamepad2.x) {
-            arm.moveElbow(-0.01);
-            while (true) {
-                if (!gamepad2.x) {
-                    break;
-                }
-            }
-        } */
-
-    //box2
-    if (gamepad2.b) {
-        arm.moveWrist(0.05);
+            arm.moveWrist(0.01);
+        /*
         while (true) {
             if (!gamepad2.b) {
                 break;
             }
         }
-    } else if (gamepad2.a) {
-        arm.moveWrist(-0.1);
+        */
+        } else if (gamepad2.a) {
+            arm.moveWrist(-0.01);
+        /*
         while (true) {
             if (!gamepad2.a) {
                 break;
             }
         }
-    }
+        */
+        }
+        //twist
+        if (gamepad2.x) {
+            arm.moveTwist(0.01);
 
-    //shoulder
-    if (gamepad2.left_stick_y != 0) { //negative is up
-        arm.moveShoulder(gamepad2.left_stick_y);
-    } else {
-        arm.holdShoulderPosition();
-    }
+        } else if (gamepad2.b) {
+            arm.moveTwist(-0.01);
 
-    //elbow
-    if (gamepad2.right_stick_y != 0) { //negative is up
-        arm.moveElbow(gamepad2.right_stick_y / 200);
-    }
+        }
 
-    if (gamepad2.dpad_up) {
-        arm.undockArm();
+        //shoulder
+        if (gamepad2.left_stick_y != 0) { //negative is up
+            arm.moveShoulder(gamepad2.left_stick_y);
+        } else {
+            arm.holdShoulderPosition();
+        }
+
+        //elbow
+        if (gamepad2.right_stick_y != 0) { //negative is up
+            if (elbowTime.time() > ELBOW_POS_UPDATE_TIME) {
+                arm.moveElbow(-gamepad2.right_stick_y / 100);
+                elbowTime.reset();
+            }
+        }
+
+        if (gamepad2.dpad_up) {
+            arm.undockArm();
+        }
+        if (gamepad2.dpad_down) {
+            arm.dockArm();
+        }
     }
-    if (gamepad2.dpad_down) {
-        arm.dockArm();
-    }
-}
 }
