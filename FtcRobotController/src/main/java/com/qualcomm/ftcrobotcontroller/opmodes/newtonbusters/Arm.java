@@ -69,7 +69,7 @@ public class Arm {
         this.telemetry = telemetry;
         shoulderMotor = hardwareMap.dcMotor.get("Arm");
         shoulderMotor.setMode(DcMotorController.RunMode.RESET_ENCODERS);
-        armState.equals(State.initial);
+        armState = State.initial;
         ArmPosition initialPosition = ArmPosition.INITIAL;
         elbowServo = hardwareMap.servo.get("Elbow1");
         elbowServo.setPosition(initialPosition.elbow);
