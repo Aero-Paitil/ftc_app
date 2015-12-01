@@ -64,7 +64,7 @@ public class Brushes {
                 break;
             case leftBrushUndocking:
                 leftBrushHandle.setPosition(1);
-                leftBrush.setPosition(ROTATE_OUTWARD_SLOW);
+                leftBrush.setPosition(ROTATE_INWARD_SLOW);
                 if (currenttime > TASK_TIME) {
                     leftBrush.setPosition(STOP_ROTATION);
                     brushState = State.rightBrushUndocking;
@@ -73,7 +73,7 @@ public class Brushes {
                 break;
             case rightBrushUndocking:
                 rightBrushHandle.setPosition(1);
-                rightBrush.setPosition(ROTATE_OUTWARD_SLOW);
+                rightBrush.setPosition(ROTATE_INWARD_SLOW);
                 if (currenttime > TASK_TIME) {
                     rightBrush.setPosition(STOP_ROTATION);
                     brushState = State.brushesSpread;
@@ -126,7 +126,7 @@ public class Brushes {
                 break;
             case rightBrushDocking:
                 rightBrushHandle.setPosition(RIGHT_DOCKED_POSITION);
-                rightBrush.setPosition(ROTATE_INWARD_SLOW);
+                rightBrush.setPosition(ROTATE_OUTWARD_SLOW);
                 if (currenttime > TASK_TIME) {
                     rightBrush.setPosition(STOP_ROTATION);
                     brushState = State.leftBrushDocking;
@@ -136,7 +136,7 @@ public class Brushes {
             case leftBrushUndocking:
             case leftBrushDocking:
                 leftBrushHandle.setPosition(LEFT_DOCKED_POSITION);
-                leftBrush.setPosition(ROTATE_INWARD_SLOW);
+                leftBrush.setPosition(ROTATE_OUTWARD_SLOW);
                 if (currenttime > TASK_TIME) {
                     leftBrush.setPosition(STOP_ROTATION);
                     brushState = State.brushesDocked;

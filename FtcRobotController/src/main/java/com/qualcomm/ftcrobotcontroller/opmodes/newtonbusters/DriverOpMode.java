@@ -7,7 +7,7 @@ import com.qualcomm.robotcore.hardware.DcMotorController;
 /**
  * Created by Aryoman on 11/24/2015.
  */
-public class DriverOpMode extends OpMode{
+public class DriverOpMode extends OpMode {
     final static private int REAR_WHEELS_COUNTS = 1000;
 
     MecanumWheels mecanumWheels;
@@ -17,13 +17,13 @@ public class DriverOpMode extends OpMode{
     @Override
     public void init() {
         mecanumWheels = new MecanumWheels(hardwareMap, telemetry, true); //We are using the Gyro.
-        brushes = new Brushes (hardwareMap ,telemetry);
+        brushes = new Brushes(hardwareMap, telemetry);
         rearWheels = hardwareMap.dcMotor.get("RearWheels");
         rearWheels.setMode(DcMotorController.RunMode.RESET_ENCODERS);
     }
 
     @Override
-    public void start(){
+    public void start() {
         rearWheels.setTargetPosition(-REAR_WHEELS_COUNTS);
         rearWheels.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
         rearWheels.setPower(0.3);
@@ -32,7 +32,7 @@ public class DriverOpMode extends OpMode{
     @Override
     public void loop() {
 
-        while(gamepad1.a && gamepad1.b){
+        while (gamepad1.a && gamepad1.b) {
             mecanumWheels.resetGyroHeading();
         }
 
@@ -49,19 +49,24 @@ public class DriverOpMode extends OpMode{
         //this code controls the brushes
         brushes.printTelemetry();
 
-        if (gamepad2.dpad_up) {
+        if (gamepad1.start) {
             brushes.undockBrushes();
-        } else if (gamepad2.dpad_down) {
+        } else if (gamepad1.back) {
             brushes.dockBrushes();
-        } else if (gamepad2.dpad_right) {
-            //rotate brushes inward
-            brushes.setRotation(Brushes.ROTATE_INWARD_FAST);
-        } else if (gamepad2.dpad_left) {
-            //rotate brushes outward
-            brushes.setRotation(Brushes.ROTATE_OUTWARD_FAST);
-        } else if (gamepad2.x) {
+        } else if (gamepad2.start && gamepad2.back) {
             //stop the movement of the brushes
             brushes.setRotation(Brushes.STOP_ROTATION);
+            while (true) {
+                if (!gamepad2.start && !gamepad2.back) {
+                    break;
+                }
+            }
+        } else if (gamepad2.start) {
+            //rotate brushes inward
+            brushes.setRotation(Brushes.ROTATE_INWARD_FAST);
+        } else if (gamepad2.back) {
+            //rotate brushes outward
+            brushes.setRotation(Brushes.ROTATE_OUTWARD_FAST);
         }
 
         //this code controls the rear wheels
