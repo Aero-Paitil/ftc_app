@@ -19,7 +19,6 @@ public class DriverOpMode extends OpMode {
     BrushState brushState;
     static final double ELBOW_POS_UPDATE_TIME = 0.1;
     Servo extension4, extension5, beacon6, skiLiftHandleRight, skiLiftHandleLeft;
-    Servo rightBrushHandle, leftBrushHandle, rightBrush, leftBrush;
     Arm arm;
     ElapsedTime elbowTime;
 
@@ -59,7 +58,7 @@ public class DriverOpMode extends OpMode {
     @Override
     public void loop() {
 
-        while (gamepad1.a && gamepad1.b) {
+        while (gamepad1.left_bumper && gamepad1.right_bumper) {
             mecanumWheels.resetGyroHeading();
         }
 

@@ -18,6 +18,7 @@ public class MecanumWheels { //defining the 4 motors
     GyroSensor sensorGyro;
     Telemetry telemetry;
     boolean useGyro;
+    double gyroForwardOffset;
 
     public MecanumWheels(HardwareMap hardwareMap, Telemetry telemetry, boolean useGyro) {
         this.telemetry = telemetry;
@@ -36,6 +37,7 @@ public class MecanumWheels { //defining the 4 motors
         if (useGyro) {
             sensorGyro = hardwareMap.gyroSensor.get("Gyro Sensor");
             calibrateGyro();
+            gyroForwardOffset = 0;
         }
     }
 
@@ -66,8 +68,9 @@ public class MecanumWheels { //defining the 4 motors
     }
 
     public void resetGyroHeading() {
-        sensorGyro.resetZAxisIntegrator();
-        telemetry.addData("Gyro heading reset", sensorGyro.status());
+        //sensorGyro.resetZAxisIntegrator();
+        gyroForwardOffset = sensorGyro.getHeading();
+        telemetry.addData("Gyro heading new offset", gyroForwardOffset);
     }
 
     public void powerMotors(double forward, double right, double clockwise) {
@@ -81,7 +84,12 @@ public class MecanumWheels { //defining the 4 motors
                 return;
             }
             //get the angle from field's forward to robot's forward
-            double headingDegrees = sensorGyro.getHeading();
+            double gyroHeading = sensorGyro.getHeading();
+            //adjusting for current firld forward direction
+            double headingDegrees = gyroHeading - gyroForwardOffset;
+            if (headingDegrees < 0){
+                headingDegrees += 360;
+            }
             //headingDegrees is clockwise
             double myheading = -Math.PI * headingDegrees / 180.0;
 
