@@ -11,16 +11,21 @@ import com.qualcomm.robotcore.util.ElapsedTime;
  */
 public class DriverOpMode extends OpMode {
     final static private int REAR_WHEELS_COUNTS = 1000;
+    final static private double CLIMBER_RELEASE_POS = 0.6;
 
     MecanumWheels mecanumWheels;
     Brushes brushes;
     DcMotor rearWheels;
-    enum BrushState{inward, outward, stopped}
+
+    enum BrushState {inward, outward, stopped}
+
     BrushState brushState;
     static final double ELBOW_POS_UPDATE_TIME = 0.1;
     Servo extension4, extension5, beacon6, skiLiftHandleRight, skiLiftHandleLeft;
     Arm arm;
     ElapsedTime elbowTime;
+    boolean rightClimberReleased, leftClimberReleased;
+
 
     @Override
     public void init() {
@@ -40,9 +45,11 @@ public class DriverOpMode extends OpMode {
         beacon6.setPosition(0.0);
         skiLiftHandleRight = hardwareMap.servo.get("SkiLiftHandle6");
         skiLiftHandleRight.setPosition(0.0);
+        rightClimberReleased = false;
         skiLiftHandleLeft = hardwareMap.servo.get("SkiLiftHandle5");
         skiLiftHandleLeft.setDirection(Servo.Direction.REVERSE);
         skiLiftHandleLeft.setPosition(0.0);
+        leftClimberReleased = false;
     }
 
     @Override
@@ -58,31 +65,65 @@ public class DriverOpMode extends OpMode {
     @Override
     public void loop() {
 
-        while (gamepad1.left_bumper && gamepad1.right_bumper) {
+        //changing field coordinates
+        if (gamepad1.left_bumper && gamepad1.right_bumper) {
             mecanumWheels.resetGyroHeading();
+            while (true) {
+                if (!gamepad1.left_bumper && !gamepad1.right_bumper) {
+                    break;
+                }
+            }
+        } else {
+            //releasing climbers
+            if (gamepad1.right_bumper) {
+                if (!rightClimberReleased) {
+                    skiLiftHandleRight.setPosition(CLIMBER_RELEASE_POS);
+                    rightClimberReleased = true;
+                } else {
+                    skiLiftHandleRight.setPosition(0.0);
+                    rightClimberReleased = false;
+                }
+                while (true) {
+                    if (!gamepad1.right_bumper) {
+                        break;
+                    }
+                }
+            } else if (gamepad1.left_bumper) {
+                if (!leftClimberReleased) {
+                    skiLiftHandleLeft.setPosition(CLIMBER_RELEASE_POS);
+                    leftClimberReleased = true;
+                } else {
+                    skiLiftHandleLeft.setPosition(0.0);
+                    leftClimberReleased = false;
+                }
+                while (true) {
+                    if (!gamepad1.left_bumper) {
+                        break;
+                    }
+                }
+
+            }
+
         }
 
         double clockwise = gamepad1.right_stick_x; //doesn't matter field or robot
 
-        if(gamepad1.dpad_up || gamepad1.dpad_down || gamepad1.dpad_left || gamepad1.dpad_right) {
+        if (gamepad1.dpad_up || gamepad1.dpad_down || gamepad1.dpad_left || gamepad1.dpad_right) {
             //We are using robot coordinates
             double forward = 0;
             double right = 0;
-            if(gamepad1.dpad_up){
+            if (gamepad1.dpad_up) {
                 forward = 1;
-            }
-            else if (gamepad1.dpad_down){
+            } else if (gamepad1.dpad_down) {
                 forward = -1;
             }
-            if (gamepad1.dpad_right){
+            if (gamepad1.dpad_right) {
                 right = 1;
-            }
-            else if(gamepad1.dpad_left){
+            } else if (gamepad1.dpad_left) {
                 right = -1;
             }
             mecanumWheels.powerMotors(forward, right, clockwise, false);//Not using gyro
-        }
-        else {
+        } else {
             //We are using the joystick values in the driver's perspective (field coordinates).
             double fieldForward = -gamepad1.left_stick_y; //field coordinates
             double fieldRight = gamepad1.left_stick_x; //field coordinates
@@ -96,19 +137,16 @@ public class DriverOpMode extends OpMode {
             brushes.undockBrushes();
         } else if (gamepad1.guide) {
             brushes.dockBrushes();
-        }
-
-        else if (gamepad2.guide) {
+        } else if (gamepad2.guide) {
             //stop the movement of the brushes
             brushes.setRotation(Brushes.STOP_ROTATION);
             brushState = BrushState.stopped;
         } else if (gamepad2.start) {
-            if (brushState != BrushState.inward){
+            if (brushState != BrushState.inward) {
                 //rotate brushes inward
                 brushes.setRotation(Brushes.ROTATE_INWARD_FAST);
                 brushState = BrushState.inward;
-            }
-            else {
+            } else {
                 //rotate brushes outward
                 brushes.setRotation(Brushes.ROTATE_OUTWARD_FAST);
                 brushState = BrushState.outward;
@@ -120,17 +158,18 @@ public class DriverOpMode extends OpMode {
 
         //this code controls the rear wheels
         telemetry.addData("rear wheel position", rearWheels.getCurrentPosition());
-        if (gamepad1.a){
+        if (gamepad1.a) {
             rearWheels.setTargetPosition(rearWheels.getCurrentPosition() - 1000);
         }
-        if (gamepad1.b){
+        if (gamepad1.b) {
             rearWheels.setTargetPosition(rearWheels.getCurrentPosition() + 1000);
         }
 
         contolArm();
+
     }
 
-     void contolArm() {
+    void contolArm() {
         arm.telemetry();
 
         //wrist
@@ -169,6 +208,7 @@ public class DriverOpMode extends OpMode {
         }
         if (gamepad2.dpad_down) {
             arm.dockArm();
+
         }
     }
 }
