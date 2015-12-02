@@ -39,6 +39,7 @@ public class ArmOpMode extends OpMode {
         skiLiftHandleRight = hardwareMap.servo.get("SkiLiftHandle6");
         skiLiftHandleRight.setPosition(0.0);
         skiLiftHandleLeft = hardwareMap.servo.get("SkiLiftHandle5");
+        skiLiftHandleLeft.setDirection(Servo.Direction.REVERSE);
         skiLiftHandleLeft.setPosition(0.0);
     }
 

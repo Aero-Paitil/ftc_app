@@ -13,8 +13,8 @@ public class Brushes {
     static final double UNDOCKED_POSITION = 0.9;
     static final double RIGHT_DOCKED_POSITION = 0.1;
     static final double LEFT_DOCKED_POSITION = 0.3;
-    static final double ROTATE_INWARD_SLOW = 0.4;
-    static final double ROTATE_OUTWARD_SLOW = 0.6;
+    static final double ROTATE_INWARD_SLOW = 0.1;
+    static final double ROTATE_OUTWARD_SLOW = 0.9;
     public static final double ROTATE_INWARD_FAST = 0;
     public static final double ROTATE_OUTWARD_FAST = 1;
     public static final double STOP_ROTATION = 0.5;
@@ -81,7 +81,7 @@ public class Brushes {
                 }
                 break;
             case brushesSpread:
-                leftBrushHandle.setPosition(UNDOCKED_POSITION);
+                leftBrushHandle.setPosition(UNDOCKED_POSITION-0.1);
                 rightBrushHandle.setPosition(UNDOCKED_POSITION);
                 if (currenttime > TASK_TIME) {
                     brushState = State.brushesUndocked;

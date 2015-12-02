@@ -37,9 +37,9 @@ public class Arm {
         //static ArmPosition DRIVER_HIGH_LIMIT = new ArmPosition(-903, 195.0/255, 1);
         //TODO: CHECK ALL POSITIONS!!!
         static ArmPosition INITIAL = new ArmPosition(0, 105.0 / 255, 1);
-        static ArmPosition HOME_IN_FINAL = new ArmPosition(-160, 120.0 / 255, 185.0 / 255);
+        static ArmPosition HOME_IN_FINAL = new ArmPosition(-195, 120.0 / 255, 185.0 / 255);
         static ArmPosition HOME_IN = new ArmPosition(-170, 120.0 / 255, 1); // wrist is adjusted in the end
-        static ArmPosition HOME_IN_FOLDED = new ArmPosition(-130, 110.0 / 255, 1);
+        static ArmPosition HOME_IN_FOLDED = new ArmPosition(-140, 110.0 / 255, 1);
         static ArmPosition HOME_OUT_FOLDED = new ArmPosition(-580, 110.0 / 255, 1);
         static ArmPosition HOME_OUT = new ArmPosition(-580, 125.0 / 255, 1);
 
