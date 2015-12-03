@@ -2,6 +2,7 @@ package com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.ColorSensor;
+import com.qualcomm.robotcore.hardware.GyroSensor;
 import com.qualcomm.robotcore.hardware.OpticalDistanceSensor;
 import com.qualcomm.robotcore.hardware.Servo;
 
@@ -25,12 +26,14 @@ public class AutonomousOpMode extends LinearOpMode {
     MecanumWheels mecanumWheels;
     Arm arm;
     Brushes brushes;
+    GyroSensor sensorGyro;
 
     Servo beacon6;
 
     ColorSensor colorSensorDrive;
     ColorSensor colorSensorBeacon;
     OpticalDistanceSensor opticalDistSensor;
+
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -64,7 +67,8 @@ public class AutonomousOpMode extends LinearOpMode {
         arm.autonomousUndockArm();
 
         //rotate robot 45 degrees clockwise
+        mecanumWheels.rotate(45);
 
-
+        //todo: drive backwards until the robot runs into the white line leading to the beacon.
     }
 }

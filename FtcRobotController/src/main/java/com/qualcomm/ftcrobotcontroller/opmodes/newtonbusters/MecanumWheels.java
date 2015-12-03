@@ -21,6 +21,8 @@ public class MecanumWheels { //defining the 4 motors
     boolean useGyro;
     double gyroForwardOffset;
 
+    Utils delay;
+
     public MecanumWheels(HardwareMap hardwareMap, Telemetry telemetry, boolean useGyro) {
         this.telemetry = telemetry;
         this.useGyro = useGyro;
@@ -88,7 +90,7 @@ public class MecanumWheels { //defining the 4 motors
             double gyroHeading = sensorGyro.getHeading();
             //adjusting for current firld forward direction
             double headingDegrees = gyroHeading - gyroForwardOffset;
-            if (headingDegrees < 0){
+            if (headingDegrees < 0) {
                 headingDegrees += 360;
             }
             //headingDegrees is clockwise
@@ -146,7 +148,7 @@ public class MecanumWheels { //defining the 4 motors
         telemetry.addData("Robot Forward,Right", (int) (forward * 100) + ", " + (int) (right * 100));
         telemetry.addData("DC1,2,3,4", (int) (front_left * 100) + ", " +
                 (int) (front_right * 100) + ", " +
-                (int) (rear_left * 100)+", " +
+                (int) (rear_left * 100) + ", " +
                 (int) (rear_right * 100));
     }
 
@@ -154,13 +156,15 @@ public class MecanumWheels { //defining the 4 motors
     //AUTONOMOUS MODE METHODS
     //-----------------------
 
+
     public void resetEncoders() {
         motorFrontLeft.setMode(DcMotorController.RunMode.RESET_ENCODERS);
         motorFrontRight.setMode(DcMotorController.RunMode.RESET_ENCODERS);
         motorRearLeft.setMode(DcMotorController.RunMode.RESET_ENCODERS);
         motorRearRight.setMode(DcMotorController.RunMode.RESET_ENCODERS);
     }
-    public void runToPosition (int targetPos, double power) {
+
+    public void runToPosition(int targetPos, double power) {
 
         motorFrontLeft.setTargetPosition(targetPos);
         motorFrontRight.setTargetPosition(targetPos);
@@ -178,13 +182,59 @@ public class MecanumWheels { //defining the 4 motors
         motorRearRight.setPower(power);
 
     }
-    public void rotate(int clockwiseDegrees)
-    {
+
+    public void rotate(int clockwiseDegrees) {
+        int clockwise = clockwiseDegrees;
+        int forward = 0;
+        int right = 0;
         int currentHeading = sensorGyro.getHeading();
-        int requiredHeading = currentHeading+ clockwiseDegrees;
-        //todo give power to motors, delay for a fraction of a second
-        //read gyro heading, see the difference between the 2 readings
-        // repeat if we need to repeat the cycle
-    }
+        int requiredHeading = currentHeading + clockwiseDegrees;
+
+        //gives power to motors
+        double front_left = forward + clockwise + right;
+        double front_right = forward - clockwise - right;
+        double rear_left = forward + clockwise - right;
+        double rear_right = forward - clockwise + right;
+
+        motorFrontLeft.setPower(front_left);
+        motorFrontRight.setPower(front_right);
+        motorRearLeft.setPower(rear_left);
+        motorRearRight.setPower(rear_right);
+
+        //finds the max power and refactors everything to be between -0.5 and 0.5
+        double max = Math.abs(front_left);
+        max = Math.max(Math.abs(front_right), max);
+        max = Math.max(Math.abs(rear_left), max);
+        max = Math.max(Math.abs(rear_right), max);
+
+        if (max > 1) {
+            front_left /= 2 * max;
+            front_right /= 2 * max;
+            rear_left /= 2 * max;
+            rear_right /= 2 * max;
+        }
+
+        //reads the gyro heading, sees the difference between the 2 readings
+        // repeats if we need to repeat the cycle
+        while (requiredHeading > sensorGyro.getHeading()) {
+            delay.delay(0.05);
+
+        }
+        while (requiredHeading < sensorGyro.getHeading()) {
+            motorFrontLeft.setPower(-front_left);
+            motorFrontRight.setPower(-front_right);
+            motorRearLeft.setPower(-rear_left);
+            motorRearRight.setPower(-rear_right);
+
+            delay.delay(0.05);
+        }
+        if (requiredHeading <= sensorGyro.getHeading() && requiredHeading >= sensorGyro.getHeading()) {
+            motorFrontLeft.setPower(0);
+            motorFrontRight.setPower(0);
+            motorRearLeft.setPower(0);
+            motorRearRight.setPower(0);
+        }
+
+   }
 
 }
