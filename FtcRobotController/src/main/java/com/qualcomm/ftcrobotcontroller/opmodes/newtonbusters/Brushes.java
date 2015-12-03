@@ -103,6 +103,23 @@ public class Brushes {
 
     }
 
+    public void autonomousUndockBrushes()
+    {
+        leftBrushHandle.setPosition(1);
+        leftBrush.setPosition(ROTATE_INWARD_SLOW);
+        Utils.delay(TASK_TIME);
+        rightBrushHandle.setPosition(1);
+        rightBrush.setPosition(ROTATE_INWARD_SLOW);
+        Utils.delay(TASK_TIME);
+        leftBrush.setPosition(STOP_ROTATION);
+        rightBrush.setPosition(STOP_ROTATION);
+        leftBrush.setPosition(UNDOCKED_POSITION-0.1);
+        rightBrush.setPosition(UNDOCKED_POSITION);
+
+    }
+
+
+
     /*
     dock brushes: right, then left
      */

@@ -2,6 +2,7 @@ package com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters;
 
 import com.qualcomm.ftccommon.DbgLog;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorController;
 import com.qualcomm.robotcore.hardware.GyroSensor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.robocol.Telemetry;
@@ -149,5 +150,41 @@ public class MecanumWheels { //defining the 4 motors
                 (int) (rear_right * 100));
     }
 
+    //-----------------------
+    //AUTONOMOUS MODE METHODS
+    //-----------------------
+
+    public void resetEncoders() {
+        motorFrontLeft.setMode(DcMotorController.RunMode.RESET_ENCODERS);
+        motorFrontRight.setMode(DcMotorController.RunMode.RESET_ENCODERS);
+        motorRearLeft.setMode(DcMotorController.RunMode.RESET_ENCODERS);
+        motorRearRight.setMode(DcMotorController.RunMode.RESET_ENCODERS);
+    }
+    public void runToPosition (int targetPos, double power) {
+
+        motorFrontLeft.setTargetPosition(targetPos);
+        motorFrontRight.setTargetPosition(targetPos);
+        motorRearLeft.setTargetPosition(targetPos);
+        motorRearRight.setTargetPosition(targetPos);
+
+        motorFrontLeft.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
+        motorFrontRight.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
+        motorRearLeft.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
+        motorRearRight.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
+
+        motorFrontLeft.setPower(power);
+        motorFrontRight.setPower(power);
+        motorRearLeft.setPower(power);
+        motorRearRight.setPower(power);
+
+    }
+    public void rotate(int clockwiseDegrees)
+    {
+        int currentHeading = sensorGyro.getHeading();
+        int requiredHeading = currentHeading+ clockwiseDegrees;
+        //todo give power to motors, delay for a fraction of a second
+        //read gyro heading, see the difference between the 2 readings
+        // repeat if we need to repeat the cycle
+    }
 
 }

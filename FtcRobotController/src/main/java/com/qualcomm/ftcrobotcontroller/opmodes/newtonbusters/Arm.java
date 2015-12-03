@@ -211,4 +211,12 @@ public class Arm {
             setArmPosition(p, followingState, currenttime);
         }
     }
+
+    public void autonomousUndockArm()
+    {
+        setArmPosition(ArmPosition.HOME_IN_FOLDED, null, 0);
+        Utils.delay(TASK_TIME);
+        setArmPosition(ArmPosition.HOME_OUT_FOLDED, null, 0);
+    }
+
 }
