@@ -18,7 +18,7 @@ import com.qualcomm.robotcore.util.Range;
 public class Arm {
 
     static final double TASK_TIME = 1.0;
-    static final double HOLD_POSITION_POWER = 0.2;
+    static final double HOLD_POSITION_POWER = 0.3;
     static final double NO_TWIST_POSITION = 0.45;
 
 
@@ -33,8 +33,8 @@ public class Arm {
 
 
     public static class ArmPosition {
-        //static ArmPosition DRIVER_LOW_LIMIT = new ArmPosition(-550, 0/255, 0);
-        //static ArmPosition DRIVER_HIGH_LIMIT = new ArmPosition(-903, 195.0/255, 1);
+        //static ArmPosition DRIVER_LOW_LIMIT = new ArmPosition(-100, 0/255, 0);
+        //static ArmPosition DRIVER_HIGH_LIMIT = new ArmPosition(-850, 195.0/255, 1);
         //TODO: CHECK ALL POSITIONS!!!
         static ArmPosition INITIAL = new ArmPosition(0, 105.0 / 255, 1);
         static ArmPosition HOME_IN_FINAL = new ArmPosition(-195, 120.0 / 255, 185.0 / 255);
@@ -42,6 +42,8 @@ public class Arm {
         static ArmPosition HOME_IN_FOLDED = new ArmPosition(-140, 110.0 / 255, 1);
         static ArmPosition HOME_OUT_FOLDED = new ArmPosition(-580, 110.0 / 255, 1);
         static ArmPosition HOME_OUT = new ArmPosition(-580, 125.0 / 255, 1);
+        static ArmPosition IN_FRONT_BRUSHES = new ArmPosition(-235, 0.517, 0.501);
+        static ArmPosition PEOPLE_DROP_POSITION = new ArmPosition(-510, 0.776, 0.655);
 
         /**
          * armState is defined by encoder counts
@@ -113,6 +115,12 @@ public class Arm {
         shoulderMotor.setPower(speed / 10);
     }
 
+    public void changeShoulderPosition (int byCounts) {
+        int currentPosition = shoulderMotor.getCurrentPosition();
+        int newPosition = currentPosition + byCounts;
+        setShoulderPosition(newPosition);
+    }
+
     public void moveElbow(double positionChange) {
         double newPosition = elbowServo.getPosition() + positionChange;
         elbowServo.setPosition(Range.clip(newPosition, 0, 1));
@@ -128,6 +136,13 @@ public class Arm {
         twistServo.setPosition(Range.clip(newPosition, 0, 1));
     }
 
+
+    public void setArmPosition(ArmPosition p) {
+        if (armState == State.homeOut) {
+            setArmPosition(p, null, 0);
+            armState = State.toHomeOut;
+        }
+    }
 
     private void setArmPosition(ArmPosition p, State followingState, double currenttime) {
         wristServo.setPosition(p.wrist);

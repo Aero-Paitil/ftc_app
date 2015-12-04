@@ -11,7 +11,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
  */
 public class DriverOpMode extends OpMode {
     final static private int REAR_WHEELS_COUNTS = 1000;
-    final static private double CLIMBER_RELEASE_POS = 0.6;
+    final static private double CLIMBER_RELEASE_POS = 1.0;
 
     MecanumWheels mecanumWheels;
     Brushes brushes;
@@ -20,10 +20,10 @@ public class DriverOpMode extends OpMode {
     enum BrushState {inward, outward, stopped}
 
     BrushState brushState;
-    static final double ELBOW_POS_UPDATE_TIME = 0.1;
+    static final double POS_UPDATE_TIME = 0.1;
     Servo extension4, extension5, beacon6, skiLiftHandleRight, skiLiftHandleLeft;
     Arm arm;
-    ElapsedTime elbowTime;
+    ElapsedTime posUpdateTime;
     boolean rightClimberReleased, leftClimberReleased;
 
 
@@ -35,7 +35,7 @@ public class DriverOpMode extends OpMode {
         rearWheels = hardwareMap.dcMotor.get("RearWheels");
         rearWheels.setMode(DcMotorController.RunMode.RESET_ENCODERS);
 
-        elbowTime = new ElapsedTime();
+        posUpdateTime = new ElapsedTime();
         arm = new Arm(hardwareMap, telemetry);
         extension4 = hardwareMap.servo.get("Extension4");
         extension4.setPosition(1.0);
@@ -55,7 +55,6 @@ public class DriverOpMode extends OpMode {
     @Override
     public void start() {
         //rearWheels.setTargetPosition(-REAR_WHEELS_COUNTS);
-        rearWheels.setTargetPosition(0);
         rearWheels.setTargetPosition(0);
         rearWheels.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
         rearWheels.setPower(0.3);
@@ -157,12 +156,13 @@ public class DriverOpMode extends OpMode {
         }
 
         //this code controls the rear wheels
+        //todo check limits
         telemetry.addData("rear wheel position", rearWheels.getCurrentPosition());
         if (gamepad1.a) {
-            rearWheels.setTargetPosition(rearWheels.getCurrentPosition() - 1000);
+            rearWheels.setTargetPosition(rearWheels.getCurrentPosition() - 500);
         }
         if (gamepad1.b) {
-            rearWheels.setTargetPosition(rearWheels.getCurrentPosition() + 1000);
+            rearWheels.setTargetPosition(rearWheels.getCurrentPosition() + 500);
         }
 
         contolArm();
@@ -171,6 +171,7 @@ public class DriverOpMode extends OpMode {
 
     void contolArm() {
         arm.telemetry();
+
 
         //wrist
         if (gamepad2.y) {
@@ -181,34 +182,48 @@ public class DriverOpMode extends OpMode {
         }
 
         //twist
-        if (gamepad2.x) {
+        else if (gamepad2.x) {
             arm.moveTwist(0.01);
 
         } else if (gamepad2.b) {
             arm.moveTwist(-0.01);
         }
 
-        //shoulder
-        if (gamepad2.left_stick_y != 0) { //negative is up
-            arm.moveShoulder(gamepad2.left_stick_y);
-        } else {
-            arm.holdShoulderPosition();
-        }
 
         //elbow
-        if (gamepad2.right_stick_y != 0) { //negative is up
-            if (elbowTime.time() > ELBOW_POS_UPDATE_TIME) {
-                arm.moveElbow(-gamepad2.right_stick_y / 100);
-                elbowTime.reset();
+        if (gamepad2.right_stick_x != 0) { //negative is up
+            if (posUpdateTime.time() > POS_UPDATE_TIME) {
+                arm.moveElbow(gamepad2.right_stick_x / 100);
+                posUpdateTime.reset();
             }
         }
 
+        //shoulder
+        if (posUpdateTime.time() > POS_UPDATE_TIME*2) {
+            if (gamepad2.left_trigger > 0) {
+                    arm.changeShoulderPosition(10);
+                    posUpdateTime.reset();
+            } else if (gamepad2.right_trigger > 0) {
+                    arm.changeShoulderPosition(-10);
+                    posUpdateTime.reset();
+            } else if (gamepad2.left_stick_y != 0) { //negative is up
+                arm.moveShoulder(gamepad2.left_stick_y);
+                posUpdateTime.reset();
+            } else {
+                    arm.holdShoulderPosition();
+                    posUpdateTime.reset();
+            }
+        }
+
+
         if (gamepad2.dpad_up) {
             arm.undockArm();
-        }
-        if (gamepad2.dpad_down) {
+        } else if (gamepad2.dpad_down) {
             arm.dockArm();
-
+        } else if (gamepad2.dpad_left) {
+            arm.setArmPosition(Arm.ArmPosition.PEOPLE_DROP_POSITION);
+        } else if (gamepad2.dpad_right) {
+            arm.setArmPosition(Arm.ArmPosition.IN_FRONT_BRUSHES);
         }
     }
 }
