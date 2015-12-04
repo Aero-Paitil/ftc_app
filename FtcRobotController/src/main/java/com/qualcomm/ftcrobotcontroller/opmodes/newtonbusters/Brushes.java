@@ -168,6 +168,10 @@ public class Brushes {
         }
     }
 
+    public State getState() {
+        return brushState;
+    }
+
     public void printTelemetry() {
         telemetry.addData("Brush State", brushState);
         telemetry.addData("Left,Right Handle Pos", rightBrushHandle.getPosition() + ", " + leftBrushHandle.getPosition());

@@ -26,23 +26,33 @@ public class DriverOpMode extends OpMode {
     ElapsedTime posUpdateTime;
     boolean rightClimberReleased, leftClimberReleased;
 
+    boolean movingShoulderSmall = false, movingShoulderBig = false;
+
 
     @Override
     public void init() {
         mecanumWheels = new MecanumWheels(hardwareMap, telemetry, true); //We are using the Gyro.
-        brushes = new Brushes(hardwareMap, telemetry);
-        brushState = BrushState.stopped;
+
         rearWheels = hardwareMap.dcMotor.get("RearWheels");
         rearWheels.setMode(DcMotorController.RunMode.RESET_ENCODERS);
 
         posUpdateTime = new ElapsedTime();
         arm = new Arm(hardwareMap, telemetry);
+        movingShoulderSmall = false;
+        movingShoulderBig = false;
+
         extension4 = hardwareMap.servo.get("Extension4");
         extension4.setPosition(1.0);
         extension5 = hardwareMap.servo.get("Extension5");
         extension5.setPosition(0.0);
         beacon6 = hardwareMap.servo.get("Beacon6");
         beacon6.setPosition(0.0);
+    }
+
+    @Override
+    public void start() {
+        brushes = new Brushes(hardwareMap, telemetry);
+        brushState = BrushState.stopped;
         skiLiftHandleRight = hardwareMap.servo.get("SkiLiftHandle6");
         skiLiftHandleRight.setPosition(0.0);
         rightClimberReleased = false;
@@ -50,10 +60,7 @@ public class DriverOpMode extends OpMode {
         skiLiftHandleLeft.setDirection(Servo.Direction.REVERSE);
         skiLiftHandleLeft.setPosition(0.0);
         leftClimberReleased = false;
-    }
 
-    @Override
-    public void start() {
         //rearWheels.setTargetPosition(-REAR_WHEELS_COUNTS);
         rearWheels.setTargetPosition(0);
         rearWheels.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
@@ -199,32 +206,62 @@ public class DriverOpMode extends OpMode {
         }
 
         //shoulder
-        if (posUpdateTime.time() > POS_UPDATE_TIME*2) {
-            if (gamepad2.left_trigger > 0) {
+
+        // small adjustments
+        if (!movingShoulderBig) {
+            if (gamepad2.left_trigger > 0.1) {
+                if (!movingShoulderSmall) {
                     arm.changeShoulderPosition(10);
-                    posUpdateTime.reset();
-            } else if (gamepad2.right_trigger > 0) {
+                    movingShoulderSmall = true;
+                }
+            } else if (gamepad2.right_trigger > 0.1) {
+                if (!movingShoulderSmall) {
                     arm.changeShoulderPosition(-10);
-                    posUpdateTime.reset();
-            } else if (gamepad2.left_stick_y != 0) { //negative is up
+                    movingShoulderSmall = true;
+                }
+            } else if (movingShoulderSmall) {
+                movingShoulderSmall = false;
+            }
+        }
+
+
+        // big adjustments
+        if (!movingShoulderSmall) {
+            if (gamepad2.left_stick_y != 0 && Math.abs(gamepad2.left_stick_y) > 0.1) { //negative is up
                 arm.moveShoulder(gamepad2.left_stick_y);
-                posUpdateTime.reset();
-            } else {
-                    arm.holdShoulderPosition();
-                    posUpdateTime.reset();
+                movingShoulderBig = true;
+            } else if (movingShoulderBig) {
+                arm.holdShoulderPosition();
+                movingShoulderBig = false;
             }
         }
 
 
         if (gamepad2.dpad_up) {
-            arm.undockArm();
+            // make sure the brushes are undocked when moving from initial position
+            if (arm.getArmState() != Arm.State.initial || brushes.getState() == Brushes.State.brushesUndocked) {
+                arm.undockArm();
+            } else {
+                brushes.undockBrushes();
+            }
         } else if (gamepad2.dpad_down) {
-            arm.dockArm();
+            // make sure the brushes are undocked before docking the arm
+            if (brushes.getState() == Brushes.State.brushesUndocked) {
+                arm.dockArm();
+            } else {
+                brushes.undockBrushes();
+            }
         } else if (gamepad2.dpad_left) {
-            arm.setArmPosition(Arm.ArmPosition.PEOPLE_DROP_POSITION);
+            arm.setArmPosition(Arm.ArmPosition.PEOPLE_DROP);
         } else if (gamepad2.dpad_right) {
-            arm.setArmPosition(Arm.ArmPosition.IN_FRONT_BRUSHES);
+            // make sure the brushes are docked before using in-front-of-brushes position
+            if (brushes.getState() == Brushes.State.brushesDocked) {
+                arm.setArmPosition(Arm.ArmPosition.IN_FRONT_BRUSHES);
+            } else {
+                brushes.dockBrushes();
+            }
         }
     }
+
 }
 

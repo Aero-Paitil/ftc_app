@@ -18,7 +18,7 @@ import com.qualcomm.robotcore.util.Range;
 public class Arm {
 
     static final double TASK_TIME = 1.0;
-    static final double HOLD_POSITION_POWER = 0.3;
+    static final double HOLD_POSITION_POWER = 0.2;
     static final double NO_TWIST_POSITION = 0.45;
 
 
@@ -36,14 +36,15 @@ public class Arm {
         //static ArmPosition DRIVER_LOW_LIMIT = new ArmPosition(-100, 0/255, 0);
         //static ArmPosition DRIVER_HIGH_LIMIT = new ArmPosition(-850, 195.0/255, 1);
         //TODO: CHECK ALL POSITIONS!!!
-        static ArmPosition INITIAL = new ArmPosition(0, 105.0 / 255, 1);
-        static ArmPosition HOME_IN_FINAL = new ArmPosition(-195, 120.0 / 255, 185.0 / 255);
-        static ArmPosition HOME_IN = new ArmPosition(-170, 120.0 / 255, 1); // wrist is adjusted in the end
-        static ArmPosition HOME_IN_FOLDED = new ArmPosition(-140, 110.0 / 255, 1);
-        static ArmPosition HOME_OUT_FOLDED = new ArmPosition(-580, 110.0 / 255, 1);
-        static ArmPosition HOME_OUT = new ArmPosition(-580, 125.0 / 255, 1);
+        static ArmPosition INITIAL = new ArmPosition(0, 0.41, 1);
+        //static ArmPosition HOME_IN_FINAL = new ArmPosition(-122, 0.455, 0.81); //more back
+        static ArmPosition HOME_IN_FINAL = new ArmPosition(-172, 0.46, 0.75);
+        static ArmPosition HOME_IN = new ArmPosition(-172, 0.46, 1); // wrist is adjusted in the end
+        static ArmPosition HOME_IN_FOLDED = new ArmPosition(-158, 0.41, 1);
+        static ArmPosition HOME_OUT_FOLDED = new ArmPosition(-600, 0.41, 1);
+        static ArmPosition HOME_OUT = new ArmPosition(-600, 0.49, 1);
         static ArmPosition IN_FRONT_BRUSHES = new ArmPosition(-235, 0.517, 0.501);
-        static ArmPosition PEOPLE_DROP_POSITION = new ArmPosition(-510, 0.776, 0.655);
+        static ArmPosition PEOPLE_DROP = new ArmPosition(-510, 0.75, 0); //0.665 wrist to drop
 
         /**
          * armState is defined by encoder counts
@@ -225,6 +226,10 @@ public class Arm {
         if (p != null) {
             setArmPosition(p, followingState, currenttime);
         }
+    }
+
+    State getArmState() {
+        return armState;
     }
 
     public void autonomousUndockArm()
