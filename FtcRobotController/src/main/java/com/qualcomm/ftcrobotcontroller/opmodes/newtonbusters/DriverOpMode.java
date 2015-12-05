@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 
 /**
  * Created by Aryoman on 11/24/2015.
+ * This class has the code for our driver controlled mode.
  */
 public class DriverOpMode extends OpMode {
     final static private int REAR_WHEELS_COUNTS = 1000;
@@ -28,6 +29,9 @@ public class DriverOpMode extends OpMode {
 
     boolean movingShoulderSmall = false, movingShoulderBig = false;
 
+    boolean movingWrist = false;
+    ElapsedTime wristTime;
+
 
     @Override
     public void init() {
@@ -47,6 +51,9 @@ public class DriverOpMode extends OpMode {
         extension5.setPosition(0.0);
         beacon6 = hardwareMap.servo.get("Beacon6");
         beacon6.setPosition(0.0);
+
+        movingWrist = false;
+        wristTime = new ElapsedTime();
     }
 
     @Override
@@ -179,21 +186,49 @@ public class DriverOpMode extends OpMode {
     void contolArm() {
         arm.telemetry();
 
-
-        //wrist
-        if (gamepad2.y) {
-            arm.moveWrist(0.01);
-
-        } else if (gamepad2.a) {
-            arm.moveWrist(-0.01);
-        }
-
-        //twist
-        else if (gamepad2.x) {
-            arm.moveTwist(0.01);
-
-        } else if (gamepad2.b) {
-            arm.moveTwist(-0.01);
+        //wrist & twist
+        if (movingWrist && wristTime.time() > 1) {
+            if (gamepad2.y) {
+                arm.moveWrist(0.01);
+            } else if (gamepad2.a) {
+                arm.moveWrist(-0.01);
+            } else if (gamepad2.x) {
+                arm.moveTwist(0.01);
+            } else if (gamepad2.b) {
+                arm.moveTwist(-0.01);
+            } else {
+                movingWrist = false;
+            }
+        } else {
+            if (gamepad2.y) {
+                if (!movingWrist) {
+                    arm.moveWrist(0.01);
+                    movingWrist = true;
+                    wristTime.reset();
+                }
+            } else if (gamepad2.a) {
+                if (!movingWrist) {
+                    arm.moveWrist(-0.01);
+                    movingWrist = true;
+                    wristTime.reset();
+                }
+            } else if (gamepad2.x) {
+                if (!movingWrist) {
+                    arm.moveTwist(0.01);
+                    movingWrist = true;
+                    wristTime.reset();
+                }
+            } else if (gamepad2.b) {
+                if (!movingWrist) {
+                    arm.moveTwist(-0.01);
+                    movingWrist = true;
+                    wristTime.reset();
+                }
+            } else {
+                if (movingWrist) {
+                    movingWrist = false;
+                }
+            }
         }
 
 
@@ -251,12 +286,13 @@ public class DriverOpMode extends OpMode {
             } else {
                 brushes.undockBrushes();
             }
-        } else if (gamepad2.dpad_left) {
-            arm.setArmPosition(Arm.ArmPosition.PEOPLE_DROP);
         } else if (gamepad2.dpad_right) {
+            arm.toPeopleDropPosition();
+
+        } else if (gamepad2.dpad_left) {
             // make sure the brushes are docked before using in-front-of-brushes position
             if (brushes.getState() == Brushes.State.brushesDocked) {
-                arm.setArmPosition(Arm.ArmPosition.IN_FRONT_BRUSHES);
+                arm.toFrontPosition();
             } else {
                 brushes.dockBrushes();
             }
@@ -264,4 +300,3 @@ public class DriverOpMode extends OpMode {
     }
 
 }
-

@@ -22,7 +22,7 @@ public class Arm {
     static final double NO_TWIST_POSITION = 0.45;
 
 
-    enum State {initial, toHomeIn, homeIn, toHomeInFolded, toHomeOutFolded, toHomeOut, homeOut}
+    enum State {initial, toHomeIn, homeIn, toHomeInFolded, toHomeOutFolded, toHomeOut, homeOut, homeOutToFront, toFront, atFront, homeOutToPeopleDrop, toPeopleDrop, atPeopleDrop}
 
     State armState;
     DcMotor shoulderMotor;
@@ -43,7 +43,9 @@ public class Arm {
         static ArmPosition HOME_IN_FOLDED = new ArmPosition(-158, 0.41, 1);
         static ArmPosition HOME_OUT_FOLDED = new ArmPosition(-600, 0.41, 1);
         static ArmPosition HOME_OUT = new ArmPosition(-600, 0.49, 1);
-        static ArmPosition IN_FRONT_BRUSHES = new ArmPosition(-235, 0.517, 0.501);
+        static ArmPosition HOME_OUT_TO_FRONT = new ArmPosition(-400, 0.6, 0.501);
+        static ArmPosition IN_FRONT = new ArmPosition(-235, 0.517, 0.501);
+        static ArmPosition HOME_OUT_TO_PEOPLE_DROP = new ArmPosition(-520, 0.61, 0.7);
         static ArmPosition PEOPLE_DROP = new ArmPosition(-510, 0.75, 0); //0.665 wrist to drop
 
         /**
@@ -106,6 +108,7 @@ public class Arm {
 
     /**
      * while speed is not 0, move arm
+     *
      * @param speed is from -1 to 1
      */
     public void moveShoulder(double speed) {
@@ -116,7 +119,7 @@ public class Arm {
         shoulderMotor.setPower(speed / 10);
     }
 
-    public void changeShoulderPosition (int byCounts) {
+    public void changeShoulderPosition(int byCounts) {
         int currentPosition = shoulderMotor.getCurrentPosition();
         int newPosition = currentPosition + byCounts;
         setShoulderPosition(newPosition);
@@ -138,12 +141,68 @@ public class Arm {
     }
 
 
-    public void setArmPosition(ArmPosition p) {
-        if (armState == State.homeOut) {
-            setArmPosition(p, null, 0);
-            armState = State.toHomeOut;
+    public void toPeopleDropPosition() {
+
+        if (armState == State.atPeopleDrop) {
+            return;
+        }
+        ArmPosition p = null;
+        State followingState = null;
+        double currenttime = time.time();
+        switch (armState) {
+            case homeOut:
+                twistServo.setPosition(NO_TWIST_POSITION);
+                armState = State.homeOutToPeopleDrop;
+                time.reset();
+                break;
+            case homeOutToPeopleDrop:
+                p = ArmPosition.HOME_OUT_TO_PEOPLE_DROP;
+                followingState = State.toPeopleDrop;
+                break;
+            case toPeopleDrop:
+                p = ArmPosition.PEOPLE_DROP;
+                followingState = State.atPeopleDrop;
+                break;
+            default:
+                // we should start at home out
+                break;
+        }
+        if (p != null) {
+            setArmPosition(p, followingState, currenttime);
         }
     }
+
+    public void toFrontPosition() {
+
+        if (armState == State.atFront) {
+            return;
+        }
+        ArmPosition p = null;
+        State followingState = null;
+        double currenttime = time.time();
+        switch (armState) {
+            case homeOut:
+                twistServo.setPosition(NO_TWIST_POSITION);
+                armState = State.homeOutToFront;
+                time.reset();
+                break;
+            case homeOutToFront:
+                p = ArmPosition.HOME_OUT_TO_FRONT;
+                followingState = State.toFront;
+                break;
+            case toFront:
+                p = ArmPosition.IN_FRONT;
+                followingState = State.atFront;
+                break;
+            default:
+                // we should start at home out
+                break;
+        }
+        if (p != null) {
+            setArmPosition(p, followingState, currenttime);
+        }
+    }
+
 
     private void setArmPosition(ArmPosition p, State followingState, double currenttime) {
         wristServo.setPosition(p.wrist);
@@ -186,6 +245,11 @@ public class Arm {
                 p = ArmPosition.HOME_IN;
                 followingState = State.homeIn;
                 break;
+            default:
+                twistServo.setPosition(NO_TWIST_POSITION);
+                p = ArmPosition.HOME_OUT;
+                followingState = State.homeOut;
+                break;
         }
         if (p != null) {
             setArmPosition(p, followingState, currenttime);
@@ -219,6 +283,8 @@ public class Arm {
                 followingState = State.toHomeOut;
                 break;
             case toHomeOut:
+            default:
+                twistServo.setPosition(NO_TWIST_POSITION);
                 p = ArmPosition.HOME_OUT;
                 followingState = State.homeOut;
                 break;
@@ -232,11 +298,9 @@ public class Arm {
         return armState;
     }
 
-    public void autonomousUndockArm()
-    {
+    public void autonomousUndockArm() {
         setArmPosition(ArmPosition.HOME_IN_FOLDED, null, 0);
         Utils.delay(TASK_TIME);
         setArmPosition(ArmPosition.HOME_OUT_FOLDED, null, 0);
     }
-
 }
