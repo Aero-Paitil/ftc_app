@@ -18,7 +18,7 @@ import com.qualcomm.robotcore.util.Range;
 public class Arm {
 
     static final double TASK_TIME = 1.0;
-    static final double HOLD_POSITION_POWER = 0.2;
+    static final double HOLD_POSITION_POWER = 0.3;
     static final double NO_TWIST_POSITION = 0.45;
 
 
@@ -171,6 +171,7 @@ public class Arm {
             setArmPosition(p, followingState, currenttime);
         }
     }
+
 
     public void toFrontPosition() {
 

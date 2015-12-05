@@ -61,11 +61,11 @@ public class DriverOpMode extends OpMode {
         brushes = new Brushes(hardwareMap, telemetry);
         brushState = BrushState.stopped;
         skiLiftHandleRight = hardwareMap.servo.get("SkiLiftHandle6");
-        skiLiftHandleRight.setPosition(0.0);
+        skiLiftHandleRight.setPosition(0.1);
         rightClimberReleased = false;
         skiLiftHandleLeft = hardwareMap.servo.get("SkiLiftHandle5");
         skiLiftHandleLeft.setDirection(Servo.Direction.REVERSE);
-        skiLiftHandleLeft.setPosition(0.0);
+        skiLiftHandleLeft.setPosition(0.1);
         leftClimberReleased = false;
 
         //rearWheels.setTargetPosition(-REAR_WHEELS_COUNTS);
@@ -173,10 +173,10 @@ public class DriverOpMode extends OpMode {
         //todo check limits
         telemetry.addData("rear wheel position", rearWheels.getCurrentPosition());
         if (gamepad1.a) {
-            rearWheels.setTargetPosition(rearWheels.getCurrentPosition() - 500);
+            rearWheels.setTargetPosition(rearWheels.getCurrentPosition() + 500);
         }
         if (gamepad1.b) {
-            rearWheels.setTargetPosition(rearWheels.getCurrentPosition() + 500);
+            rearWheels.setTargetPosition(rearWheels.getCurrentPosition() - 500);
         }
 
         contolArm();
@@ -187,7 +187,7 @@ public class DriverOpMode extends OpMode {
         arm.telemetry();
 
         //wrist & twist
-        if (movingWrist && wristTime.time() > 1) {
+        if (movingWrist && wristTime.time()>1){
             if (gamepad2.y) {
                 arm.moveWrist(0.01);
             } else if (gamepad2.a) {
@@ -244,12 +244,12 @@ public class DriverOpMode extends OpMode {
 
         // small adjustments
         if (!movingShoulderBig) {
-            if (gamepad2.left_trigger > 0.1) {
+            if (gamepad2.left_trigger > 0.5) {
                 if (!movingShoulderSmall) {
                     arm.changeShoulderPosition(10);
                     movingShoulderSmall = true;
                 }
-            } else if (gamepad2.right_trigger > 0.1) {
+            } else if (gamepad2.right_trigger > 0.5) {
                 if (!movingShoulderSmall) {
                     arm.changeShoulderPosition(-10);
                     movingShoulderSmall = true;
