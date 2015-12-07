@@ -9,7 +9,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
 /**
- * Created by jasmine on 11/28/15.
+ * Created by jasmine on 11/28/15
  * converting from hardware values to software values-
  * SERVOS: hardware values: 0-255
  * SERVOS: software values: 0-1
@@ -21,6 +21,9 @@ public class Arm {
     static final double HOLD_POSITION_POWER = 0.3;
     static final double NO_TWIST_POSITION = 0.45;
 
+    static final double UPPERARM_LENGTH = 12.5; // inches
+    static final double FOREARM_LENGTH = 12.5; // inches
+
 
     enum State {initial, toHomeIn, homeIn, toHomeInFolded, toHomeOutFolded, toHomeOut, homeOut, homeOutToFront, toFront, atFront, homeOutToPeopleDrop, toPeopleDrop, atPeopleDrop}
 
@@ -31,6 +34,20 @@ public class Arm {
     ElapsedTime time;
     Telemetry telemetry;
 
+    public static class XY {
+        private double x;
+        private double y;
+        public XY(double x, double y){
+            x = this.x;
+            y = this.y;
+        }
+        public double getX(){
+            return x;
+        }
+        public double getY(){
+            return y;
+        }
+    }
 
     public static class ArmPosition {
         //static ArmPosition DRIVER_LOW_LIMIT = new ArmPosition(-100, 0/255, 0);
@@ -138,6 +155,27 @@ public class Arm {
     public void moveTwist(double positionChange) {
         double newPosition = twistServo.getPosition() + positionChange;
         twistServo.setPosition(Range.clip(newPosition, 0, 1));
+    }
+
+    //Sangmin's edits on 12/6/2015
+    public XY getCurrentXYPostion(){  //2pi= 3420 counts for Shoulder motor, Elbow motor pi = 180°
+        double shoulderAngle = shoulderMotor.getCurrentPosition() * 2*Math.PI / 3420;
+        double elbowAngle = elbowServo.getPosition() * Math.PI;
+        return new XY((UPPERARM_LENGTH*Math.cos(shoulderAngle)) + (FOREARM_LENGTH* Math.cos(shoulderAngle + elbowAngle)), UPPERARM_LENGTH*Math.sin(shoulderAngle) + FOREARM_LENGTH*Math.sin(shoulderAngle+elbowAngle));
+    }
+    public void changeXYPosition(double deltax, double deltay){
+        double x = this.getCurrentXYPostion().getX() + deltax;
+        double y = this.getCurrentXYPostion().getY() + deltay;
+        double desiredShoulderMotorPositionRadians_Plus = Math.atan2(Math.sqrt(1 - Math.pow((Math.pow(x, 2) + Math.pow(y, 2) - Math.pow(UPPERARM_LENGTH, 2) - Math.pow(FOREARM_LENGTH, 2)) / (2 * FOREARM_LENGTH * UPPERARM_LENGTH), 2))
+                , (Math.pow(x, 2) + Math.pow(y, 2) - Math.pow(UPPERARM_LENGTH, 2) - Math.pow(FOREARM_LENGTH, 2)) / (2 * UPPERARM_LENGTH * FOREARM_LENGTH));
+        double desiredElbowMotorPositionRadians_Plus = Math.atan2(y, x) - Math.atan2(UPPERARM_LENGTH + FOREARM_LENGTH * Math.cos(desiredShoulderMotorPositionRadians_Plus), FOREARM_LENGTH*Math.sin(desiredShoulderMotorPositionRadians_Plus));
+        /*
+        double desiredShoulderMotorPositionRadians_Minus = Math.atan2(-Math.sqrt(1-Math.pow((Math.pow(x,2) + Math.pow(y,2) - Math.pow(UPPERARM_LENGTH,2) - Math.pow(FOREARM_LENGTH, 2))/(2*FOREARM_LENGTH*UPPERARM_LENGTH), 2))
+        , (Math.pow(x, 2) + Math.pow(y, 2) - Math.pow(UPPERARM_LENGTH, 2) - Math.pow(FOREARM_LENGTH, 2))/(2*UPPERARM_LENGTH*FOREARM_LENGTH));
+        double desiredElbowMotorPositionRadians_Minus = Math.atan2(y, x) - Math.atan2(UPPERARM_LENGTH + FOREARM_LENGTH * Math.cos(desiredShoulderMotorPositionRadians_Plus), FOREARM_LENGTH*Math.sin(desiredShoulderMotorPositionRadians_Plus));
+         */
+        shoulderMotor.setTargetPosition((int)(desiredShoulderMotorPositionRadians_Plus * 3420 / (2*Math.PI)));
+        elbowServo.setPosition((int)desiredElbowMotorPositionRadians_Plus);
     }
 
 
