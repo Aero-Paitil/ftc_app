@@ -9,23 +9,26 @@ import com.qualcomm.robotcore.hardware.OpticalDistanceSensor;
  */
 public class SensorReadingOpMode extends OpMode {
     ColorSensor colorSensorDrive;
-    ColorSensor colorSensorBeacon;
-    OpticalDistanceSensor opticalDistSensor;
+    //ColorSensor colorSensorBeacon;
+    OpticalDistanceSensor opticalDistSensorLeft;
+    OpticalDistanceSensor opticalDistSensorRight;
 
     @Override
     public void init() {
         colorSensorDrive = hardwareMap.colorSensor.get("Color Sensor Bottom");
-        colorSensorBeacon = hardwareMap.colorSensor.get("Color Sensor Beacon");
-        opticalDistSensor = hardwareMap.opticalDistanceSensor.get("Optical Distance");
+        //colorSensorBeacon = hardwareMap.colorSensor.get("Color Sensor Beacon");
+        opticalDistSensorLeft = hardwareMap.opticalDistanceSensor.get("Optical Distance Left");
+        opticalDistSensorRight = hardwareMap.opticalDistanceSensor.get("Optical Distance Right");
         //colorSensorBeacon.enableLed(false);           // disable the LED light
     }
 
     @Override
     public void loop() {
-        telemetry.addData("BeaconColor", "" + colorSensorBeacon.red() + "/" + colorSensorBeacon.green() + "/" + colorSensorBeacon.blue()
-                + "   " + colorSensorBeacon.alpha());
+        //telemetry.addData("BeaconColor", "" + colorSensorBeacon.red() + "/" + colorSensorBeacon.green() + "/" + colorSensorBeacon.blue()
+        //        + "   " + colorSensorBeacon.alpha());
         telemetry.addData("DriveAlpha", "" + colorSensorDrive.red() + "/" + colorSensorDrive.green() + "/" + colorSensorDrive.blue()
                 + "   " + colorSensorDrive.alpha());
-        telemetry.addData("OpticalDist", "" + opticalDistSensor.getLightDetectedRaw());
+        telemetry.addData("OpticalDistLeft", "" + opticalDistSensorLeft.getLightDetectedRaw());
+        telemetry.addData("OpticalDistRight", "" + opticalDistSensorRight.getLightDetectedRaw());
     }
 }

@@ -21,7 +21,6 @@ public class MecanumWheels { //defining the 4 motors
     boolean useGyro;
     double gyroForwardOffset;
 
-    Utils delay;
 
     public MecanumWheels(HardwareMap hardwareMap, Telemetry telemetry, boolean useGyro) {
         this.telemetry = telemetry;
@@ -47,27 +46,39 @@ public class MecanumWheels { //defining the 4 motors
     public void calibrateGyro() {
         // calibrate the gyro.
         sensorGyro.calibrate();
-        // make sure the gyro is calibrated.
-        long elaspsed = System.currentTimeMillis();
-        while (sensorGyro.isCalibrating()) {
-            String message = "Gyro has not been calibrated";
+
+        // wait for calibration to start
+        String message = "Gyro has not been fully calibrated";
+        while (!sensorGyro.isCalibrating()) {
             try {
                 Thread.sleep(50);
             } catch (InterruptedException e) {
                 message += " " + e.getMessage();
                 DbgLog.msg(message);
-                telemetry.addData("ERROR", message);
+                telemetry.addData("ERROR1", message);
+                break;
+            }        }
+
+        // make sure the gyro is calibrated.
+        long elapsed = System.currentTimeMillis();
+        while (sensorGyro.isCalibrating()) {
+            try {
+                Thread.sleep(50);
+                //waitOneFullHardwareCycle();
+            } catch (InterruptedException e) {
+                message += " " + e.getMessage();
+                DbgLog.msg(message);
+                telemetry.addData("ERROR2", message);
 
                 break;
             }
-            if (System.currentTimeMillis() - elaspsed > 5000 /*5 second*/) {
+            if (System.currentTimeMillis() - elapsed > 5000 /*5 second*/) {
                 DbgLog.msg(message);
                 break;
             }
         }
-        sensorGyro.resetZAxisIntegrator();
+        //sensorGyro.resetZAxisIntegrator();
         telemetry.addData("Gyro calibrated", sensorGyro.status());
-
     }
 
     public void resetGyroHeading() {
@@ -145,31 +156,45 @@ public class MecanumWheels { //defining the 4 motors
         motorRearRight.setPower(rear_right);
 
         // Telemetry - all doubles are scaled to (-100, 100)
-        telemetry.addData("Robot Forward,Right", (int) (forward * 100) + ", " + (int) (right * 100));
+        telemetry.addData("Robot Forward,Right,Clockwise", (int) (forward * 100) +
+                ", " + (int) (right * 100)+
+                ", " + (int) (clockwise * 100));
         telemetry.addData("DC1,2,3,4", (int) (front_left * 100) + ", " +
                 (int) (front_right * 100) + ", " +
                 (int) (rear_left * 100) + ", " +
                 (int) (rear_right * 100));
     }
 
+    public void setRunMode(DcMotorController.RunMode runMode) {
+        motorFrontLeft.setMode(runMode);
+        motorFrontRight.setMode(runMode);
+        motorRearLeft.setMode(runMode);
+        motorRearRight.setMode(runMode);
+    }
+
+
     //-----------------------
     //AUTONOMOUS MODE METHODS
     //-----------------------
 
 
+
     public void resetEncoders() {
-        motorFrontLeft.setMode(DcMotorController.RunMode.RESET_ENCODERS);
-        motorFrontRight.setMode(DcMotorController.RunMode.RESET_ENCODERS);
-        motorRearLeft.setMode(DcMotorController.RunMode.RESET_ENCODERS);
-        motorRearRight.setMode(DcMotorController.RunMode.RESET_ENCODERS);
+        setRunMode(DcMotorController.RunMode.RESET_ENCODERS);
     }
 
-    public void runToPosition(int targetPos, double power) {
-
-        motorFrontLeft.setTargetPosition(targetPos);
-        motorFrontRight.setTargetPosition(targetPos);
-        motorRearLeft.setTargetPosition(targetPos);
-        motorRearRight.setTargetPosition(targetPos);
+    public void runToPosition(int counts, double power) {
+        telemetry.addData("Counts", counts);
+        telemetry.addData("PosFL", motorFrontLeft.getCurrentPosition());
+        telemetry.addData("PosFR", motorFrontRight.getCurrentPosition());
+        int flTargetPos = motorFrontLeft.getCurrentPosition()+counts;
+        int frTargetPos = motorFrontRight.getCurrentPosition()+counts;
+        int rlTargetPos = motorRearLeft.getCurrentPosition()+counts;
+        int rrTargetPos = motorRearRight.getCurrentPosition()+counts;
+        motorFrontLeft.setTargetPosition(flTargetPos);
+        motorFrontRight.setTargetPosition(frTargetPos);
+        motorRearLeft.setTargetPosition(rlTargetPos);
+        motorRearRight.setTargetPosition(rrTargetPos);
 
         motorFrontLeft.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
         motorFrontRight.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
@@ -180,61 +205,23 @@ public class MecanumWheels { //defining the 4 motors
         motorFrontRight.setPower(power);
         motorRearLeft.setPower(power);
         motorRearRight.setPower(power);
+        Utils.delay(0.05);
+        while (motorFrontLeft.getCurrentPosition()-flTargetPos>5 ||
+                motorFrontRight.getCurrentPosition()-frTargetPos>5 ||
+                motorRearLeft.getCurrentPosition()-rlTargetPos>5 ||
+                motorRearRight.getCurrentPosition()-rrTargetPos>5){
+            telemetry.addData("PosFL", motorFrontLeft.getCurrentPosition());
+            telemetry.addData("PosFR", motorFrontRight.getCurrentPosition());
+            Utils.delay(0.05);
+        }
 
     }
 
-    public void rotate(int clockwiseDegrees) {
-        int clockwise = clockwiseDegrees;
-        int forward = 0;
-        int right = 0;
-        int currentHeading = sensorGyro.getHeading();
-        int requiredHeading = currentHeading + clockwiseDegrees;
+    public double getGyroHeading() {
+        double heading = sensorGyro.getHeading();
+        telemetry.addData("heading", heading);
+        return heading;
+    }
 
-        //gives power to motors
-        double front_left = forward + clockwise + right;
-        double front_right = forward - clockwise - right;
-        double rear_left = forward + clockwise - right;
-        double rear_right = forward - clockwise + right;
-
-        motorFrontLeft.setPower(front_left);
-        motorFrontRight.setPower(front_right);
-        motorRearLeft.setPower(rear_left);
-        motorRearRight.setPower(rear_right);
-
-        //finds the max power and refactors everything to be between -0.5 and 0.5
-        double max = Math.abs(front_left);
-        max = Math.max(Math.abs(front_right), max);
-        max = Math.max(Math.abs(rear_left), max);
-        max = Math.max(Math.abs(rear_right), max);
-
-        if (max > 1) {
-            front_left /= 2 * max;
-            front_right /= 2 * max;
-            rear_left /= 2 * max;
-            rear_right /= 2 * max;
-        }
-
-        //reads the gyro heading, sees the difference between the 2 readings
-        // repeats if we need to repeat the cycle
-        while (requiredHeading > sensorGyro.getHeading()) {
-            delay.delay(0.05);
-
-        }
-        while (requiredHeading < sensorGyro.getHeading()) {
-            motorFrontLeft.setPower(-front_left);
-            motorFrontRight.setPower(-front_right);
-            motorRearLeft.setPower(-rear_left);
-            motorRearRight.setPower(-rear_right);
-
-            delay.delay(0.05);
-        }
-        if (requiredHeading <= sensorGyro.getHeading() && requiredHeading >= sensorGyro.getHeading()) {
-            motorFrontLeft.setPower(0);
-            motorFrontRight.setPower(0);
-            motorRearLeft.setPower(0);
-            motorRearRight.setPower(0);
-        }
-
-   }
 
 }
