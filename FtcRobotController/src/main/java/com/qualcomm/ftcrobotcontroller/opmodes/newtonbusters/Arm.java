@@ -34,21 +34,6 @@ public class Arm {
     ElapsedTime time;
     Telemetry telemetry;
 
-    public static class XY {
-        private double x;
-        private double y;
-        public XY(double x, double y){
-            x = this.x;
-            y = this.y;
-        }
-        public double getX(){
-            return x;
-        }
-        public double getY(){
-            return y;
-        }
-    }
-
     public static class ArmPosition {
         //static ArmPosition DRIVER_LOW_LIMIT = new ArmPosition(-100, 0/255, 0);
         //static ArmPosition DRIVER_HIGH_LIMIT = new ArmPosition(-850, 195.0/255, 1);
@@ -157,28 +142,6 @@ public class Arm {
         twistServo.setPosition(Range.clip(newPosition, 0, 1));
     }
 
-    //Sangmin's edits on 12/6/2015
-    public XY getCurrentXYPostion(){  //2pi= 3420 counts for Shoulder motor, Elbow motor pi = 180°
-        double shoulderAngle = shoulderMotor.getCurrentPosition() * 2*Math.PI / 3420;
-        double elbowAngle = elbowServo.getPosition() * Math.PI;
-        return new XY((UPPERARM_LENGTH*Math.cos(shoulderAngle)) + (FOREARM_LENGTH* Math.cos(shoulderAngle + elbowAngle)), UPPERARM_LENGTH*Math.sin(shoulderAngle) + FOREARM_LENGTH*Math.sin(shoulderAngle+elbowAngle));
-    }
-    public void changeXYPosition(double deltax, double deltay){
-        double x = this.getCurrentXYPostion().getX() + deltax;
-        double y = this.getCurrentXYPostion().getY() + deltay;
-        double desiredShoulderMotorPositionRadians_Plus = Math.atan2(Math.sqrt(1 - Math.pow((Math.pow(x, 2) + Math.pow(y, 2) - Math.pow(UPPERARM_LENGTH, 2) - Math.pow(FOREARM_LENGTH, 2)) / (2 * FOREARM_LENGTH * UPPERARM_LENGTH), 2))
-                , (Math.pow(x, 2) + Math.pow(y, 2) - Math.pow(UPPERARM_LENGTH, 2) - Math.pow(FOREARM_LENGTH, 2)) / (2 * UPPERARM_LENGTH * FOREARM_LENGTH));
-        double desiredElbowMotorPositionRadians_Plus = Math.atan2(y, x) - Math.atan2(UPPERARM_LENGTH + FOREARM_LENGTH * Math.cos(desiredShoulderMotorPositionRadians_Plus), FOREARM_LENGTH*Math.sin(desiredShoulderMotorPositionRadians_Plus));
-        /*
-        double desiredShoulderMotorPositionRadians_Minus = Math.atan2(-Math.sqrt(1-Math.pow((Math.pow(x,2) + Math.pow(y,2) - Math.pow(UPPERARM_LENGTH,2) - Math.pow(FOREARM_LENGTH, 2))/(2*FOREARM_LENGTH*UPPERARM_LENGTH), 2))
-        , (Math.pow(x, 2) + Math.pow(y, 2) - Math.pow(UPPERARM_LENGTH, 2) - Math.pow(FOREARM_LENGTH, 2))/(2*UPPERARM_LENGTH*FOREARM_LENGTH));
-        double desiredElbowMotorPositionRadians_Minus = Math.atan2(y, x) - Math.atan2(UPPERARM_LENGTH + FOREARM_LENGTH * Math.cos(desiredShoulderMotorPositionRadians_Plus), FOREARM_LENGTH*Math.sin(desiredShoulderMotorPositionRadians_Plus));
-         */
-        shoulderMotor.setTargetPosition((int)(desiredShoulderMotorPositionRadians_Plus * 3420 / (2*Math.PI)));
-        elbowServo.setPosition((int)desiredElbowMotorPositionRadians_Plus);
-    }
-
-
     public void toPeopleDropPosition() {
 
         if (armState == State.atPeopleDrop) {
@@ -209,7 +172,6 @@ public class Arm {
             setArmPosition(p, followingState, currenttime);
         }
     }
-
 
     public void toFrontPosition() {
 
@@ -337,9 +299,114 @@ public class Arm {
         return armState;
     }
 
-    public void autonomousUndockArm() {
-        setArmPosition(ArmPosition.HOME_IN_FOLDED, null, 0);
-        Utils.delay(TASK_TIME);
-        setArmPosition(ArmPosition.HOME_OUT_FOLDED, null, 0);
+    //Sangmin's edits on 12/6/2015
+    public WristJointXY getCurrentXYPostion() {  //2pi= 3420 counts for Shoulder motor, Elbow motor pi = 180°
+        double shoulderAngle = shoulderAngleFromCounts(shoulderMotor.getCurrentPosition());
+        double elbowAngle = elbowAngleFromPosition(elbowServo.getPosition());
+        return new WristJointXY(shoulderAngle, elbowAngle);
     }
+
+    public void changeXYPosition(double deltax, double deltay) {
+        double x = this.getCurrentXYPostion().getX() + deltax;
+        double y = this.getCurrentXYPostion().getY() + deltay;
+
+        double cosElbowAngle = (Math.pow(x, 2) + Math.pow(y, 2) - Math.pow(UPPERARM_LENGTH, 2) - Math.pow(FOREARM_LENGTH, 2)) / (2 * UPPERARM_LENGTH * FOREARM_LENGTH);
+
+        double desiredElbowMotorPositionRadians_Plus = Math.atan2(Math.sqrt(1 - Math.pow(cosElbowAngle, 2)), cosElbowAngle);
+
+        double desiredShoulderMotorPositionRadians_Plus = Math.atan2(y, x) - Math.atan2(UPPERARM_LENGTH + FOREARM_LENGTH * Math.cos(desiredElbowMotorPositionRadians_Plus), FOREARM_LENGTH * Math.sin(desiredElbowMotorPositionRadians_Plus));
+
+
+        int shoulderCounts_Plus = shoulderCountsFromAngle(desiredShoulderMotorPositionRadians_Plus);
+        double elbowPos_Plus = elbowPositionFromAngle(desiredElbowMotorPositionRadians_Plus);
+
+        if (shoulderCountsInRange(shoulderCounts_Plus) && elbowPositionInRange(elbowPos_Plus)) {
+            shoulderMotor.setTargetPosition(shoulderCounts_Plus);
+            elbowServo.setPosition(elbowPos_Plus);
+        } else {
+            double desiredElbowMotorPositionRadians_Minus = Math.atan2(-Math.sqrt(1 - Math.pow(cosElbowAngle, 2)), cosElbowAngle);
+            double desiredShoulderMotorPositionRadians_Minus = Math.atan2(y, x) - Math.atan2(UPPERARM_LENGTH + FOREARM_LENGTH * Math.cos(desiredElbowMotorPositionRadians_Minus), FOREARM_LENGTH * Math.sin(desiredElbowMotorPositionRadians_Minus));
+            int shoulderCounts_Minus = shoulderCountsFromAngle(desiredShoulderMotorPositionRadians_Minus);
+            double elbowPos_Minus = elbowPositionFromAngle(desiredElbowMotorPositionRadians_Minus);
+
+            if (shoulderCountsInRange(shoulderCounts_Minus) && elbowPositionInRange(elbowPos_Minus)) {
+                shoulderMotor.setTargetPosition(shoulderCounts_Minus);
+                elbowServo.setPosition(elbowPos_Minus);
+            }
+        }
+    }
+
+    private boolean shoulderCountsInRange(int shoulderCounts) {
+        return (shoulderCounts < 130 && shoulderCounts > -1050);
+    }
+
+    private boolean elbowPositionInRange(double elbowPosition) {
+        return (elbowPosition > 0.15 && elbowPosition < 0.75);
+    }
+
+    /**
+     * Shoulder Angle limits: from 130 to -1050 counts
+     * calculating shoulder angle from encoder counts:
+     * - counts * 2pi / (1140*3)
+     *
+     * @param counts encoder counts
+     * @return shoulder angle
+     */
+    private double shoulderAngleFromCounts(int counts) {
+        return -counts * 2 * Math.PI / (1140 * 3.0);
+    }
+
+    /**
+     * calculating counts from shoulder angle:
+     * -angle * 1140 * 3 / 2pi
+     *
+     * @param angle angle relative to horizontal
+     * @return shoulder position in counts
+     */
+    private int shoulderCountsFromAngle(double angle) {
+        return (int) (-angle * 1140 * 3 / (2 * Math.PI));
+    }
+
+    /**
+     * Elbow Angle limits: from 0.15 to 0.75 servo position
+     * elbow angle zero is 0.64 servo position
+     *
+     * @param position position from servo
+     * @return elbow angle from servo position
+     */
+    private double elbowAngleFromPosition(double position) {
+        return (position - 0.64) * Math.PI;
+    }
+
+    /**
+     * calculating elbow angle from servo position
+     * (servoPosition - 0.64) * pi
+     * calculating servo position from elbow angle
+     * angle/pi + 0.64
+     *
+     * @param angle relative to horizontal
+     * @return servo position from angle
+     */
+    private double elbowPositionFromAngle(double angle) {
+        return angle / Math.PI + 0.64;
+    }
+
+    public static class WristJointXY {
+        private double x;
+        private double y;
+
+        public WristJointXY(double shoulderAngle, double elbowAngle) {
+            this.x = UPPERARM_LENGTH * Math.cos(shoulderAngle) + FOREARM_LENGTH * Math.cos(shoulderAngle + elbowAngle);
+            this.y = UPPERARM_LENGTH * Math.sin(shoulderAngle) + FOREARM_LENGTH * Math.sin(shoulderAngle + elbowAngle);
+        }
+
+        public double getX() {
+            return x;
+        }
+
+        public double getY() {
+            return y;
+        }
+    }
+
 }
