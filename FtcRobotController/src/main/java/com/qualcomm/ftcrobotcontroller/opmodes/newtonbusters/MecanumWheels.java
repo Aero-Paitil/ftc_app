@@ -210,8 +210,8 @@ public class MecanumWheels { //defining the 4 motors
                 motorFrontRight.getCurrentPosition()-frTargetPos>5 ||
                 motorRearLeft.getCurrentPosition()-rlTargetPos>5 ||
                 motorRearRight.getCurrentPosition()-rrTargetPos>5){
-            telemetry.addData("PosFL", motorFrontLeft.getCurrentPosition());
-            telemetry.addData("PosFR", motorFrontRight.getCurrentPosition());
+                DbgLog.msg("PosFL: " + motorFrontLeft.getCurrentPosition());
+                DbgLog.msg("PosFR: "+ motorFrontRight.getCurrentPosition());
             Utils.delay(0.05);
         }
 

@@ -159,12 +159,36 @@ public class AutonomousOpMode extends LinearOpMode {
         Thread.sleep(2000);
         rotateToHeading(225);
 
+        double headingToBeacon = 225;
         mecanumWheels.setRunMode(DcMotorController.RunMode.RUN_WITHOUT_ENCODERS);
         waitOneFullHardwareCycle();
         mecanumWheels.powerMotors(-0.2, 0, 0);
+        double currentHeading, error, clockwiseSpeed;
+        double kp =0.05; //experimental coefficient for proportional correction of the direction
         while (!checkTouchObject()){
             // keep going
+            currentHeading =  mecanumWheels.getGyroHeading();
+            error = headingToBeacon - currentHeading;
+            telemetry.addData("Current Heading", currentHeading);
+            telemetry.addData("Error value", error);
+            if (Math.abs(error) < 1)
+            {
+                clockwiseSpeed = 0;
+            }
+            else if (Math.abs(error) >= 1 && Math.abs(error) <=5)
+            {
+                clockwiseSpeed = kp* error;
+            }
+            else
+            {
+                clockwiseSpeed = 0.2*Math.abs(error)/error;
+            }
+            mecanumWheels.powerMotors(-0.2, 0, clockwiseSpeed);
+
+
             waitOneFullHardwareCycle();
+          Thread.sleep(50);
+
         }
         mecanumWheels.powerMotors(0, 0, 0);
         waitOneFullHardwareCycle();
