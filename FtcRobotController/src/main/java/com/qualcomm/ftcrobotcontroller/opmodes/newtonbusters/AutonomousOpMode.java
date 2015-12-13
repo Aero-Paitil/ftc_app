@@ -1,6 +1,7 @@
 package com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.hardware.ColorSensor;
 import com.qualcomm.robotcore.hardware.DcMotorController;
 import com.qualcomm.robotcore.hardware.OpticalDistanceSensor;
 //import com.qualcomm.robotcore.hardware.Servo;
@@ -19,10 +20,10 @@ public class AutonomousOpMode extends LinearOpMode {
     final static double CORRECTION_MULTIPLIER = 0.012;                  //kp constant power
     final static double LINE_FOLLOW_MOTOR_POWER = -0.2;                 //power of the motor
 
-    final static int ENCODER_COUNTS_PER_ROTATION = 2*1140;
+    final static int ENCODER_COUNTS_PER_ROTATION = 2 * 1140;
     //one wheel rotation covers ~12 inches
     //one tile is ~24 inches long
-    final static int TARGET_POSITION1 = 2*ENCODER_COUNTS_PER_ROTATION;
+    final static int TARGET_POSITION1 = 2 * ENCODER_COUNTS_PER_ROTATION;
     final static double DRIVING_POWER = -0.5;
 
     MecanumWheels mecanumWheels;
@@ -32,12 +33,13 @@ public class AutonomousOpMode extends LinearOpMode {
     Brushes brushes;
     Servo beacon6;
 
-    ColorSensor colorSensorDrive;
+
     ColorSensor colorSensorBeacon;
 
     */
     OpticalDistanceSensor opticalDistSensorRight;
     OpticalDistanceSensor opticalDistSensorLeft;
+    ColorSensor colorSensorDrive;
 
     // gyro heading is from 0 to 359
     public void rotateToHeading(double requiredHeading) throws InterruptedException {
@@ -59,13 +61,13 @@ public class AutonomousOpMode extends LinearOpMode {
         // choose rotation direction
         double currentHeading = mecanumWheels.getGyroHeading();
         if (requiredHeading > currentHeading) {
-            if (requiredHeading-currentHeading < 180) {
+            if (requiredHeading - currentHeading < 180) {
                 power = MIN_ROTATE_POWER;
             } else {
                 power = -MIN_ROTATE_POWER;
             }
         } else {
-            if (requiredHeading+360 - currentHeading < 180) {
+            if (requiredHeading + 360 - currentHeading < 180) {
                 power = MIN_ROTATE_POWER;
             } else {
                 power = -MIN_ROTATE_POWER;
@@ -73,8 +75,8 @@ public class AutonomousOpMode extends LinearOpMode {
         }
 
         // start rotation fast, then slow down as you approach the required heading
-        rotateToTolerance(60, requiredHeading, power*2);
-        rotateToTolerance(30, requiredHeading, power*1.5);
+        rotateToTolerance(60, requiredHeading, power * 2);
+        rotateToTolerance(30, requiredHeading, power * 1.5);
         rotateToTolerance(1, requiredHeading, power);
         mecanumWheels.powerMotors(0, 0, 0);
         waitOneFullHardwareCycle();
@@ -109,7 +111,7 @@ public class AutonomousOpMode extends LinearOpMode {
         }
     }
 
-    public  boolean checkTouchObject(){
+    public boolean checkTouchObject() {
         telemetry.addData("LEFT touch", opticalDistSensorLeft.getLightDetectedRaw());
         telemetry.addData("RIGHT touch", opticalDistSensorRight.getLightDetectedRaw());
         return opticalDistSensorLeft.getLightDetectedRaw() > 10 || opticalDistSensorRight.getLightDetectedRaw() > 10;
@@ -118,6 +120,7 @@ public class AutonomousOpMode extends LinearOpMode {
     @Override
     public void runOpMode() throws InterruptedException {
         mecanumWheels = new MecanumWheels(hardwareMap, telemetry, true);
+        colorSensorDrive = hardwareMap.colorSensor.get("Color Sensor Bottom");
 
         /*
         mecanumWheels.resetEncoders();
@@ -154,7 +157,7 @@ public class AutonomousOpMode extends LinearOpMode {
         arm.autonomousUndockArm();
         */
 
-        mecanumWheels.runToPosition(ENCODER_COUNTS_PER_ROTATION, 0.3);
+        mecanumWheels.runToPosition(ENCODER_COUNTS_PER_ROTATION, 0.4);
         waitOneFullHardwareCycle();
         Thread.sleep(2000);
         rotateToHeading(225);
@@ -164,34 +167,41 @@ public class AutonomousOpMode extends LinearOpMode {
         waitOneFullHardwareCycle();
         mecanumWheels.powerMotors(-0.2, 0, 0);
         double currentHeading, error, clockwiseSpeed;
-        double kp =0.05; //experimental coefficient for proportional correction of the direction
-        while (!checkTouchObject()){
+        double kp = 0.05; //experimental coefficient for proportional correction of the direction
+        while (!checkTouchObject() && colorSensorDrive.alpha() < MID_POINT_ALPHA) {
             // keep going
-            currentHeading =  mecanumWheels.getGyroHeading();
+            currentHeading = mecanumWheels.getGyroHeading();
             error = headingToBeacon - currentHeading;
             telemetry.addData("Current Heading", currentHeading);
             telemetry.addData("Error value", error);
-            if (Math.abs(error) < 1)
-            {
+            if (Math.abs(error) < 1) {
                 clockwiseSpeed = 0;
-            }
-            else if (Math.abs(error) >= 1 && Math.abs(error) <=5)
-            {
-                clockwiseSpeed = kp* error;
-            }
-            else
-            {
-                clockwiseSpeed = 0.2*Math.abs(error)/error;
+            } else if (Math.abs(error) >= 1 && Math.abs(error) <= 5) {
+                clockwiseSpeed = kp * error;
+            } else {
+                clockwiseSpeed = 0.2 * Math.abs(error) / error;
             }
             mecanumWheels.powerMotors(-0.2, 0, clockwiseSpeed);
 
 
             waitOneFullHardwareCycle();
-          Thread.sleep(50);
-
+            Thread.sleep(50);
         }
+
         mecanumWheels.powerMotors(0, 0, 0);
         waitOneFullHardwareCycle();
+        rotateToHeading(270);
+        Thread.sleep(200);
+        while (!checkTouchObject()) {
+            double alpha = colorSensorDrive.alpha();
+            telemetry.addData("Alpha", alpha);
+            double powerDelta = (alpha - MID_POINT_ALPHA) * CORRECTION_MULTIPLIER;   //Delta = difference
+            mecanumWheels.powerMotors(-0.2, 0, powerDelta);
+            waitOneFullHardwareCycle();
+            Thread.sleep(50);
+        }
+
+
 /*
         //rotate robot -45 degrees counterclockwise
         rotateToHeading(45);
