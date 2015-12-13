@@ -1,5 +1,6 @@
 package com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters;
 
+import com.qualcomm.ftccommon.DbgLog;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorController;
 import com.qualcomm.robotcore.hardware.HardwareMap;
@@ -299,49 +300,91 @@ public class Arm {
         return armState;
     }
 
+    // The methods below use forward and inverse kinematics
+    // described in "Kinematics for Lynxmotion Robot Arm" by Dr. Rainer Hessman
+    // http://www.hessmer.org/uploads/RobotArm/Inverse%2520Kinematics%2520for%2520Robot%2520Arm.pdf
+
     //Sangmin's edits on 12/6/2015
-    public WristJointXY getCurrentXYPostion() {  //2pi= 3420 counts for Shoulder motor, Elbow motor pi = 180°
+    public WristJointXY getCurrentXYPosition() {  //2pi= 3420 counts for Shoulder motor, Elbow motor pi = 180°
         double shoulderAngle = shoulderAngleFromCounts(shoulderMotor.getCurrentPosition());
         double elbowAngle = elbowAngleFromPosition(elbowServo.getPosition());
+        DbgLog.msg("ARM current shoulder,elbow: " + shoulderMotor.getCurrentPosition() + ", " + elbowServo.getPosition());
         return new WristJointXY(shoulderAngle, elbowAngle);
     }
+    /*
+    *every x,y point of the wrist can be achieved by two ways: either elbow up or elbow down.
+    * preferPlus is preffering positive elbow angle (or elbow down solution).
+    *
+    * We dont want to allow big elbow movements, so we want to check if it is safe to change between
+    * elbow up and elbow down. It is safe to change when the arm is almost straight.
+     */
+    public boolean isSafeToChangePreferPlus()
+    {
+       double pos = elbowServo.getPosition();
+        return (pos>=0.62 && pos<= 0.65);
+    }
 
-    public void changeXYPosition(double deltax, double deltay) {
-        double x = this.getCurrentXYPostion().getX() + deltax;
-        double y = this.getCurrentXYPostion().getY() + deltay;
-
-        double cosElbowAngle = (Math.pow(x, 2) + Math.pow(y, 2) - Math.pow(UPPERARM_LENGTH, 2) - Math.pow(FOREARM_LENGTH, 2)) / (2 * UPPERARM_LENGTH * FOREARM_LENGTH);
-
-        double desiredElbowMotorPositionRadians_Plus = Math.atan2(Math.sqrt(1 - Math.pow(cosElbowAngle, 2)), cosElbowAngle);
-
-        double desiredShoulderMotorPositionRadians_Plus = Math.atan2(y, x) - Math.atan2(UPPERARM_LENGTH + FOREARM_LENGTH * Math.cos(desiredElbowMotorPositionRadians_Plus), FOREARM_LENGTH * Math.sin(desiredElbowMotorPositionRadians_Plus));
+    public void changeXYPosition(double deltax, double deltay, boolean preferPlus) {
+        WristJointXY currentXY = this.getCurrentXYPosition();
+        double x = currentXY.getX() + deltax;
+        double y = currentXY.getY() + deltay;
+        DbgLog.msg("ARM deltaX,deltaY: " + deltax + ", " + deltay);
+        DbgLog.msg("ARM new X,Y: " + x + ", " + y);
 
 
+        double cosElbowAngle = (x * x + y * y - UPPERARM_LENGTH * UPPERARM_LENGTH - FOREARM_LENGTH * FOREARM_LENGTH) / (2 * UPPERARM_LENGTH * FOREARM_LENGTH);
+
+        // plus solution
+        double desiredElbowMotorPositionRadians_Plus = Math.atan2(Math.sqrt(1 - cosElbowAngle * cosElbowAngle), cosElbowAngle);
+        double k1 = UPPERARM_LENGTH + FOREARM_LENGTH * Math.cos(desiredElbowMotorPositionRadians_Plus);
+        double k2 = FOREARM_LENGTH * Math.sin(desiredElbowMotorPositionRadians_Plus);
+        double desiredShoulderMotorPositionRadians_Plus = Math.atan2(y, x) - Math.atan2(k2, k1);
         int shoulderCounts_Plus = shoulderCountsFromAngle(desiredShoulderMotorPositionRadians_Plus);
         double elbowPos_Plus = elbowPositionFromAngle(desiredElbowMotorPositionRadians_Plus);
+        DbgLog.msg("ARM Plus(Rad) shoulder, elbow: " + desiredShoulderMotorPositionRadians_Plus + ", " + desiredElbowMotorPositionRadians_Plus);
+        DbgLog.msg("ARM Plus: " + shoulderCounts_Plus + ", " + elbowPos_Plus);
 
-        if (shoulderCountsInRange(shoulderCounts_Plus) && elbowPositionInRange(elbowPos_Plus)) {
-            shoulderMotor.setTargetPosition(shoulderCounts_Plus);
-            elbowServo.setPosition(elbowPos_Plus);
+        // minus solution
+        double desiredElbowMotorPositionRadians_Minus = Math.atan2(-Math.sqrt(1 - cosElbowAngle * cosElbowAngle), cosElbowAngle);
+        k1 = UPPERARM_LENGTH + FOREARM_LENGTH * Math.cos(desiredElbowMotorPositionRadians_Minus);
+        k2 = FOREARM_LENGTH * Math.sin(desiredElbowMotorPositionRadians_Minus);
+        double desiredShoulderMotorPositionRadians_Minus = Math.atan2(y, x) - Math.atan2(k2, k1);
+        int shoulderCounts_Minus = shoulderCountsFromAngle(desiredShoulderMotorPositionRadians_Minus);
+        double elbowPos_Minus = elbowPositionFromAngle(desiredElbowMotorPositionRadians_Minus);
+        DbgLog.msg("ARM Minus(Rad): " + desiredShoulderMotorPositionRadians_Minus + ", " + desiredElbowMotorPositionRadians_Minus);
+        DbgLog.msg("ARM Minus: " + shoulderCounts_Minus + ", " + elbowPos_Minus);
+
+        boolean usePlusSolution;
+        boolean useMinusSolution;
+        if (preferPlus) {
+            usePlusSolution = shoulderCountsInRange(shoulderCounts_Plus) && elbowPositionInRange(elbowPos_Plus);
+            useMinusSolution = false;
+
         } else {
-            double desiredElbowMotorPositionRadians_Minus = Math.atan2(-Math.sqrt(1 - Math.pow(cosElbowAngle, 2)), cosElbowAngle);
-            double desiredShoulderMotorPositionRadians_Minus = Math.atan2(y, x) - Math.atan2(UPPERARM_LENGTH + FOREARM_LENGTH * Math.cos(desiredElbowMotorPositionRadians_Minus), FOREARM_LENGTH * Math.sin(desiredElbowMotorPositionRadians_Minus));
-            int shoulderCounts_Minus = shoulderCountsFromAngle(desiredShoulderMotorPositionRadians_Minus);
-            double elbowPos_Minus = elbowPositionFromAngle(desiredElbowMotorPositionRadians_Minus);
+            usePlusSolution = false;
+            useMinusSolution = shoulderCountsInRange(shoulderCounts_Minus) && elbowPositionInRange(elbowPos_Minus);
+        }
 
-            if (shoulderCountsInRange(shoulderCounts_Minus) && elbowPositionInRange(elbowPos_Minus)) {
-                shoulderMotor.setTargetPosition(shoulderCounts_Minus);
-                elbowServo.setPosition(elbowPos_Minus);
-            }
+        if (usePlusSolution) {
+            setShoulderPosition(shoulderCounts_Plus);
+            elbowServo.setPosition(elbowPos_Plus);
+            DbgLog.msg("ARM setting shoulder,elbow " + shoulderCounts_Plus + ", " + elbowPos_Plus);
+        } else if (useMinusSolution) {
+            setShoulderPosition(shoulderCounts_Minus);
+            elbowServo.setPosition(elbowPos_Minus);
+            DbgLog.msg("ARM setting shoulder,elbow " + shoulderCounts_Minus + ", " + elbowPos_Minus);
+        } else {
+            DbgLog.msg("ARM setting shoulder,elbow - OUT OF RANGE");
+            telemetry.addData("ERROR", "Can not change position - out of the limits");
         }
     }
 
     private boolean shoulderCountsInRange(int shoulderCounts) {
-        return (shoulderCounts < 130 && shoulderCounts > -1050);
+        return (!Double.isNaN(shoulderCounts) && shoulderCounts < 130 && shoulderCounts > -1000);
     }
 
     private boolean elbowPositionInRange(double elbowPosition) {
-        return (elbowPosition > 0.15 && elbowPosition < 0.75);
+        return (!Double.isNaN(elbowPosition) && elbowPosition > 0.39 && elbowPosition < 0.75);
     }
 
     /**
@@ -358,7 +401,7 @@ public class Arm {
 
     /**
      * calculating counts from shoulder angle:
-     * -angle * 1140 * 3 / 2pi
+     * - angle * 1140 * 3 / 2pi
      *
      * @param angle angle relative to horizontal
      * @return shoulder position in counts
@@ -368,27 +411,35 @@ public class Arm {
     }
 
     /**
-     * Elbow Angle limits: from 0.15 to 0.75 servo position
+     * (0 angle - 0.6353 servo position)
+     * <p/>
+     * calculating elbow angle from servo position
+     * (servoPosition - 0.6353) * (K*pi)
+     * <p/>
+     * HS-785HB is a standard servo with a range of 3.5 rotations 1260 degrees
+     * 0.1 change in servo position can correspond to 66-96 degrees change depending on shoulder and servo positions
+     * we'll assume 0.1 change corresponds to 81 degrees
+     * hence K = 81.0 * 10 / 180.0
+     * <p/>
+     * Elbow Angle limits: from 0.39 to 0.75 servo position
      * elbow angle zero is 0.64 servo position
      *
      * @param position position from servo
      * @return elbow angle from servo position
      */
     private double elbowAngleFromPosition(double position) {
-        return (position - 0.64) * Math.PI;
+        return (position - 0.6353) * Math.PI * (81.0 * 10 / 180.0);
     }
 
     /**
-     * calculating elbow angle from servo position
-     * (servoPosition - 0.64) * pi
      * calculating servo position from elbow angle
-     * angle/pi + 0.64
+     * angle/(K*pi) + 0.6353
      *
      * @param angle relative to horizontal
      * @return servo position from angle
      */
     private double elbowPositionFromAngle(double angle) {
-        return angle / Math.PI + 0.64;
+        return angle * 180.0 / (Math.PI * (81.0 * 10)) + 0.6353;
     }
 
     public static class WristJointXY {
@@ -398,6 +449,7 @@ public class Arm {
         public WristJointXY(double shoulderAngle, double elbowAngle) {
             this.x = UPPERARM_LENGTH * Math.cos(shoulderAngle) + FOREARM_LENGTH * Math.cos(shoulderAngle + elbowAngle);
             this.y = UPPERARM_LENGTH * Math.sin(shoulderAngle) + FOREARM_LENGTH * Math.sin(shoulderAngle + elbowAngle);
+            DbgLog.msg("ARM current x,y: " + this.x + ", " + this.y);
         }
 
         public double getX() {
@@ -408,5 +460,4 @@ public class Arm {
             return y;
         }
     }
-
 }

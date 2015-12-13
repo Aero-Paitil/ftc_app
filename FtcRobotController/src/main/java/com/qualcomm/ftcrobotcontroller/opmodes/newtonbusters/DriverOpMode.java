@@ -1,5 +1,6 @@
 package com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters;
 
+import com.qualcomm.ftccommon.DbgLog;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorController;
@@ -17,6 +18,8 @@ public class DriverOpMode extends OpMode {
     MecanumWheels mecanumWheels;
     Brushes brushes;
     DcMotor rearWheels;
+    //prefer elbow down
+    private boolean preferElbowDown;
 
     enum BrushState {inward, outward, stopped}
 
@@ -54,6 +57,8 @@ public class DriverOpMode extends OpMode {
 
         movingWrist = false;
         wristTime = new ElapsedTime();
+
+        preferElbowDown = false;
     }
 
     @Override
@@ -230,47 +235,82 @@ public class DriverOpMode extends OpMode {
                 }
             }
         }
+        telemetry.addData("preferElbowDown", preferElbowDown);
+        if (gamepad2.left_stick_button)
+        {
+            if (arm.isSafeToChangePreferPlus())
+            {
+                preferElbowDown = !preferElbowDown;
+                while (true)
+                {
+                    if (!gamepad2.left_stick_button)
+                    {
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                DbgLog.msg("ERROR: Not safe to switch between elbow up and down");
+            }
+        }
 
-
-        //elbow
-        if (gamepad2.right_stick_x != 0) { //negative is up
-            if (posUpdateTime.time() > POS_UPDATE_TIME) {
-                arm.moveElbow(gamepad2.right_stick_x / 100);
+        //We have two ways to control the arm:
+        //
+        //1)   The left joystick defines x,y coordinates of the wrist,
+        //so that shoulder and elbow angles are moving together,
+        //
+        //2)  The right joystick controls shoulder and elbow angles separately,
+        //so that x controlls the elbow angle and y controlls the shoulder angle.
+        if (Math.abs(gamepad2.left_stick_x) >= 0.5 || Math.abs(gamepad2.left_stick_y) >= 0.5)
+        {
+            if (posUpdateTime.time()>0.3)
+            {
+                DbgLog.msg("ARM joystick X,Y" + gamepad2.left_stick_x + ", " + -gamepad2.left_stick_y);
+                arm.changeXYPosition(gamepad2.left_stick_x, -gamepad2.left_stick_y, preferElbowDown);
                 posUpdateTime.reset();
             }
         }
-
-        //shoulder
-
-        // small adjustments
-        if (!movingShoulderBig) {
-            if (gamepad2.left_trigger > 0.5) {
-                if (!movingShoulderSmall) {
-                    arm.changeShoulderPosition(10);
-                    movingShoulderSmall = true;
+        else {
+            //elbow
+            if (gamepad2.right_stick_x != 0) { //negative is up
+                if (posUpdateTime.time() > POS_UPDATE_TIME) {
+                    arm.moveElbow(gamepad2.right_stick_x / 100);
+                    posUpdateTime.reset();
                 }
-            } else if (gamepad2.right_trigger > 0.5) {
-                if (!movingShoulderSmall) {
-                    arm.changeShoulderPosition(-10);
-                    movingShoulderSmall = true;
+            }
+
+            //shoulder
+
+            // small adjustments
+            if (!movingShoulderBig) {
+                if (gamepad2.left_trigger > 0.5) {
+                    if (!movingShoulderSmall) {
+                        arm.changeShoulderPosition(10);
+                        movingShoulderSmall = true;
+                    }
+                } else if (gamepad2.right_trigger > 0.5) {
+                    if (!movingShoulderSmall) {
+                        arm.changeShoulderPosition(-10);
+                        movingShoulderSmall = true;
+                    }
+                } else if (movingShoulderSmall) {
+                    movingShoulderSmall = false;
                 }
-            } else if (movingShoulderSmall) {
-                movingShoulderSmall = false;
+            }
+
+
+            // big adjustments
+            if (!movingShoulderSmall) {
+                if (gamepad2.right_stick_y != 0 && Math.abs(gamepad2.right_stick_y) > 0.1) { //negative is up
+                    arm.moveShoulder(gamepad2.right_stick_y);
+                    movingShoulderBig = true;
+                } else if (movingShoulderBig) {
+                    arm.holdShoulderPosition();
+                    movingShoulderBig = false;
+                }
             }
         }
-
-
-        // big adjustments
-        if (!movingShoulderSmall) {
-            if (gamepad2.left_stick_y != 0 && Math.abs(gamepad2.left_stick_y) > 0.1) { //negative is up
-                arm.moveShoulder(gamepad2.left_stick_y);
-                movingShoulderBig = true;
-            } else if (movingShoulderBig) {
-                arm.holdShoulderPosition();
-                movingShoulderBig = false;
-            }
-        }
-
 
         if (gamepad2.dpad_up) {
             // make sure the brushes are undocked when moving from initial position
