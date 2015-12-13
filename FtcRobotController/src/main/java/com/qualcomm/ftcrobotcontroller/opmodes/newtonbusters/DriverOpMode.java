@@ -264,7 +264,7 @@ public class DriverOpMode extends OpMode {
         //so that x controlls the elbow angle and y controlls the shoulder angle.
         if (Math.abs(gamepad2.left_stick_x) >= 0.5 || Math.abs(gamepad2.left_stick_y) >= 0.5)
         {
-            if (posUpdateTime.time()>0.3)
+            if (posUpdateTime.time()>0.1)
             {
                 DbgLog.msg("ARM joystick X,Y" + gamepad2.left_stick_x + ", " + -gamepad2.left_stick_y);
                 arm.changeXYPosition(gamepad2.left_stick_x, -gamepad2.left_stick_y, preferElbowDown);
@@ -274,10 +274,7 @@ public class DriverOpMode extends OpMode {
         else {
             //elbow
             if (gamepad2.right_stick_x != 0) { //negative is up
-                if (posUpdateTime.time() > POS_UPDATE_TIME) {
-                    arm.moveElbow(gamepad2.right_stick_x / 100);
-                    posUpdateTime.reset();
-                }
+                arm.moveElbow(gamepad2.right_stick_x / 30);
             }
 
             //shoulder
@@ -316,6 +313,7 @@ public class DriverOpMode extends OpMode {
             // make sure the brushes are undocked when moving from initial position
             if (arm.getArmState() != Arm.State.initial || brushes.getState() == Brushes.State.brushesUndocked) {
                 arm.undockArm();
+                preferElbowDown = false;
             } else {
                 brushes.undockBrushes();
             }
@@ -323,16 +321,19 @@ public class DriverOpMode extends OpMode {
             // make sure the brushes are undocked before docking the arm
             if (brushes.getState() == Brushes.State.brushesUndocked) {
                 arm.dockArm();
+                preferElbowDown = false;
             } else {
                 brushes.undockBrushes();
             }
         } else if (gamepad2.dpad_right) {
             arm.toPeopleDropPosition();
+            preferElbowDown = true;
 
         } else if (gamepad2.dpad_left) {
             // make sure the brushes are docked before using in-front-of-brushes position
             if (brushes.getState() == Brushes.State.brushesDocked) {
                 arm.toFrontPosition();
+                preferElbowDown = false;
             } else {
                 brushes.dockBrushes();
             }

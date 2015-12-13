@@ -32,8 +32,9 @@ public class Arm {
     DcMotor shoulderMotor;
     Servo elbowServo, wristServo, twistServo;
 
-    ElapsedTime time;
+    ElapsedTime time; //time for state machines
     Telemetry telemetry;
+    ElapsedTime elbowTime; //time between elbow servo position updates
 
     public static class ArmPosition {
         //static ArmPosition DRIVER_LOW_LIMIT = new ArmPosition(-100, 0/255, 0);
@@ -75,6 +76,7 @@ public class Arm {
 
     public Arm(HardwareMap hardwareMap, Telemetry telemetry) {
         time = new ElapsedTime();
+        elbowTime = new ElapsedTime();
         this.telemetry = telemetry;
         shoulderMotor = hardwareMap.dcMotor.get("Arm");
         shoulderMotor.setMode(DcMotorController.RunMode.RESET_ENCODERS);
@@ -130,7 +132,15 @@ public class Arm {
 
     public void moveElbow(double positionChange) {
         double newPosition = elbowServo.getPosition() + positionChange;
-        elbowServo.setPosition(Range.clip(newPosition, 0, 1));
+        setElbowServoPosition(newPosition);
+    }
+
+    private void setElbowServoPosition(double pos) {
+        if (elbowTime.time() > 0.3){
+            elbowServo.setPosition(Range.clip(pos, 0, 1));
+            elbowTime.reset();
+        }
+
     }
 
     public void moveWrist(double positionChange) {
@@ -208,7 +218,7 @@ public class Arm {
 
     private void setArmPosition(ArmPosition p, State followingState, double currenttime) {
         wristServo.setPosition(p.wrist);
-        elbowServo.setPosition(p.elbow);
+        setElbowServoPosition(p.elbow);
         setShoulderPosition(p.shoulder);
 
         if (currenttime > TASK_TIME) {
@@ -321,7 +331,7 @@ public class Arm {
     public boolean isSafeToChangePreferPlus()
     {
        double pos = elbowServo.getPosition();
-        return (pos>=0.62 && pos<= 0.65);
+        return (pos>=0.61 && pos<= 0.66);
     }
 
     public void changeXYPosition(double deltax, double deltay, boolean preferPlus) {
@@ -367,11 +377,11 @@ public class Arm {
 
         if (usePlusSolution) {
             setShoulderPosition(shoulderCounts_Plus);
-            elbowServo.setPosition(elbowPos_Plus);
+            setElbowServoPosition(elbowPos_Plus);
             DbgLog.msg("ARM setting shoulder,elbow " + shoulderCounts_Plus + ", " + elbowPos_Plus);
         } else if (useMinusSolution) {
             setShoulderPosition(shoulderCounts_Minus);
-            elbowServo.setPosition(elbowPos_Minus);
+            setElbowServoPosition(elbowPos_Minus);
             DbgLog.msg("ARM setting shoulder,elbow " + shoulderCounts_Minus + ", " + elbowPos_Minus);
         } else {
             DbgLog.msg("ARM setting shoulder,elbow - OUT OF RANGE");
