@@ -6,6 +6,7 @@ import com.qualcomm.robotcore.hardware.ColorSensor;
 import com.qualcomm.robotcore.hardware.DcMotorController;
 import com.qualcomm.robotcore.hardware.OpticalDistanceSensor;
 import com.qualcomm.robotcore.hardware.TouchSensor;
+import com.qualcomm.robotcore.util.Range;
 //import com.qualcomm.robotcore.hardware.Servo;
 
 /**
@@ -26,7 +27,7 @@ public class AutonomousOpMode extends LinearOpMode {
     //one wheel rotation covers ~12 inches
     //one tile is ~24 inches long
     //final static int TARGET_POSITION1 = 2 * ENCODER_COUNTS_PER_ROTATION;
-    final static double DRIVING_POWER = 0.4;
+    final static double DRIVING_POWER = 0.8;
 
     MecanumWheels mecanumWheels;
 
@@ -48,7 +49,7 @@ public class AutonomousOpMode extends LinearOpMode {
         mecanumWheels.setRunMode(DcMotorController.RunMode.RUN_WITHOUT_ENCODERS);
 
 
-        double MIN_ROTATE_POWER = 0.2;
+        double MIN_ROTATE_POWER = 0.3;
 
         // make sure requiredHeading is positive and less than 360
         while (requiredHeading >= 360) {
@@ -80,7 +81,6 @@ public class AutonomousOpMode extends LinearOpMode {
         rotateToTolerance(30, requiredHeading, power * 1.5);
         rotateToTolerance(1, requiredHeading, power);
         mecanumWheels.powerMotors(0, 0, 0);
-        waitOneFullHardwareCycle();
         waitOneFullHardwareCycle();
     }
 
@@ -115,12 +115,14 @@ public class AutonomousOpMode extends LinearOpMode {
     public boolean checkTouchObject() {
         telemetry.addData("LEFT touch", opticalDistSensorLeft.getLightDetectedRaw());
         telemetry.addData("RIGHT touch", opticalDistSensorRight.getLightDetectedRaw());
-        return touchSensor.isPressed() || opticalDistSensorLeft.getLightDetectedRaw() > 10 || opticalDistSensorRight.getLightDetectedRaw() > 10;
+        return touchSensor.isPressed() || opticalDistSensorLeft.getLightDetectedRaw() > 10 || opticalDistSensorRight.getLightDetectedRaw() > 20;
     }
 
     @Override
     public void runOpMode() throws InterruptedException {
         mecanumWheels = new MecanumWheels(hardwareMap, telemetry, true);
+        mecanumWheels.backwardSetup();
+        waitOneFullHardwareCycle();
         colorSensorDrive = hardwareMap.colorSensor.get("Color Sensor Bottom");
         colorSensorBeacon = hardwareMap.colorSensor.get("Color Sensor Beacon");
         colorSensorBeacon.setI2cAddress(0x3e);
@@ -133,22 +135,24 @@ public class AutonomousOpMode extends LinearOpMode {
         //to be able to use field coordinates in the following driving mode
         // our robot must be faced forward in the beginning
 
-        // assuming we are starting one tile away from the mountain
-
-        // go forward 12 inches, which is  ~1 wheel rotation
-        //mecanumWheels.runToPosition(TARGET_POSITION1, DRIVING_POWER);
-        mecanumWheels.runToPosition(ENCODER_COUNTS_PER_ROTATION, DRIVING_POWER);
+        // assuming we are starting on a tile next to  the mountain
+        // go forward (back) 36 inches, which is  ~3 wheel rotation
+        // OR
+        // assuming we are on the second tile from the mountain
+        // go forward (back) 12 inches, which is ~1 wheel rotation
+        mecanumWheels.runToPosition(-ENCODER_COUNTS_PER_ROTATION, -DRIVING_POWER);
         waitOneFullHardwareCycle();
-        Thread.sleep(2000); //sleeping for 2 seconds so motors has time to run to their position
-        rotateToHeading(225);
+        Thread.sleep(1500); //sleeping for 1.5 seconds so motors has time to run to their position
+        mecanumWheels.logEncoders();
+        rotateToHeading(223);
 
         //go to the white line maintaining gyro headings of 225 degrees
-        double headingToBeacon = 225;
+        double headingToBeacon = 223;
         mecanumWheels.setRunMode(DcMotorController.RunMode.RUN_WITHOUT_ENCODERS);
         waitOneFullHardwareCycle();
-        mecanumWheels.powerMotors(-0.2, 0, 0);
+        mecanumWheels.powerMotors(-DRIVING_POWER, 0, 0);
         double currentHeading, error, clockwiseSpeed;
-        double kp = 0.05; //experimental coefficient for proportional correction of the direction
+        double kp = DRIVING_POWER; //experimental coefficient for proportional correction of the direction
         //alpha() is to measure the brightness.
         //maintain the direction until robot "sees" the edge of white line/touches/close to some other object
         while (!checkTouchObject() && colorSensorDrive.alpha() < MID_POINT_ALPHA && opModeIsActive()) {
@@ -161,32 +165,48 @@ public class AutonomousOpMode extends LinearOpMode {
             //if heading error < 1 degree
             if (Math.abs(error) < 1) {
                 clockwiseSpeed = 0;
-            } else if (Math.abs(error) >= 1 && Math.abs(error) <= 5) {
-                clockwiseSpeed = kp * error;
+            } else if (Math.abs(error) >= 1 && Math.abs(error) <= 4) {
+                clockwiseSpeed = kp * error/4;
             } else {
-                clockwiseSpeed = 0.2 * Math.abs(error) / error;
+                clockwiseSpeed = DRIVING_POWER * Math.abs(error) / error;
             }
-            mecanumWheels.powerMotors(-0.2, 0, clockwiseSpeed);
+
+            clockwiseSpeed = Range.clip(clockwiseSpeed, -1.0, 1.0);
+            mecanumWheels.powerMotors(-DRIVING_POWER, 0, clockwiseSpeed);
 
             waitOneFullHardwareCycle();
-            Thread.sleep(50);
+            Thread.sleep(25);
         }
 
         mecanumWheels.powerMotors(0, 0, 0);
         waitOneFullHardwareCycle();
 
         if (colorSensorDrive.alpha() >= MID_POINT_ALPHA) {
+
             rotateToHeading(270);
-            Thread.sleep(200);
+            waitOneFullHardwareCycle();
+            if (colorSensorDrive.alpha() < MID_POINT_ALPHA) {
+                while (!checkTouchObject() && colorSensorDrive.alpha() < MID_POINT_ALPHA && opModeIsActive()) {
+                    mecanumWheels.powerMotors(0, DRIVING_POWER, 0);
+                    waitOneFullHardwareCycle();
+                    Thread.sleep(25);
+                }
+                mecanumWheels.powerMotors(0,0,0);
+                waitOneFullHardwareCycle();
+                rotateToHeading(270);
+                waitOneFullHardwareCycle();
+            }
 
             int i = 0;
             while (!checkTouchObject() && opModeIsActive()) {
                 DbgLog.msg(i + " BEACON heading " + mecanumWheels.getGyroHeading());
 
                 if (colorSensorBeacon.blue() > 0) {
-                    DbgLog.msg(i + " BEACON Detecting blue");;
+                    DbgLog.msg(i + " BEACON Detecting blue");
+                    break;
                 } else if (colorSensorBeacon.red() > 0) {
                     DbgLog.msg(i + " BEACON Detecting red");
+                    break;
                 } else {
                     DbgLog.msg(i + " BEACON No color detected");
                 }
@@ -202,8 +222,9 @@ public class AutonomousOpMode extends LinearOpMode {
                 Thread.sleep(50);
                 i++;
             }
-            DbgLog.msg(i + " BEACON distance touch,right,left "+touchSensor.isPressed()+", "+
-                    opticalDistSensorRight.getLightDetectedRaw()+", "+ opticalDistSensorLeft.getLightDetectedRaw());
+
+            DbgLog.msg(" BEACON distance touch,right,left " + touchSensor.isPressed() + ", " +
+                    opticalDistSensorRight.getLightDetectedRaw() + ", " + opticalDistSensorLeft.getLightDetectedRaw());
 
             mecanumWheels.powerMotors(0, 0, 0);
             waitOneFullHardwareCycle();
