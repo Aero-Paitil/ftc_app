@@ -9,26 +9,32 @@ import com.qualcomm.robotcore.hardware.OpticalDistanceSensor;
  */
 public class SensorReadingOpMode extends OpMode {
     ColorSensor colorSensorDrive;
-    //ColorSensor colorSensorBeacon;
+    ColorSensor colorSensorBeacon;
     OpticalDistanceSensor opticalDistSensorLeft;
     OpticalDistanceSensor opticalDistSensorRight;
 
     @Override
     public void init() {
         colorSensorDrive = hardwareMap.colorSensor.get("Color Sensor Bottom");
-        //colorSensorBeacon = hardwareMap.colorSensor.get("Color Sensor Beacon");
+        colorSensorBeacon = hardwareMap.colorSensor.get("Color Sensor Beacon");
+        colorSensorBeacon.setI2cAddress(0x3e);
         opticalDistSensorLeft = hardwareMap.opticalDistanceSensor.get("Optical Distance Left");
         opticalDistSensorRight = hardwareMap.opticalDistanceSensor.get("Optical Distance Right");
         //colorSensorBeacon.enableLed(false);           // disable the LED light
+        //colorSensorDrive.enableLed(true);             //
     }
 
     @Override
     public void loop() {
-        //telemetry.addData("BeaconColor", "" + colorSensorBeacon.red() + "/" + colorSensorBeacon.green() + "/" + colorSensorBeacon.blue()
-        //        + "   " + colorSensorBeacon.alpha());
-        telemetry.addData("DriveAlpha", "" + colorSensorDrive.red() + "/" + colorSensorDrive.green() + "/" + colorSensorDrive.blue()
-                + "   " + colorSensorDrive.alpha());
+        telemetry.addData("Beacon", "" + colorSensorBeacon.red() + "/" + colorSensorBeacon.green() + "/" +
+                        colorSensorBeacon.blue() + "   " + colorSensorBeacon.alpha() +
+                " at " +colorSensorBeacon.getI2cAddress() + " "+colorSensorBeacon.getConnectionInfo());
+        telemetry.addData("Drive", "" + colorSensorDrive.red() + "/" + colorSensorDrive.green() + "/" +
+                        colorSensorDrive.blue()+"   " + colorSensorDrive.alpha()+
+                " at "+colorSensorDrive.getI2cAddress() + " "+colorSensorDrive.getConnectionInfo());
         telemetry.addData("OpticalDistLeft", "" + opticalDistSensorLeft.getLightDetectedRaw());
         telemetry.addData("OpticalDistRight", "" + opticalDistSensorRight.getLightDetectedRaw());
+
+
     }
 }

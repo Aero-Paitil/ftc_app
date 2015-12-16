@@ -63,17 +63,16 @@ public class FtcOpModeRegister implements OpModeRegister {
      * If two or more op modes are registered with the same name, the app will display an error.
      */
     manager.register("AutonomousMode", AutonomousOpMode.class);
-
     manager.register("DriverMode", DriverOpMode.class);
-    manager.register("MecanumWheelsOpMode",MecanumWheelsOpMode.class);
     manager.register("GyroDriveMecanumWheels", GyroDriveMecanumWheels.class);
+
+    manager.register("MecanumWheelsOpMode",MecanumWheelsOpMode.class);
     manager.register("ArmOpMode", ArmOpMode.class);
     manager.register("BrushOpMode", BrushOpMode.class);
     manager.register("AutoLinearOpMode", AutoLinearOpMode.class);
     manager.register("SensorReadingOpMode", SensorReadingOpMode.class);
 
-    manager.register("NullOp", NullOp.class);
-
+    //manager.register("NullOp", NullOp.class);
     //manager.register("MatrixK9TeleOp", MatrixK9TeleOp.class);
     //manager.register("K9TeleOp", K9TeleOp.class);
     //manager.register("K9Line", K9Line.class);

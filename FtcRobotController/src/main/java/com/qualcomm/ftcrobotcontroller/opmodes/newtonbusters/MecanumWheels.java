@@ -38,9 +38,23 @@ public class MecanumWheels { //defining the 4 motors
 
         if (useGyro) {
             sensorGyro = hardwareMap.gyroSensor.get("Gyro Sensor");
-            calibrateGyro();
-            gyroForwardOffset = 0;
+            // default - backward config
+            gyroForwardOffset = 180;
         }
+    }
+
+    public void backwardSetup() {
+        resetEncoders();
+        calibrateGyro();
+        gyroForwardOffset = 180;
+
+    }
+
+    public void forwardSetup() {
+        resetEncoders();
+        calibrateGyro();
+        gyroForwardOffset = 0;
+
     }
 
     public void calibrateGyro() {
@@ -57,7 +71,8 @@ public class MecanumWheels { //defining the 4 motors
                 DbgLog.msg(message);
                 telemetry.addData("ERROR1", message);
                 break;
-            }        }
+            }
+        }
 
         // make sure the gyro is calibrated.
         long elapsed = System.currentTimeMillis();
@@ -181,44 +196,80 @@ public class MecanumWheels { //defining the 4 motors
 
     public void resetEncoders() {
         setRunMode(DcMotorController.RunMode.RESET_ENCODERS);
+
+
+        String message = "Reset encoders did not complete";
+
+        try {
+            Thread.sleep(50);
+        } catch (InterruptedException e) {
+            message += " " + e.getMessage();
+            DbgLog.msg(message);
+            telemetry.addData("ERROR1", message);
+        }
+
+        while (Math.abs(motorFrontLeft.getCurrentPosition()) > 0 ||
+                Math.abs(motorFrontRight.getCurrentPosition()) > 0 ||
+                Math.abs(motorRearLeft.getCurrentPosition()) > 0 ||
+                Math.abs(motorRearRight.getCurrentPosition()) > 0) {
+            DbgLog.msg("-PosFL,FR,RL,RR " +
+                    motorFrontLeft.getCurrentPosition() + "," +
+                    motorFrontRight.getCurrentPosition() + "," +
+                    motorRearLeft.getCurrentPosition() + "," +
+                    motorRearRight.getCurrentPosition());
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                message += " " + e.getMessage();
+                DbgLog.msg(message);
+                telemetry.addData("ERROR1", message);
+            }
+
+        }
+
+        logEncoders();
+        setRunMode(DcMotorController.RunMode.RUN_WITHOUT_ENCODERS);
+    }
+
+    public void logEncoders() {
+
+        DbgLog.msg("PosFL,FR,RL,RR " + motorFrontLeft.getCurrentPosition() + "," +
+                motorFrontRight.getCurrentPosition() + "," +
+                motorRearLeft.getCurrentPosition() + "," +
+                motorRearRight.getCurrentPosition());
+        telemetry.addData("PosFL,FR,RL,RR", motorFrontLeft.getCurrentPosition() + "," +
+                motorFrontRight.getCurrentPosition() + "," +
+                motorRearLeft.getCurrentPosition() + "," +
+                motorRearRight.getCurrentPosition());
+
     }
 
     public void runToPosition(int counts, double power) {
-        telemetry.addData("Counts", counts);
-        telemetry.addData("PosFL", motorFrontLeft.getCurrentPosition());
-        telemetry.addData("PosFR", motorFrontRight.getCurrentPosition());
+
+        DbgLog.msg("Counts to Target Pos " + counts);
+
         int flTargetPos = motorFrontLeft.getCurrentPosition()+counts;
-        int frTargetPos = motorFrontRight.getCurrentPosition()+counts;
-        int rlTargetPos = motorRearLeft.getCurrentPosition()+counts;
-        int rrTargetPos = motorRearRight.getCurrentPosition()+counts;
         motorFrontLeft.setTargetPosition(flTargetPos);
+        int frTargetPos = motorFrontRight.getCurrentPosition()+counts;
         motorFrontRight.setTargetPosition(frTargetPos);
+        int rlTargetPos = motorRearLeft.getCurrentPosition()+counts;
         motorRearLeft.setTargetPosition(rlTargetPos);
+        int rrTargetPos = motorRearRight.getCurrentPosition()+counts;
         motorRearRight.setTargetPosition(rrTargetPos);
+        //DbgLog.msg("Target PosFL,FR,RL,RR " + flTargetPos + "," + frTargetPos + "," + rlTargetPos + "," + rrTargetPos);
 
-        motorFrontLeft.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
-        motorFrontRight.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
-        motorRearLeft.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
-        motorRearRight.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
+        setRunMode(DcMotorController.RunMode.RUN_TO_POSITION);
 
-        motorFrontLeft.setPower(power);
-        motorFrontRight.setPower(power);
-        motorRearLeft.setPower(power);
-        motorRearRight.setPower(power);
-        Utils.delay(0.05);
-        while (motorFrontLeft.getCurrentPosition()-flTargetPos>5 ||
-                motorFrontRight.getCurrentPosition()-frTargetPos>5 ||
-                motorRearLeft.getCurrentPosition()-rlTargetPos>5 ||
-                motorRearRight.getCurrentPosition()-rrTargetPos>5){
-                DbgLog.msg("PosFL: " + motorFrontLeft.getCurrentPosition());
-                DbgLog.msg("PosFR: "+ motorFrontRight.getCurrentPosition());
-            Utils.delay(0.05);
-        }
-
+        powerMotors(power, 0, 0);
+        // this method must be followed by a delay for completion
     }
 
     public double getGyroHeading() {
-        double heading = sensorGyro.getHeading();
+        double heading = sensorGyro.getHeading() - gyroForwardOffset;
+        if (heading < 0) {
+            heading += 360;
+        }
+
         telemetry.addData("heading", heading);
         return heading;
     }
