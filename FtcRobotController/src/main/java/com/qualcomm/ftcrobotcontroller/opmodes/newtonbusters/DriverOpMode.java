@@ -65,10 +65,10 @@ public class DriverOpMode extends OpMode {
     public void start() {
         brushes = new Brushes(hardwareMap, telemetry);
         brushState = BrushState.stopped;
-        skiLiftHandleRight = hardwareMap.servo.get("SkiLiftHandle6");
+        skiLiftHandleRight = hardwareMap.servo.get("SkiLiftHandleRight");
         skiLiftHandleRight.setPosition(0.1);
         rightClimberReleased = false;
-        skiLiftHandleLeft = hardwareMap.servo.get("SkiLiftHandle5");
+        skiLiftHandleLeft = hardwareMap.servo.get("SkiLiftHandleLeft");
         skiLiftHandleLeft.setDirection(Servo.Direction.REVERSE);
         skiLiftHandleLeft.setPosition(0.1);
         leftClimberReleased = false;
