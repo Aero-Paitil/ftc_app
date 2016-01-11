@@ -14,7 +14,7 @@ import com.qualcomm.robotcore.hardware.Servo;
  * Autonomous mode
  * Created by Aryoman on 12/2/2015.
  * revised by Athena on 12/7/2015 - rotate method
- * revised vy Alex on 12/8/2015 - going forward set distance, rotate, go until touching something
+ * revised by Alex on 12/8/2015 - going forward set distance, rotate, go until touching something
  */
 public class AutonomousOpMode extends LinearOpMode {
 
@@ -30,7 +30,7 @@ public class AutonomousOpMode extends LinearOpMode {
     //one wheel rotation covers ~12 inches
     //one tile is ~24 inches long
     //final static int TARGET_POSITION1 = 2 * ENCODER_COUNTS_PER_ROTATION;
-    final static double DRIVING_POWER = 0.8;
+    final static double DRIVING_POWER = 1;
 
     MecanumWheels mecanumWheels;
 
@@ -77,7 +77,7 @@ public class AutonomousOpMode extends LinearOpMode {
         // start rotation fast, then slow down as you approach the required heading
         rotateToTolerance(60, requiredHeading, power * 2);
         rotateToTolerance(30, requiredHeading, power * 1.5);
-        rotateToTolerance(1, requiredHeading, power);
+        rotateToTolerance(1.5, requiredHeading, power);
         mecanumWheels.powerMotors(0, 0, 0);
         waitOneFullHardwareCycle();
     }
@@ -117,7 +117,7 @@ public class AutonomousOpMode extends LinearOpMode {
         double ultrasonicLevel = ultrasonicSensor.getUltrasonicLevel();
         telemetry.addData("ultrasonic level", ultrasonicLevel);
         DbgLog.msg("ULTRASONIC "+ultrasonicLevel);
-        return (ultrasonicLevel < 7 && ultrasonicLevel > 0.1);
+        return (ultrasonicLevel < 12 && ultrasonicLevel > 0.1);
     }
 
     public BeaconColor checkBeaconColor(){
@@ -138,7 +138,7 @@ public class AutonomousOpMode extends LinearOpMode {
     @Override
     public void runOpMode() throws InterruptedException {
         mecanumWheels = new MecanumWheels(hardwareMap, telemetry, true);
-        mecanumWheels.backwardSetup();
+        //mecanumWheels.backwardSetup();
         waitOneFullHardwareCycle();
 
         rightButtonPusher = hardwareMap.servo.get("RightButtonPusher");
@@ -169,6 +169,8 @@ public class AutonomousOpMode extends LinearOpMode {
 
         waitForStart();
 
+
+        /*
         //to be able to use field coordinates in the following driving mode
         // our robot must be faced backward in the beginning
         // the robot must have the left mechanum wheel (in the point of view of the person) on the second tooth (as opposed to hole) on the second tile.
@@ -184,7 +186,8 @@ public class AutonomousOpMode extends LinearOpMode {
         mecanumWheels.logEncoders();
         double headingToBeaconZone = blueAlliance ? (180+45) : (180-45);
         rotateToHeading(headingToBeaconZone);
-
+        */
+        double headingToBeaconZone = mecanumWheels.getGyroHeading();
         //go to the white line maintaining gyro headings to beacon
 
         mecanumWheels.setRunMode(DcMotorController.RunMode.RUN_WITHOUT_ENCODERS);
@@ -199,8 +202,8 @@ public class AutonomousOpMode extends LinearOpMode {
             // keep going
             currentHeading = mecanumWheels.getGyroHeading();
             error = headingToBeaconZone - currentHeading;
-            telemetry.addData("Current Heading", currentHeading);
-            telemetry.addData("Error value", error);
+            //telemetry.addData("Current Heading", currentHeading);
+            //telemetry.addData("Error value", error);
             //don't do any correction
             //if heading error < 1 degree
             if (Math.abs(error) < 1) {
@@ -211,16 +214,114 @@ public class AutonomousOpMode extends LinearOpMode {
                 clockwiseSpeed = DRIVING_POWER * Math.abs(error) / error;
             }
             clockwiseSpeed = Range.clip(clockwiseSpeed, -1.0, 1.0);
-            DbgLog.msg(i + " clockwise speed "+clockwiseSpeed);
+            //DbgLog.msg(i + " clockwise speed "+clockwiseSpeed);
             mecanumWheels.powerMotors(-DRIVING_POWER, 0, clockwiseSpeed);
 
             waitOneFullHardwareCycle();
-            Thread.sleep(25);
+            //Thread.sleep(25);
             i++;
         }
+        //mecanumWheels.powerMotors(0, 0, 0);
+        //waitOneFullHardwareCycle();
+        //Thread.sleep(100);
 
-        mecanumWheels.powerMotors(0, 0, 0);
-        waitOneFullHardwareCycle();
+        if (!checkTouchObject() && opModeIsActive()) {
+
+            // move debris out out of the way
+            mecanumWheels.powerMotors(-DRIVING_POWER,0,0);
+            waitOneFullHardwareCycle();
+            long startpos = Math.abs(mecanumWheels.motorFrontLeft.getCurrentPosition());
+            long endpos = startpos;
+            while (endpos-startpos < 0.5*(2 * 1140)) {
+                waitOneFullHardwareCycle();
+                endpos = Math.abs(mecanumWheels.motorFrontLeft.getCurrentPosition());
+            }
+            mecanumWheels.powerMotors(0, 0, 0);
+            waitOneFullHardwareCycle();
+            Thread.sleep(100);
+            mecanumWheels.powerMotors(0.5, 0, 0);
+            while (colorSensorDrive.alpha() < MID_POINT_ALPHA & opModeIsActive()) {
+                waitOneFullHardwareCycle();
+            }
+
+            mecanumWheels.powerMotors(0, 0, 0);
+            waitOneFullHardwareCycle();
+            Thread.sleep(100);
+
+            // rotate to the beacon
+            double headingToBeacon = blueAlliance ? 270 : 90;
+            rotateToHeading(headingToBeacon);
+            waitOneFullHardwareCycle();
+            //Thread.sleep(1000);
+
+            // shift to the left to find line
+            if (colorSensorDrive.alpha() < MID_POINT_ALPHA && !checkTouchObject() && opModeIsActive()) {
+                mecanumWheels.powerMotors(0, 0.8, 0);
+                while (colorSensorDrive.alpha() < MID_POINT_ALPHA && !checkTouchObject() && opModeIsActive()) {
+                    waitOneFullHardwareCycle();
+                }
+                mecanumWheels.powerMotors(0, 0, 0);
+                waitOneFullHardwareCycle();
+                Thread.sleep(100);
+                if (colorSensorDrive.alpha() < MID_POINT_ALPHA && !checkTouchObject() && opModeIsActive()) {
+                    telemetry.addData("Overshot", colorSensorDrive.alpha());
+                    mecanumWheels.powerMotors(0, -0.8, 0);
+                    waitOneFullHardwareCycle();
+                    while (colorSensorDrive.alpha() < MID_POINT_ALPHA && !checkTouchObject() && opModeIsActive()) {
+                        waitOneFullHardwareCycle();
+                    }
+                    mecanumWheels.powerMotors(0, 0, 0);
+                    waitOneFullHardwareCycle();
+                    Thread.sleep(100);
+                }
+
+            }
+            //Thread.sleep(1000);
+
+            mecanumWheels.powerMotors(0,-0.2,0);
+            waitOneFullHardwareCycle();
+            Thread.sleep(100);
+
+            // follow line
+            i = 0;
+            while (!checkTouchObject() && opModeIsActive()) {
+                /*
+                DbgLog.msg(i + " BEACON heading " + mecanumWheels.getGyroHeading());
+
+                if (colorSensorBeacon.blue() > 0) {
+                    DbgLog.msg(i + " BEACON Detecting blue");
+
+                } else if (colorSensorBeacon.red() > 0) {
+                    DbgLog.msg(i + " BEACON Detecting red");
+
+                } else {
+                    DbgLog.msg(i + " BEACON No color detected");
+                }*/
+
+
+                double alpha = colorSensorDrive.alpha();
+                //DbgLog.msg(i + " BEACON alpha " + alpha);
+                //DbgLog.msg(i + " BEACON distance " + ultrasonicSensor.getUltrasonicLevel());
+
+                //DbgLog.msg(i + " BEACON distance touch,right,left " + touchSensor.isPressed() + ", " +
+                //opticalDistSensorRight.getLightDetectedRaw() + ", " + opticalDistSensorLeft.getLightDetectedRaw());
+                double powerDelta = (alpha - MID_POINT_ALPHA) * CORRECTION_MULTIPLIER;   //Delta = difference
+                mecanumWheels.powerMotors(-0.2, 0, powerDelta);
+                waitOneFullHardwareCycle();
+                i++;
+            }
+            DbgLog.msg(i + " BEACON distance " + ultrasonicSensor.getUltrasonicLevel());
+
+            //DbgLog.msg(" BEACON distance touch,right,left " + touchSensor.isPressed() + ", " +
+            //opticalDistSensorRight.getLightDetectedRaw() + ", " + opticalDistSensorLeft.getLightDetectedRaw());
+
+            mecanumWheels.powerMotors(0, 0, 0);
+            waitOneFullHardwareCycle();
+            checkBeaconColor();
+        }
+        /*
+
+
 
         if (colorSensorDrive.alpha() >= MID_POINT_ALPHA) {
             double headingToBeacon = blueAlliance ? 270 : 90;
@@ -263,42 +364,9 @@ public class AutonomousOpMode extends LinearOpMode {
                 }
             }
             waitOneFullHardwareCycle();
-
-            /*
-            i = 0;
-            while (!checkTouchObject() && opModeIsActive()) {
-                DbgLog.msg(i + " BEACON heading " + mecanumWheels.getGyroHeading());
-
-                if (colorSensorBeacon.blue() > 0) {
-                    DbgLog.msg(i + " BEACON Detecting blue");
-                    break;
-                } else if (colorSensorBeacon.red() > 0) {
-                    DbgLog.msg(i + " BEACON Detecting red");
-                    break;
-                } else {
-                    DbgLog.msg(i + " BEACON No color detected");
-                }
-
-                double alpha = colorSensorDrive.alpha();
-                DbgLog.msg(i + " BEACON alpha " + alpha);
-                DbgLog.msg(i + " BEACON distance " + ultrasonicSensor.getUltrasonicLevel());
-
-                //DbgLog.msg(i + " BEACON distance touch,right,left " + touchSensor.isPressed() + ", " +
-                        //opticalDistSensorRight.getLightDetectedRaw() + ", " + opticalDistSensorLeft.getLightDetectedRaw());
-                double powerDelta = (alpha - MID_POINT_ALPHA) * CORRECTION_MULTIPLIER;   //Delta = difference
-                mecanumWheels.powerMotors(-0.2, 0, powerDelta);
-                waitOneFullHardwareCycle();
-                Thread.sleep(50);
-                i++;
-            }
-            DbgLog.msg(i + " BEACON distance " + ultrasonicSensor.getUltrasonicLevel());
-
-            //DbgLog.msg(" BEACON distance touch,right,left " + touchSensor.isPressed() + ", " +
-                    //opticalDistSensorRight.getLightDetectedRaw() + ", " + opticalDistSensorLeft.getLightDetectedRaw());
-
-            mecanumWheels.powerMotors(0, 0, 0);
-            waitOneFullHardwareCycle();
-            */
         }
+            */
+
+
     }
 }

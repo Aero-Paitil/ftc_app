@@ -36,6 +36,7 @@ import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.AutoLinearOpMode;
 import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.AutonomousOpMode;
 import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.BrushOpMode;
 import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.DriverOpMode;
+import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.GyroCalibration;
 import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.GyroDriveMecanumWheels;
 import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.MecanumWheelsOpMode;
 import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.SensorReadingOpMode;
@@ -62,6 +63,7 @@ public class FtcOpModeRegister implements OpModeRegister {
      *
      * If two or more op modes are registered with the same name, the app will display an error.
      */
+    manager.register("GyroCalibration", GyroCalibration.class);
     manager.register("AutonomousMode", AutonomousOpMode.class);
     manager.register("DriverMode", DriverOpMode.class);
     manager.register("GyroDriveMecanumWheels", GyroDriveMecanumWheels.class);
