@@ -240,7 +240,7 @@ public class AutonomousOpMode extends LinearOpMode {
             waitOneFullHardwareCycle();
             Thread.sleep(100);
             mecanumWheels.powerMotors(0.5, 0, 0);
-            while (colorSensorDrive.alpha() < MID_POINT_ALPHA & opModeIsActive()) {
+            while (colorSensorDrive.alpha() < MID_POINT_ALPHA && opModeIsActive()) {
                 waitOneFullHardwareCycle();
             }
 

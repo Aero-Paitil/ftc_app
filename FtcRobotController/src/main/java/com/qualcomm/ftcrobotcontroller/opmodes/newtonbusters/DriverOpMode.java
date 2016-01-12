@@ -1,40 +1,29 @@
 package com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters;
 
-import com.qualcomm.ftccommon.DbgLog;
+//import com.qualcomm.ftccommon.DbgLog;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorController;
 import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.util.ElapsedTime;
 
 /**
  * Created by Aryoman on 11/24/2015.
  * This class has the code for our driver controlled mode.
  */
 public class DriverOpMode extends OpMode {
-    final static private int REAR_WHEELS_COUNTS = 1000;
-    final static private double CLIMBER_RELEASE_POS = 1.0;
+    final static private double CLIMBER_RELEASE_POS_RIGHT = 195/255d;
+    final static private double CLIMBER_RELEASE_POS_LEFT = 90/255d;
 
     MecanumWheels mecanumWheels;
-    Brushes brushes;
     DcMotor rearWheels;
-    //prefer elbow down
-    private boolean preferElbowDown;
+    DcMotor brush;
 
-    enum BrushState {inward, outward, stopped}
+    Servo rightButtonPusher, leftButtonPusher;
+    Servo skiLiftHandleRight, skiLiftHandleLeft;
+    Servo frontSweeper;
 
-    BrushState brushState;
-    static final double POS_UPDATE_TIME = 0.1;
-    Servo extension4, extension5, beacon6, skiLiftHandleRight, skiLiftHandleLeft;
-    Arm arm;
-    ElapsedTime posUpdateTime;
     boolean rightClimberReleased, leftClimberReleased;
-
-    boolean movingShoulderSmall = false, movingShoulderBig = false;
-
-    boolean movingWrist = false;
-    ElapsedTime wristTime;
-
+    boolean frontSweeperDeployed, brushDeployed;
 
     @Override
     public void init() {
@@ -42,42 +31,35 @@ public class DriverOpMode extends OpMode {
 
         rearWheels = hardwareMap.dcMotor.get("RearWheels");
         rearWheels.setMode(DcMotorController.RunMode.RESET_ENCODERS);
-
-        posUpdateTime = new ElapsedTime();
-        arm = new Arm(hardwareMap, telemetry);
-        movingShoulderSmall = false;
-        movingShoulderBig = false;
-
-        extension4 = hardwareMap.servo.get("Extension4");
-        extension4.setPosition(1.0);
-        extension5 = hardwareMap.servo.get("Extension5");
-        extension5.setPosition(0.0);
-        beacon6 = hardwareMap.servo.get("Beacon6");
-        beacon6.setPosition(0.0);
-
-        movingWrist = false;
-        wristTime = new ElapsedTime();
-
-        preferElbowDown = false;
+        brush = hardwareMap.dcMotor.get("Brush");
+        brush.setMode(DcMotorController.RunMode.RUN_WITHOUT_ENCODERS);
     }
 
     @Override
     public void start() {
-        brushes = new Brushes(hardwareMap, telemetry);
-        brushState = BrushState.stopped;
-        skiLiftHandleRight = hardwareMap.servo.get("SkiLiftHandleRight");
-        skiLiftHandleRight.setPosition(0.1);
-        rightClimberReleased = false;
-        skiLiftHandleLeft = hardwareMap.servo.get("SkiLiftHandleLeft");
-        skiLiftHandleLeft.setDirection(Servo.Direction.REVERSE);
-        skiLiftHandleLeft.setPosition(0.1);
-        leftClimberReleased = false;
 
         //rearWheels.setTargetPosition(-REAR_WHEELS_COUNTS);
         rearWheels.setTargetPosition(0);
         rearWheels.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
         rearWheels.setPower(0.3);
-        arm.holdShoulderPosition();
+
+        rightButtonPusher = hardwareMap.servo.get("RightButtonPusher");
+        leftButtonPusher = hardwareMap.servo.get("LeftButtonPusher");
+        //0 servo setting means touch pusher isn't deployed, all the way in, didn't touch/sense anything
+        //1 servo setting means touch pusher is deployed, and touched/sensed something
+        leftButtonPusher.setDirection(Servo.Direction.REVERSE);
+        rightButtonPusher.setPosition(0.5);
+        leftButtonPusher.setPosition(0.5);
+
+        skiLiftHandleRight = hardwareMap.servo.get("SkiLiftHandleRight");
+        //value 45/255 is the initial position, value 195/255 is the deployed position
+        skiLiftHandleRight.setPosition(45.0/255);
+        skiLiftHandleLeft = hardwareMap.servo.get("SkiLiftHandleLeft");
+        //value 240/255 is the initial position, value 90/255 is the deployed position
+        skiLiftHandleLeft.setPosition(240.0/255);
+        frontSweeper = hardwareMap.servo.get("FrontSweeper");
+        //value 200/255 is the initial position, value 100/255 is the deployed position
+        frontSweeper.setPosition(200.0/255);
     }
 
     @Override
@@ -95,10 +77,10 @@ public class DriverOpMode extends OpMode {
             //releasing climbers
             if (gamepad1.right_bumper) {
                 if (!rightClimberReleased) {
-                    skiLiftHandleRight.setPosition(CLIMBER_RELEASE_POS);
+                    skiLiftHandleRight.setPosition(CLIMBER_RELEASE_POS_RIGHT);
                     rightClimberReleased = true;
                 } else {
-                    skiLiftHandleRight.setPosition(0.0);
+                    skiLiftHandleRight.setPosition(45/255d);
                     rightClimberReleased = false;
                 }
                 while (true) {
@@ -108,10 +90,10 @@ public class DriverOpMode extends OpMode {
                 }
             } else if (gamepad1.left_bumper) {
                 if (!leftClimberReleased) {
-                    skiLiftHandleLeft.setPosition(CLIMBER_RELEASE_POS);
+                    skiLiftHandleLeft.setPosition(CLIMBER_RELEASE_POS_LEFT);
                     leftClimberReleased = true;
                 } else {
-                    skiLiftHandleLeft.setPosition(0.0);
+                    skiLiftHandleLeft.setPosition(240/255d);
                     leftClimberReleased = false;
                 }
                 while (true) {
@@ -148,32 +130,6 @@ public class DriverOpMode extends OpMode {
             mecanumWheels.powerMotors(fieldForward, fieldRight, clockwise, true);
         }
 
-        //this code controls the brushes
-        brushes.printTelemetry();
-
-        if (gamepad1.start) {
-            brushes.undockBrushes();
-        } else if (gamepad1.guide) {
-            brushes.dockBrushes();
-        } else if (gamepad2.guide) {
-            //stop the movement of the brushes
-            brushes.setRotation(Brushes.STOP_ROTATION);
-            brushState = BrushState.stopped;
-        } else if (gamepad2.start) {
-            if (brushState != BrushState.inward) {
-                //rotate brushes inward
-                brushes.setRotation(Brushes.ROTATE_INWARD_FAST);
-                brushState = BrushState.inward;
-            } else {
-                //rotate brushes outward
-                brushes.setRotation(Brushes.ROTATE_OUTWARD_FAST);
-                brushState = BrushState.outward;
-            }
-            while (true) {
-                if (!gamepad2.start) break;
-            }
-        }
-
         //this code controls the rear wheels
         //todo check limits
         telemetry.addData("rear wheel position", rearWheels.getCurrentPosition());
@@ -184,158 +140,28 @@ public class DriverOpMode extends OpMode {
             rearWheels.setTargetPosition(rearWheels.getCurrentPosition() - 500);
         }
 
-        contolArm();
-
-    }
-
-    void contolArm() {
-        arm.telemetry();
-
-        //wrist & twist
-        if (movingWrist && wristTime.time()>1){
-            if (gamepad2.y) {
-                arm.moveWrist(0.01);
-            } else if (gamepad2.a) {
-                arm.moveWrist(-0.01);
-            } else if (gamepad2.x) {
-                arm.moveTwist(0.01);
-            } else if (gamepad2.b) {
-                arm.moveTwist(-0.01);
+        // frontSweeperDeployed, brushDeployed;
+        if (gamepad1.start) {
+            if (!frontSweeperDeployed) {
+                frontSweeper.setPosition(100/255d);
+                frontSweeperDeployed = true;
             } else {
-                movingWrist = false;
+                frontSweeper.setPosition(200 / 255d);
+                frontSweeperDeployed = false;
             }
-        } else {
-            if (gamepad2.y) {
-                if (!movingWrist) {
-                    arm.moveWrist(0.01);
-                    movingWrist = true;
-                    wristTime.reset();
-                }
-            } else if (gamepad2.a) {
-                if (!movingWrist) {
-                    arm.moveWrist(-0.01);
-                    movingWrist = true;
-                    wristTime.reset();
-                }
-            } else if (gamepad2.x) {
-                if (!movingWrist) {
-                    arm.moveTwist(0.01);
-                    movingWrist = true;
-                    wristTime.reset();
-                }
-            } else if (gamepad2.b) {
-                if (!movingWrist) {
-                    arm.moveTwist(-0.01);
-                    movingWrist = true;
-                    wristTime.reset();
-                }
+            while (true) {
+                if (!gamepad1.start) break;
+            }
+        } else if (gamepad1.guide) {
+            if (!brushDeployed) {
+                brush.setPower(1);
+                brushDeployed = true;
             } else {
-                if (movingWrist) {
-                    movingWrist = false;
-                }
+                brush.setPower(0);
+                brushDeployed = false;
             }
-        }
-        telemetry.addData("preferElbowDown", preferElbowDown);
-        if (gamepad2.left_stick_button)
-        {
-            if (arm.isSafeToChangePreferPlus())
-            {
-                preferElbowDown = !preferElbowDown;
-                while (true)
-                {
-                    if (!gamepad2.left_stick_button)
-                    {
-                        break;
-                    }
-                }
-            }
-            else
-            {
-                DbgLog.msg("ERROR: Not safe to switch between elbow up and down");
-            }
-        }
-
-        //We have two ways to control the arm:
-        //
-        //1)   The left joystick defines x,y coordinates of the wrist,
-        //so that shoulder and elbow angles are moving together,
-        //
-        //2)  The right joystick controls shoulder and elbow angles separately,
-        //so that x controlls the elbow angle and y controlls the shoulder angle.
-        if (Math.abs(gamepad2.left_stick_x) >= 0.5 || Math.abs(gamepad2.left_stick_y) >= 0.5)
-        {
-            if (posUpdateTime.time()>0.1)
-            {
-                DbgLog.msg("ARM joystick X,Y" + gamepad2.left_stick_x + ", " + -gamepad2.left_stick_y);
-                arm.changeXYPosition(gamepad2.left_stick_x, -gamepad2.left_stick_y, preferElbowDown);
-                posUpdateTime.reset();
-            }
-        }
-        else {
-            //elbow
-            if (gamepad2.right_stick_x != 0) { //negative is up
-                arm.moveElbow(gamepad2.right_stick_x / 30);
-            }
-
-            //shoulder
-
-            // small adjustments
-            if (!movingShoulderBig) {
-                if (gamepad2.left_trigger > 0.5) {
-                    if (!movingShoulderSmall) {
-                        arm.changeShoulderPosition(10);
-                        movingShoulderSmall = true;
-                    }
-                } else if (gamepad2.right_trigger > 0.5) {
-                    if (!movingShoulderSmall) {
-                        arm.changeShoulderPosition(-10);
-                        movingShoulderSmall = true;
-                    }
-                } else if (movingShoulderSmall) {
-                    movingShoulderSmall = false;
-                }
-            }
-
-
-            // big adjustments
-            if (!movingShoulderSmall) {
-                if (gamepad2.right_stick_y != 0 && Math.abs(gamepad2.right_stick_y) > 0.1) { //negative is up
-                    arm.moveShoulder(gamepad2.right_stick_y);
-                    movingShoulderBig = true;
-                } else if (movingShoulderBig) {
-                    arm.holdShoulderPosition();
-                    movingShoulderBig = false;
-                }
-            }
-        }
-
-        if (gamepad2.dpad_up) {
-            // make sure the brushes are undocked when moving from initial position
-            if (arm.getArmState() != Arm.State.initial || brushes.getState() == Brushes.State.brushesUndocked) {
-                arm.undockArm();
-                preferElbowDown = false;
-            } else {
-                brushes.undockBrushes();
-            }
-        } else if (gamepad2.dpad_down) {
-            // make sure the brushes are undocked before docking the arm
-            if (brushes.getState() == Brushes.State.brushesUndocked) {
-                arm.dockArm();
-                preferElbowDown = false;
-            } else {
-                brushes.undockBrushes();
-            }
-        } else if (gamepad2.dpad_right) {
-            arm.toPeopleDropPosition();
-            preferElbowDown = true;
-
-        } else if (gamepad2.dpad_left) {
-            // make sure the brushes are docked before using in-front-of-brushes position
-            if (brushes.getState() == Brushes.State.brushesDocked) {
-                arm.toFrontPosition();
-                preferElbowDown = false;
-            } else {
-                brushes.dockBrushes();
+            while (true) {
+                if (!gamepad1.guide) break;
             }
         }
     }
