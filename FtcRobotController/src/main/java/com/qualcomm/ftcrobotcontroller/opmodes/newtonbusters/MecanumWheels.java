@@ -38,8 +38,8 @@ public class MecanumWheels { //defining the 4 motors
 
         if (useGyro) {
             sensorGyro = hardwareMap.gyroSensor.get("Gyro Sensor");
-            // default - backward config
-            gyroForwardOffset = 180;
+            // default - forward config
+            gyroForwardOffset = 0;
         }
     }
 

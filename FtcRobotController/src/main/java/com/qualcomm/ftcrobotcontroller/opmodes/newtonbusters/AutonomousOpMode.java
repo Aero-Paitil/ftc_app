@@ -3,10 +3,10 @@ package com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters;
 import com.qualcomm.ftccommon.DbgLog;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.ColorSensor;
+import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorController;
-//import com.qualcomm.robotcore.hardware.OpticalDistanceSensor;
-//import com.qualcomm.robotcore.hardware.TouchSensor;
 import com.qualcomm.robotcore.hardware.UltrasonicSensor;
+import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 import com.qualcomm.robotcore.hardware.Servo;
 
@@ -22,7 +22,8 @@ public class AutonomousOpMode extends LinearOpMode {
     boolean blueAlliance = true;
 
     final static int STOP_AT_DISTANCE_READING = 50;                     //ODS reading; robot will stop at this distance from wall
-    final static int MID_POINT_ALPHA = 20;                              //(0 + 40) / 2 = 20
+    final static int MID_POINT_ALPHA_BACK = 15;                         //(0 + 30) / 2 = 15
+    final static int MID_POINT_ALPHA_FRONT = 5;                         //(0 + 10) / 2 = 5
     final static double CORRECTION_MULTIPLIER = 0.012;                  //kp constant power
     final static double LINE_FOLLOW_MOTOR_POWER = -0.2;                 //power of the motor
 
@@ -34,12 +35,19 @@ public class AutonomousOpMode extends LinearOpMode {
 
     MecanumWheels mecanumWheels;
 
-    UltrasonicSensor ultrasonicSensor;
-    ColorSensor colorSensorDrive;
+    UltrasonicSensor ultrasonicSensorRight;
+    UltrasonicSensor ultrasonicSensorLeft;
+    ColorSensor colorSensorFront;
+    ColorSensor colorSensorBack;
     ColorSensor colorSensorBeacon;
     Servo rightButtonPusher, leftButtonPusher;
     Servo skiLiftHandleRight, skiLiftHandleLeft;
     Servo frontSweeper;
+    Servo peopleDrop;
+    DcMotor brush;
+
+    ElapsedTime distanceTimer;
+    double lastDistance = 0;
 
     // gyro heading is from 0 to 359
     public void rotateToHeading(double requiredHeading) throws InterruptedException {
@@ -47,7 +55,7 @@ public class AutonomousOpMode extends LinearOpMode {
         mecanumWheels.setRunMode(DcMotorController.RunMode.RUN_WITHOUT_ENCODERS);
 
 
-        double MIN_ROTATE_POWER = 0.3;
+        double MIN_ROTATE_POWER = 0.2;
 
         // make sure requiredHeading is positive and less than 360
         while (requiredHeading >= 360) {
@@ -111,21 +119,31 @@ public class AutonomousOpMode extends LinearOpMode {
     }
 
     public boolean checkTouchObject() {
-        //telemetry.addData("LEFT touch", opticalDistSensorLeft.getLightDetectedRaw());
-        //telemetry.addData("RIGHT touch", opticalDistSensorRight.getLightDetectedRaw());
-        //return touchSensor.isPressed() || opticalDistSensorLeft.getLightDetectedRaw() > 10 || opticalDistSensorRight.getLightDetectedRaw() > 20;
-        double ultrasonicLevel = ultrasonicSensor.getUltrasonicLevel();
-        telemetry.addData("ultrasonic level", ultrasonicLevel);
-        DbgLog.msg("ULTRASONIC "+ultrasonicLevel);
-        return (ultrasonicLevel < 12 && ultrasonicLevel > 0.1);
+        double ultrasonicLevelRight = ultrasonicSensorRight.getUltrasonicLevel();
+        double ultrasonicLevelLeft = ultrasonicSensorLeft.getUltrasonicLevel();
+        telemetry.addData("ultrasonic level right", ultrasonicLevelRight);
+        telemetry.addData("ultrasonic level left", ultrasonicLevelLeft);
+        DbgLog.msg("ULTRASONIC RIGHT " + ultrasonicLevelRight);
+        DbgLog.msg("ULTRASONIC LEFT " + ultrasonicLevelLeft);
+        // check if the distance has changed for the last 2 secs
+        if (distanceTimer.time()>2) {
+            if (lastDistance > 0 && lastDistance == Math.min(ultrasonicLevelRight, ultrasonicLevelLeft)) {
+                return true;
+            }
+            lastDistance=Math.min(ultrasonicLevelRight, ultrasonicLevelLeft);
+            distanceTimer.reset();
+        }
+        return (ultrasonicLevelRight < 15 && ultrasonicLevelRight > 0.1);
     }
 
     public BeaconColor checkBeaconColor(){
         BeaconColor color;
-        if (colorSensorBeacon.blue() > 0) {
+        int blue = colorSensorBeacon.blue();
+        int red = colorSensorBeacon.red();
+        if (blue>red) {
             DbgLog.msg("BEACON Detecting blue");
             color = BeaconColor.blue;
-        } else if (colorSensorBeacon.red() > 0) {
+        } else if (red>blue) {
             DbgLog.msg("BEACON Detecting red");
             color = BeaconColor.red;
         } else {
@@ -137,8 +155,8 @@ public class AutonomousOpMode extends LinearOpMode {
 
     @Override
     public void runOpMode() throws InterruptedException {
+
         mecanumWheels = new MecanumWheels(hardwareMap, telemetry, true);
-        //mecanumWheels.backwardSetup();
         waitOneFullHardwareCycle();
 
         rightButtonPusher = hardwareMap.servo.get("RightButtonPusher");
@@ -149,56 +167,67 @@ public class AutonomousOpMode extends LinearOpMode {
         rightButtonPusher.setPosition(0.5);
         leftButtonPusher.setPosition(0.5);
 
+        //Zero is the dropping position, 1 is the initial position.
+        peopleDrop = hardwareMap.servo.get("PeopleDrop");
+        peopleDrop.setPosition(1);
+
+
         skiLiftHandleRight = hardwareMap.servo.get("SkiLiftHandleRight");
         //value 45/255 is the initial position, value 195/255 is the deployed position
-        skiLiftHandleRight.setPosition(45.0/255);
+        skiLiftHandleRight.setPosition(45.0 / 255);
         skiLiftHandleLeft = hardwareMap.servo.get("SkiLiftHandleLeft");
         //value 240/255 is the initial position, value 90/255 is the deployed position
-        skiLiftHandleLeft.setPosition(240.0/255);
+        skiLiftHandleLeft.setPosition(240.0 / 255);
         frontSweeper = hardwareMap.servo.get("FrontSweeper");
         //value 200/255 is the initial position, value 100/255 is the deployed position
-        frontSweeper.setPosition(200.0/255);
+        frontSweeper.setPosition(125.0 / 255);
 
-        colorSensorDrive = hardwareMap.colorSensor.get("Color Sensor Bottom");
+        brush = hardwareMap.dcMotor.get("Brush");
+        brush.setMode(DcMotorController.RunMode.RUN_WITHOUT_ENCODERS);
+
+        colorSensorFront = hardwareMap.colorSensor.get("Color Sensor Front");
+        colorSensorFront.setI2cAddress(0x40);
+        colorSensorFront.enableLed(true);
+        colorSensorBack = hardwareMap.colorSensor.get("Color Sensor Bottom");
         colorSensorBeacon = hardwareMap.colorSensor.get("Color Sensor Beacon");
         colorSensorBeacon.setI2cAddress(0x3e);
-        //opticalDistSensorRight = hardwareMap.opticalDistanceSensor.get("Optical Distance Right");
-        //opticalDistSensorLeft = hardwareMap.opticalDistanceSensor.get("Optical Distance Left");
-        //touchSensor = hardwareMap.touchSensor.get("Touch Sensor");
-        ultrasonicSensor = hardwareMap.ultrasonicSensor.get("Distance Sensor");
+
+        ultrasonicSensorRight = hardwareMap.ultrasonicSensor.get("Distance Sensor Right");
+        ultrasonicSensorLeft = hardwareMap.ultrasonicSensor.get("Distance Sensor Left");
+
+        distanceTimer = new ElapsedTime();
+        distanceTimer.reset();
+        lastDistance = 0;
 
         waitForStart();
 
+        peopleDrop.setPosition(0.3);
 
-        /*
-        //to be able to use field coordinates in the following driving mode
-        // our robot must be faced backward in the beginning
-        // the robot must have the left mechanum wheel (in the point of view of the person) on the second tooth (as opposed to hole) on the second tile.
-
-        // assuming we are starting on a tile next to  the mountain
-        // go forward (back) 36 inches, which is  ~3 wheel rotation
-        // OR
-        // assuming we are on the second tile from the mountain
-        // go forward (back) 12 inches, which is ~1 wheel rotation
-        mecanumWheels.runToPosition(-ENCODER_COUNTS_PER_ROTATION, -DRIVING_POWER);
+        // deploy sweeper
+        frontSweeper.setPosition(105 / 255d);
         waitOneFullHardwareCycle();
-        Thread.sleep(1500); //sleeping for 1.5 seconds so motors has time to run to their position
-        mecanumWheels.logEncoders();
-        double headingToBeaconZone = blueAlliance ? (180+45) : (180-45);
-        rotateToHeading(headingToBeaconZone);
-        */
+        Thread.sleep(1500);
+        brush.setPower(1);
+        waitOneFullHardwareCycle();
+        Thread.sleep(500);
+        /*
+         We are assuming gyro calibration with robot pointing backward was performed right before.
+         At the start of autonomous mode, we are visually pointing robot (using the arm)
+         to the white line (just past its start)
+         */
         double headingToBeaconZone = mecanumWheels.getGyroHeading();
+
         //go to the white line maintaining gyro headings to beacon
 
         mecanumWheels.setRunMode(DcMotorController.RunMode.RUN_WITHOUT_ENCODERS);
         waitOneFullHardwareCycle();
-        mecanumWheels.powerMotors(-DRIVING_POWER, 0, 0);
+        mecanumWheels.powerMotors(DRIVING_POWER, 0, 0);
         double currentHeading, error, clockwiseSpeed;
         double kp = DRIVING_POWER; //experimental coefficient for proportional correction of the direction
         //alpha() is to measure the brightness.
         //maintain the direction until robot "sees" the edge of white line/touches/close to some other object
         int i = 0;
-        while (!checkTouchObject() && colorSensorDrive.alpha() < MID_POINT_ALPHA && opModeIsActive()) {
+        while (colorSensorFront.alpha() < MID_POINT_ALPHA_FRONT && opModeIsActive()) {
             // keep going
             currentHeading = mecanumWheels.getGyroHeading();
             error = headingToBeaconZone - currentHeading;
@@ -215,7 +244,7 @@ public class AutonomousOpMode extends LinearOpMode {
             }
             clockwiseSpeed = Range.clip(clockwiseSpeed, -1.0, 1.0);
             //DbgLog.msg(i + " clockwise speed "+clockwiseSpeed);
-            mecanumWheels.powerMotors(-DRIVING_POWER, 0, clockwiseSpeed);
+            mecanumWheels.powerMotors(DRIVING_POWER, 0, clockwiseSpeed);
 
             waitOneFullHardwareCycle();
             //Thread.sleep(25);
@@ -226,9 +255,8 @@ public class AutonomousOpMode extends LinearOpMode {
         //Thread.sleep(100);
 
         if (!checkTouchObject() && opModeIsActive()) {
-
-            // move debris out out of the way
-            mecanumWheels.powerMotors(-DRIVING_POWER,0,0);
+            // move debris out out of the way passed the line
+            mecanumWheels.powerMotors(DRIVING_POWER,0,0);
             waitOneFullHardwareCycle();
             long startpos = Math.abs(mecanumWheels.motorFrontLeft.getCurrentPosition());
             long endpos = startpos;
@@ -239,11 +267,11 @@ public class AutonomousOpMode extends LinearOpMode {
             mecanumWheels.powerMotors(0, 0, 0);
             waitOneFullHardwareCycle();
             Thread.sleep(100);
-            mecanumWheels.powerMotors(0.5, 0, 0);
-            while (colorSensorDrive.alpha() < MID_POINT_ALPHA && opModeIsActive()) {
+            // move back to the line
+            mecanumWheels.powerMotors(-0.5, 0, 0);
+            while (colorSensorFront.alpha() < MID_POINT_ALPHA_FRONT && opModeIsActive()) {
                 waitOneFullHardwareCycle();
             }
-
             mecanumWheels.powerMotors(0, 0, 0);
             waitOneFullHardwareCycle();
             Thread.sleep(100);
@@ -254,20 +282,26 @@ public class AutonomousOpMode extends LinearOpMode {
             waitOneFullHardwareCycle();
             //Thread.sleep(1000);
 
+            // undeploy sweeper
+            brush.setPower(0);
+            waitOneFullHardwareCycle();
+            frontSweeper.setPosition(125 / 255d);
+            waitOneFullHardwareCycle();
+
             // shift to the left to find line
-            if (colorSensorDrive.alpha() < MID_POINT_ALPHA && !checkTouchObject() && opModeIsActive()) {
+            if (colorSensorBack.alpha() < MID_POINT_ALPHA_BACK && !checkTouchObject() && opModeIsActive()) {
                 mecanumWheels.powerMotors(0, 0.8, 0);
-                while (colorSensorDrive.alpha() < MID_POINT_ALPHA && !checkTouchObject() && opModeIsActive()) {
+                while (colorSensorBack.alpha() < MID_POINT_ALPHA_BACK && !checkTouchObject() && opModeIsActive()) {
                     waitOneFullHardwareCycle();
                 }
                 mecanumWheels.powerMotors(0, 0, 0);
                 waitOneFullHardwareCycle();
                 Thread.sleep(100);
-                if (colorSensorDrive.alpha() < MID_POINT_ALPHA && !checkTouchObject() && opModeIsActive()) {
-                    telemetry.addData("Overshot", colorSensorDrive.alpha());
+                if (colorSensorBack.alpha() < MID_POINT_ALPHA_BACK && !checkTouchObject() && opModeIsActive()) {
+                    telemetry.addData("Overshot", colorSensorBack.alpha());
                     mecanumWheels.powerMotors(0, -0.8, 0);
                     waitOneFullHardwareCycle();
-                    while (colorSensorDrive.alpha() < MID_POINT_ALPHA && !checkTouchObject() && opModeIsActive()) {
+                    while (colorSensorBack.alpha() < MID_POINT_ALPHA_BACK && !checkTouchObject() && opModeIsActive()) {
                         waitOneFullHardwareCycle();
                     }
                     mecanumWheels.powerMotors(0, 0, 0);
@@ -285,88 +319,59 @@ public class AutonomousOpMode extends LinearOpMode {
             // follow line
             i = 0;
             while (!checkTouchObject() && opModeIsActive()) {
-                /*
-                DbgLog.msg(i + " BEACON heading " + mecanumWheels.getGyroHeading());
 
-                if (colorSensorBeacon.blue() > 0) {
-                    DbgLog.msg(i + " BEACON Detecting blue");
-
-                } else if (colorSensorBeacon.red() > 0) {
-                    DbgLog.msg(i + " BEACON Detecting red");
-
-                } else {
-                    DbgLog.msg(i + " BEACON No color detected");
-                }*/
-
-
-                double alpha = colorSensorDrive.alpha();
+                double alpha = colorSensorBack.alpha();
                 //DbgLog.msg(i + " BEACON alpha " + alpha);
-                //DbgLog.msg(i + " BEACON distance " + ultrasonicSensor.getUltrasonicLevel());
+                //DbgLog.msg(i + " BEACON distance " + ultrasonicSensorRight.getUltrasonicLevel());
 
-                //DbgLog.msg(i + " BEACON distance touch,right,left " + touchSensor.isPressed() + ", " +
-                //opticalDistSensorRight.getLightDetectedRaw() + ", " + opticalDistSensorLeft.getLightDetectedRaw());
-                double powerDelta = (alpha - MID_POINT_ALPHA) * CORRECTION_MULTIPLIER;   //Delta = difference
+                double powerDelta = (alpha - MID_POINT_ALPHA_BACK) * CORRECTION_MULTIPLIER;   //Delta = difference
                 mecanumWheels.powerMotors(-0.2, 0, powerDelta);
                 waitOneFullHardwareCycle();
                 i++;
             }
-            DbgLog.msg(i + " BEACON distance " + ultrasonicSensor.getUltrasonicLevel());
-
-            //DbgLog.msg(" BEACON distance touch,right,left " + touchSensor.isPressed() + ", " +
-            //opticalDistSensorRight.getLightDetectedRaw() + ", " + opticalDistSensorLeft.getLightDetectedRaw());
-
             mecanumWheels.powerMotors(0, 0, 0);
             waitOneFullHardwareCycle();
-            checkBeaconColor();
-        }
-        /*
+            Thread.sleep(100);
+            DbgLog.msg(i + " BEACON distance " + ultrasonicSensorRight.getUltrasonicLevel());
+            DbgLog.msg(i + " BEACON heading " + mecanumWheels.getGyroHeading());
 
-
-
-        if (colorSensorDrive.alpha() >= MID_POINT_ALPHA) {
-            double headingToBeacon = blueAlliance ? 270 : 90;
-            rotateToHeading(headingToBeacon);
-            waitOneFullHardwareCycle();
-
-            if (colorSensorDrive.alpha() < MID_POINT_ALPHA) {
-                while (!checkTouchObject() && colorSensorDrive.alpha() < MID_POINT_ALPHA && opModeIsActive()) {
-                    mecanumWheels.powerMotors(0, DRIVING_POWER, 0);
-                    waitOneFullHardwareCycle();
-                    Thread.sleep(25);
+            //Trying several times to find the color, in case it is not initially detected.
+            BeaconColor color = BeaconColor.none;
+            for (int c = 0; c <10; c++){
+                color = checkBeaconColor();
+                waitOneFullHardwareCycle();
+                if (color != BeaconColor.none) {
+                    break;
                 }
-                mecanumWheels.powerMotors(0, 0, 0);
-                waitOneFullHardwareCycle();
-                rotateToHeading(headingToBeacon);
-                waitOneFullHardwareCycle();
-            }
-            BeaconColor color = checkBeaconColor();
-            if (color == BeaconColor.none){
-                while (color == BeaconColor.none && !checkTouchObject() && opModeIsActive()){
-                    mecanumWheels.powerMotors(-0.5, 0, 0);
-                    waitOneFullHardwareCycle();
-                    Thread.sleep(25);
-                    color = checkBeaconColor();
-                }
-                mecanumWheels.powerMotors(0,0,0);
-                waitOneFullHardwareCycle();
             }
 
-            if (color != BeaconColor.none){
+            if (color != BeaconColor.none && opModeIsActive()){
+                peopleDrop.setPosition(0);
+                waitOneFullHardwareCycle();
                 BeaconColor allianceColor = blueAlliance? BeaconColor.blue : BeaconColor.red;
                 //robot has detected the beacon's color
                 //our beacon color sensor is on the right (when front of robot is facing forward)
                 if (color == allianceColor) {
                     //deploy the right button pusher
                     rightButtonPusher.setPosition(1);
+                    waitOneFullHardwareCycle();
+                    Thread.sleep(1500);
+                    if (opModeIsActive()) {
+                        rightButtonPusher.setPosition(0);
+                    }
                 } else {
                     //deploy the left button pusher
                     leftButtonPusher.setPosition(1);
+                    waitOneFullHardwareCycle();
+                    Thread.sleep(1500);
+                    if (opModeIsActive()) {
+                        leftButtonPusher.setPosition(0);
+                    }
                 }
             }
             waitOneFullHardwareCycle();
         }
-            */
-
 
     }
+
 }

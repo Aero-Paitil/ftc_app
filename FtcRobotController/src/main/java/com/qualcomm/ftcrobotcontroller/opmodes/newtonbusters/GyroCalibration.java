@@ -12,6 +12,6 @@ public class GyroCalibration extends LinearOpMode{
     public void runOpMode() throws InterruptedException {
         MecanumWheels mecanumWheels;
         mecanumWheels = new MecanumWheels(hardwareMap, telemetry, true);
-        mecanumWheels.backwardSetup();
+        mecanumWheels.forwardSetup();
     }
 }
