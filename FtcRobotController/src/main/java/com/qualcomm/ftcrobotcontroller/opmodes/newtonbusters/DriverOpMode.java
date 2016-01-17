@@ -19,12 +19,14 @@ public class DriverOpMode extends OpMode {
     MecanumWheels mecanumWheels;
     DcMotor rearWheels;
     DcMotor brush;
+    DcMotor shoulderMotor;
 
     Servo rightButtonPusher, leftButtonPusher;
     Servo skiLiftHandleRight, skiLiftHandleLeft;
     Servo frontSweeper;
     Servo spool1;
     Servo spool2;
+    Servo peopleDrop;
 
     enum SweeperState {Undeployed, BarForward, StartingBrushes, Deployed, StoppingBrushes, BarBack}
 
@@ -36,6 +38,10 @@ public class DriverOpMode extends OpMode {
 
     boolean rightClimberReleased, leftClimberReleased;
 
+    boolean movingShoulderBig, movingShoulderSmall;
+
+    boolean movingRearWheelsUp, movingRearWheelsHoldingPos;
+
     @Override
     public void init() {
         mecanumWheels = new MecanumWheels(hardwareMap, telemetry, true); //We are using the Gyro.
@@ -44,15 +50,15 @@ public class DriverOpMode extends OpMode {
         rearWheels.setMode(DcMotorController.RunMode.RESET_ENCODERS);
         brush = hardwareMap.dcMotor.get("Brush");
 
+        shoulderMotor = hardwareMap.dcMotor.get("Arm");
+        shoulderMotor.setMode(DcMotorController.RunMode.RESET_ENCODERS);
+        movingShoulderSmall = false;
+        movingShoulderBig = false;
+
     }
 
     @Override
     public void start() {
-
-        //rearWheels.setTargetPosition(-REAR_WHEELS_COUNTS);
-        rearWheels.setTargetPosition(0);
-        rearWheels.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
-        rearWheels.setPower(0.3);
 
         rightButtonPusher = hardwareMap.servo.get("RightButtonPusher");
         leftButtonPusher = hardwareMap.servo.get("LeftButtonPusher");
@@ -70,9 +76,14 @@ public class DriverOpMode extends OpMode {
         skiLiftHandleLeft.setPosition(240.0 / 255);
         frontSweeper = hardwareMap.servo.get("FrontSweeper");
         //value 200/255 is the initial position, value 100/255 is the deployed position
-        frontSweeper.setPosition(125.0 / 255);
+        frontSweeper.setPosition(121.0 / 255);
         sweeperState = SweeperState.Undeployed;
         sweeperTimer = new ElapsedTime();
+
+        //Zero is the dropping position, 1 is the initial position.
+        peopleDrop = hardwareMap.servo.get("PeopleDrop");
+        peopleDrop.setPosition(1);
+
 
         spool1 = hardwareMap.servo.get("Spool1");
         spool1.setPosition(0.5);
@@ -153,20 +164,40 @@ public class DriverOpMode extends OpMode {
         //todo check limits
         int rearWheelsPosition = rearWheels.getCurrentPosition();
         telemetry.addData("rear wheel position", rearWheelsPosition);
-        if (gamepad1.a) {
+        if (gamepad1.a || gamepad1.b) {
+            if (!movingRearWheelsHoldingPos) {
+                rearWheels.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
+                rearWheels.setPower(1);
+                movingRearWheelsHoldingPos = true;
+            }
 
-            int finalPosition = rearWheelsPosition + 100;
-            if (finalPosition < 4000) {
-                rearWheels.setTargetPosition(finalPosition);
+            int finalPosition;
+            if (gamepad1.a) {
+                finalPosition = rearWheelsPosition + 100;
+            } else { //gamepad1.b
+                finalPosition = rearWheelsPosition - 100;
+            }
+            rearWheels.setTargetPosition(finalPosition);
+
+        } else {
+            if (movingRearWheelsHoldingPos) {
+                movingRearWheelsHoldingPos = false;
             }
         }
-        if (gamepad1.b) {
-            int finalPosition = rearWheelsPosition - 100;
-            if (finalPosition >= 0) {
-                rearWheels.setTargetPosition(finalPosition);
+        if (gamepad1.y) {
+            if (!movingRearWheelsUp) {
+                rearWheels.setMode(DcMotorController.RunMode.RUN_WITHOUT_ENCODERS);
+                rearWheels.setPower(-0.3);
+                movingRearWheelsUp = true;
+            }
+        } else {
+            if (movingRearWheelsUp) {
+                rearWheels.setPower(0);
+                movingRearWheelsUp = false;
             }
         }
 
+        contolArm();
 
         // frontSweeperDeployed, brushDeployed;
         if (gamepad1.start) {
@@ -175,15 +206,14 @@ public class DriverOpMode extends OpMode {
             undeploySweeper();
         }
 
-        telemetry.addData("spool1", spool1.getConnectionInfo() );
-        telemetry.addData("spool2", spool2.getConnectionInfo() );
+        telemetry.addData("spool1", spool1.getConnectionInfo());
+        telemetry.addData("spool2", spool2.getConnectionInfo());
 
         // controls spools
-        if (gamepad2.y){
+        if (gamepad2.y) {
             spool1.setPosition(0);
             spool2.setPosition(0);
-        }
-        else if (gamepad2.a) {
+        } else if (gamepad2.a) {
             //extend
             spool1.setPosition(1);
             spool2.setPosition(1);
@@ -232,7 +262,7 @@ public class DriverOpMode extends OpMode {
             case StoppingBrushes:
             case BarForward:
                 if (sweeperTimer.time() > 0.5) {
-                    frontSweeper.setPosition(125 / 255d);
+                    frontSweeper.setPosition(118 / 255d);
                     sweeperTimer.reset();
                     sweeperState = SweeperState.BarBack;
                 }
@@ -244,5 +274,69 @@ public class DriverOpMode extends OpMode {
                 break;
 
         }
+    }
+
+    void contolArm() {
+        telemetry.addData("Shoulder", shoulderMotor.getCurrentPosition());
+
+        // small shoulder adjustments
+        if (!movingShoulderBig) {
+            if (gamepad2.left_trigger > 0.5) {
+                if (!movingShoulderSmall) {
+                    changeShoulderPosition(10);
+                    movingShoulderSmall = true;
+                }
+            } else if (gamepad2.right_trigger > 0.5) {
+                if (!movingShoulderSmall) {
+                    changeShoulderPosition(-10);
+                    movingShoulderSmall = true;
+                }
+            } else if (movingShoulderSmall) {
+                movingShoulderSmall = false;
+            }
+        }
+
+
+        // big shoulder adjustments
+        if (!movingShoulderSmall) {
+            if (gamepad2.right_stick_y != 0 && Math.abs(gamepad2.right_stick_y) > 0.1) { //negative is up
+                moveShoulder(gamepad2.right_stick_y);
+                movingShoulderBig = true;
+            } else if (movingShoulderBig) {
+                holdShoulderPosition();
+                movingShoulderBig = false;
+            }
+        }
+
+    }
+
+    public void changeShoulderPosition(int byCounts) {
+        int currentPosition = shoulderMotor.getCurrentPosition();
+        int newPosition = currentPosition + byCounts;
+        setShoulderPosition(newPosition);
+    }
+
+    private void setShoulderPosition(int position) {
+        shoulderMotor.setTargetPosition(position);
+        shoulderMotor.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
+        shoulderMotor.setPower(0.3);
+    }
+
+    public void holdShoulderPosition() {
+        int currentPosition = shoulderMotor.getCurrentPosition();
+        setShoulderPosition(currentPosition);
+    }
+
+    /**
+     * while speed is not 0, move arm
+     *
+     * @param speed is from -1 to 1
+     */
+    public void moveShoulder(double speed) {
+        if (Math.abs(speed) < 0.1) {
+            holdShoulderPosition();
+        }
+        shoulderMotor.setMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
+        shoulderMotor.setPower(speed / 10);
     }
 }
