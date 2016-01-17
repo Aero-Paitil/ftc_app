@@ -23,6 +23,8 @@ public class DriverOpMode extends OpMode {
     Servo rightButtonPusher, leftButtonPusher;
     Servo skiLiftHandleRight, skiLiftHandleLeft;
     Servo frontSweeper;
+    Servo spool1;
+    Servo spool2;
 
     enum SweeperState {Undeployed, BarForward, StartingBrushes, Deployed, StoppingBrushes, BarBack}
 
@@ -41,6 +43,7 @@ public class DriverOpMode extends OpMode {
         rearWheels = hardwareMap.dcMotor.get("RearWheels");
         rearWheels.setMode(DcMotorController.RunMode.RESET_ENCODERS);
         brush = hardwareMap.dcMotor.get("Brush");
+
     }
 
     @Override
@@ -70,6 +73,11 @@ public class DriverOpMode extends OpMode {
         frontSweeper.setPosition(125.0 / 255);
         sweeperState = SweeperState.Undeployed;
         sweeperTimer = new ElapsedTime();
+
+        spool1 = hardwareMap.servo.get("Spool1");
+        spool1.setPosition(0.5);
+        spool2 = hardwareMap.servo.get("Spool2");
+        spool2.setPosition(0.5);
 
     }
 
@@ -165,6 +173,24 @@ public class DriverOpMode extends OpMode {
             deploySweeper();
         } else if (gamepad1.guide) {
             undeploySweeper();
+        }
+
+        telemetry.addData("spool1", spool1.getConnectionInfo() );
+        telemetry.addData("spool2", spool2.getConnectionInfo() );
+
+        // controls spools
+        if (gamepad2.y){
+            spool1.setPosition(0);
+            spool2.setPosition(0);
+        }
+        else if (gamepad2.a) {
+            //extend
+            spool1.setPosition(1);
+            spool2.setPosition(1);
+        } else {
+            spool1.setPosition(0.5);
+            spool2.setPosition(0.5);
+
         }
     }
 
