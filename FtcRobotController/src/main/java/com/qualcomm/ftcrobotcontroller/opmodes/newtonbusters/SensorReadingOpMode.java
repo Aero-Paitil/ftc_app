@@ -3,6 +3,8 @@ package com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.ColorSensor;
 //import com.qualcomm.robotcore.hardware.OpticalDistanceSensor;
+import com.qualcomm.robotcore.hardware.OpticalDistanceSensor;
+import com.qualcomm.robotcore.hardware.TouchSensor;
 import com.qualcomm.robotcore.hardware.UltrasonicSensor;
 
 /**
@@ -16,7 +18,8 @@ public class SensorReadingOpMode extends OpMode {
     //OpticalDistanceSensor opticalDistSensorRight;
     UltrasonicSensor ultrasonicSensorRight;
     UltrasonicSensor ultrasonicSensorLeft;
-
+    TouchSensor touchSensor;
+    OpticalDistanceSensor opticalDistance;
     @Override
     public void init() {
 
@@ -29,6 +32,9 @@ public class SensorReadingOpMode extends OpMode {
         colorSensorBeacon.setI2cAddress(0x3e);
         ultrasonicSensorRight = hardwareMap.ultrasonicSensor.get("Distance Sensor Right");
         ultrasonicSensorLeft = hardwareMap.ultrasonicSensor.get("Distance Sensor Left");
+        touchSensor = hardwareMap.touchSensor.get("Rear Wheels Touch");
+        opticalDistance = hardwareMap.opticalDistanceSensor.get("Optical Distance");
+
 
     }
 
@@ -47,6 +53,8 @@ public class SensorReadingOpMode extends OpMode {
         telemetry.addData("Ultrasonic Left", ultrasonicSensorLeft.getUltrasonicLevel());
         //telemetry.addData("OpticalDistLeft", "" + opticalDistSensorLeft.getLightDetectedRaw());
         //telemetry.addData("OpticalDistRight", "" + opticalDistSensorRight.getLightDetectedRaw());
+        telemetry.addData("Optical Distance",opticalDistance.getLightDetectedRaw());
+        telemetry.addData("Touch Sensor", touchSensor.isPressed());
 
 
     }

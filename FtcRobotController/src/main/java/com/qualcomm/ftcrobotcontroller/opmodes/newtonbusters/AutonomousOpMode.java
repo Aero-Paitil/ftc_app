@@ -397,9 +397,9 @@ public class AutonomousOpMode extends LinearOpMode {
                     }
                 }
                 // move backwards and drop people
-                mecanumWheels.powerMotors(0.2, 0, 0);
+                mecanumWheels.powerMotors(0.5, 0, 0);
                 waitOneFullHardwareCycle();
-                Thread.sleep(300);
+                Thread.sleep(400);
 
                 mecanumWheels.powerMotors(0, 0, 0);
                 waitOneFullHardwareCycle();
@@ -416,7 +416,7 @@ public class AutonomousOpMode extends LinearOpMode {
             }
             waitOneFullHardwareCycle();
 
-            peopleDrop.setPosition(100.0 / 255);
+            peopleDrop.setPosition(110.0 / 255);
             waitOneFullHardwareCycle();
         }
 

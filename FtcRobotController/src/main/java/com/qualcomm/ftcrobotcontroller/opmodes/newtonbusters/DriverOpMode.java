@@ -82,7 +82,7 @@ public class DriverOpMode extends OpMode {
 
         //Zero is the dropping position, 1 is the initial position.
         peopleDrop = hardwareMap.servo.get("PeopleDrop");
-        peopleDrop.setPosition(1);
+        peopleDrop.setPosition(110.0 / 255);
 
 
         spool1 = hardwareMap.servo.get("Spool1");
@@ -181,6 +181,7 @@ public class DriverOpMode extends OpMode {
 
         } else {
             if (movingRearWheelsHoldingPos) {
+                rearWheels.setPower(0.3);
                 movingRearWheelsHoldingPos = false;
             }
         }
