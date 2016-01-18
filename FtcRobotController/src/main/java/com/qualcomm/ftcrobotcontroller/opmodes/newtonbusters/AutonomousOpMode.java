@@ -126,11 +126,11 @@ public class AutonomousOpMode extends LinearOpMode {
 
         for (int i = 0; i < 10; i++) {
             ultrasonicLevelRight = ultrasonicSensorRight.getUltrasonicLevel();
-            if (ultrasonicLevelRight < 5 && ultrasonicLevelRight > 60) {
+            if (ultrasonicLevelRight < 5 || ultrasonicLevelRight > 60) {
                 ultrasonicLevelRight = 500;
             }
             ultrasonicLevelLeft = ultrasonicSensorLeft.getUltrasonicLevel();
-            if (ultrasonicLevelLeft < 5 && ultrasonicLevelLeft > 60) {
+            if (ultrasonicLevelLeft < 5 || ultrasonicLevelLeft > 60) {
                 ultrasonicLevelLeft = 500;
             }
             ultrasonicLevelTake = Math.min(ultrasonicLevelLeft, ultrasonicLevelRight);
@@ -142,7 +142,10 @@ public class AutonomousOpMode extends LinearOpMode {
             }
             waitForNextHardwareCycle();
         }
-
+        //we assume that we are too far away to get a valid value
+        if (n<1) {
+            return false;
+        }
         double ultrasonicLevelAverage = sum / n;
 
         telemetry.addData("ultrasonic level right", ultrasonicLevelAverage);
