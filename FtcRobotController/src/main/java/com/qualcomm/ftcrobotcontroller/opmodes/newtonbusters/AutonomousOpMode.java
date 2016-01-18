@@ -19,6 +19,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 public class AutonomousOpMode extends LinearOpMode {
 
     enum BeaconColor {red, blue, none}
+
     boolean blueAlliance = true;
 
     final static int STOP_AT_DISTANCE_READING = 50;                     //ODS reading; robot will stop at this distance from wall
@@ -118,32 +119,53 @@ public class AutonomousOpMode extends LinearOpMode {
         }
     }
 
-    public boolean checkTouchObject() {
-        double ultrasonicLevelRight = ultrasonicSensorRight.getUltrasonicLevel();
-        double ultrasonicLevelLeft = ultrasonicSensorLeft.getUltrasonicLevel();
-        telemetry.addData("ultrasonic level right", ultrasonicLevelRight);
-        telemetry.addData("ultrasonic level left", ultrasonicLevelLeft);
-        DbgLog.msg("ULTRASONIC RIGHT " + ultrasonicLevelRight);
-        DbgLog.msg("ULTRASONIC LEFT " + ultrasonicLevelLeft);
+    public boolean checkTouchObject() throws InterruptedException {
+        double ultrasonicLevelTake, ultrasonicLevelRight, ultrasonicLevelLeft;
+        double sum = 0;
+        int n = 0;
+
+        for (int i = 0; i < 10; i++) {
+            ultrasonicLevelRight = ultrasonicSensorRight.getUltrasonicLevel();
+            if (ultrasonicLevelRight < 5 && ultrasonicLevelRight > 60) {
+                ultrasonicLevelRight = 500;
+            }
+            ultrasonicLevelLeft = ultrasonicSensorLeft.getUltrasonicLevel();
+            if (ultrasonicLevelLeft < 5 && ultrasonicLevelLeft > 60) {
+                ultrasonicLevelLeft = 500;
+            }
+            ultrasonicLevelTake = Math.min(ultrasonicLevelLeft, ultrasonicLevelRight);
+            if (ultrasonicLevelTake > 499) {
+                continue;
+            } else {
+                sum += ultrasonicLevelTake;
+                n++;
+            }
+            waitForNextHardwareCycle();
+        }
+
+        double ultrasonicLevelAverage = sum / n;
+
+        telemetry.addData("ultrasonic level right", ultrasonicLevelAverage);
+        DbgLog.msg("ULTRASONIC RIGHT " + ultrasonicLevelAverage);
         // check if the distance has changed for the last 2 secs
-        if (distanceTimer.time()>2) {
-            if (lastDistance > 0 && lastDistance == Math.min(ultrasonicLevelRight, ultrasonicLevelLeft)) {
+        if (distanceTimer.time() > 2) {
+            if (lastDistance > 0 && lastDistance == ultrasonicLevelAverage) {
                 return true;
             }
-            lastDistance=Math.min(ultrasonicLevelRight, ultrasonicLevelLeft);
+            lastDistance = ultrasonicLevelAverage;
             distanceTimer.reset();
         }
-        return (ultrasonicLevelRight < 15 && ultrasonicLevelRight > 0.1);
+        return (ultrasonicLevelAverage < 18 && ultrasonicLevelAverage > 0.1);
     }
 
-    public BeaconColor checkBeaconColor(){
+    public BeaconColor checkBeaconColor() {
         BeaconColor color;
         int blue = colorSensorBeacon.blue();
         int red = colorSensorBeacon.red();
-        if (blue>red) {
+        if (blue > red) {
             DbgLog.msg("BEACON Detecting blue");
             color = BeaconColor.blue;
-        } else if (red>blue) {
+        } else if (red > blue) {
             DbgLog.msg("BEACON Detecting red");
             color = BeaconColor.red;
         } else {
@@ -256,17 +278,18 @@ public class AutonomousOpMode extends LinearOpMode {
 
         if (!checkTouchObject() && opModeIsActive()) {
             // move debris out out of the way passed the line
-            mecanumWheels.powerMotors(DRIVING_POWER,0,0);
+            mecanumWheels.powerMotors(DRIVING_POWER, 0, 0);
             waitOneFullHardwareCycle();
             long startpos = Math.abs(mecanumWheels.motorFrontLeft.getCurrentPosition());
             long endpos = startpos;
-            while (endpos-startpos < 0.5*(2 * 1140)) {
+            while (endpos - startpos < 0.5 * (2 * 1140)) {
                 waitOneFullHardwareCycle();
                 endpos = Math.abs(mecanumWheels.motorFrontLeft.getCurrentPosition());
             }
             mecanumWheels.powerMotors(0, 0, 0);
             waitOneFullHardwareCycle();
             Thread.sleep(100);
+
             // move back to the line
             mecanumWheels.powerMotors(-0.5, 0, 0);
             while (colorSensorFront.alpha() < MID_POINT_ALPHA_FRONT && opModeIsActive()) {
@@ -297,6 +320,7 @@ public class AutonomousOpMode extends LinearOpMode {
                 mecanumWheels.powerMotors(0, 0, 0);
                 waitOneFullHardwareCycle();
                 Thread.sleep(100);
+                // if we overshot, move back
                 if (colorSensorBack.alpha() < MID_POINT_ALPHA_BACK && !checkTouchObject() && opModeIsActive()) {
                     telemetry.addData("Overshot", colorSensorBack.alpha());
                     mecanumWheels.powerMotors(0, -0.8, 0);
@@ -312,7 +336,8 @@ public class AutonomousOpMode extends LinearOpMode {
             }
             //Thread.sleep(1000);
 
-            mecanumWheels.powerMotors(0,-0.2,0);
+            // last shift to the right to make sure it's on the right side of the line.
+            mecanumWheels.powerMotors(0, -0.2, 0);
             waitOneFullHardwareCycle();
             Thread.sleep(100);
 
@@ -337,7 +362,7 @@ public class AutonomousOpMode extends LinearOpMode {
 
             //Trying several times to find the color, in case it is not initially detected.
             BeaconColor color = BeaconColor.none;
-            for (int c = 0; c <10; c++){
+            for (int c = 0; c < 10; c++) {
                 color = checkBeaconColor();
                 waitOneFullHardwareCycle();
                 if (color != BeaconColor.none) {
@@ -345,17 +370,17 @@ public class AutonomousOpMode extends LinearOpMode {
                 }
             }
 
-            if (color != BeaconColor.none && opModeIsActive()){
+            if (color != BeaconColor.none && opModeIsActive()) {
                 peopleDrop.setPosition(0);
                 waitOneFullHardwareCycle();
-                BeaconColor allianceColor = blueAlliance? BeaconColor.blue : BeaconColor.red;
+                BeaconColor allianceColor = blueAlliance ? BeaconColor.blue : BeaconColor.red;
                 //robot has detected the beacon's color
                 //our beacon color sensor is on the right (when front of robot is facing forward)
                 if (color == allianceColor) {
                     //deploy the right button pusher
                     rightButtonPusher.setPosition(1);
                     waitOneFullHardwareCycle();
-                    Thread.sleep(1500);
+                    Thread.sleep(2500);
                     if (opModeIsActive()) {
                         rightButtonPusher.setPosition(0);
                     }
@@ -363,12 +388,32 @@ public class AutonomousOpMode extends LinearOpMode {
                     //deploy the left button pusher
                     leftButtonPusher.setPosition(1);
                     waitOneFullHardwareCycle();
-                    Thread.sleep(1500);
+                    Thread.sleep(2500);
                     if (opModeIsActive()) {
                         leftButtonPusher.setPosition(0);
                     }
                 }
+                // move backwards and drop people
+                mecanumWheels.powerMotors(0.2, 0, 0);
+                waitOneFullHardwareCycle();
+                Thread.sleep(300);
+
+                mecanumWheels.powerMotors(0, 0, 0);
+                waitOneFullHardwareCycle();
+                Thread.sleep(100);
+
+                // move sideways.
+                mecanumWheels.powerMotors(0, -1d, 0);
+                waitOneFullHardwareCycle();
+                Thread.sleep(2500);
+
+                mecanumWheels.powerMotors(0, 0, 0);
+                waitOneFullHardwareCycle();
+                Thread.sleep(100);
             }
+            waitOneFullHardwareCycle();
+
+            peopleDrop.setPosition(100.0 / 255);
             waitOneFullHardwareCycle();
         }
 
