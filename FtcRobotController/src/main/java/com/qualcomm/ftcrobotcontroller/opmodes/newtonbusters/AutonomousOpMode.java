@@ -46,6 +46,7 @@ public class AutonomousOpMode extends LinearOpMode {
     Servo frontSweeper;
     Servo peopleDrop;
     DcMotor brush;
+    DcMotor shoulderMotor;
 
     ElapsedTime distanceTimer;
     double lastDistance = 0;
@@ -177,6 +178,21 @@ public class AutonomousOpMode extends LinearOpMode {
         }
         return color;
     }
+    public void dropPeople() throws InterruptedException {
+        double currentPos = peopleDrop.getPosition();
+        double newPos = currentPos;
+        while (newPos >= 0 && opModeIsActive()){
+            newPos = currentPos - 0.025;
+            if (newPos >= 0){
+                peopleDrop.setPosition(newPos);
+                waitOneFullHardwareCycle();
+                Thread.sleep(80);
+                currentPos = peopleDrop.getPosition();
+            } else {
+                break;
+            }
+        }
+    }
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -210,6 +226,9 @@ public class AutonomousOpMode extends LinearOpMode {
         brush = hardwareMap.dcMotor.get("Brush");
         brush.setMode(DcMotorController.RunMode.RUN_WITHOUT_ENCODERS);
 
+        shoulderMotor = hardwareMap.dcMotor.get("Arm");
+        shoulderMotor.setMode(DcMotorController.RunMode.RESET_ENCODERS);
+
         colorSensorFront = hardwareMap.colorSensor.get("Color Sensor Front");
         colorSensorFront.setI2cAddress(0x40);
         colorSensorFront.enableLed(true);
@@ -226,7 +245,11 @@ public class AutonomousOpMode extends LinearOpMode {
 
         waitForStart();
 
-        peopleDrop.setPosition(0.3);
+        //we are going to raise the arm so it doesnt obstruct people rod
+        shoulderMotor.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
+        int currentArmPos = shoulderMotor.getCurrentPosition();
+        shoulderMotor.setTargetPosition(currentArmPos-1350);
+        shoulderMotor.setPower(0.3);
 
         // deploy sweeper
         frontSweeper.setPosition(105 / 255d);
@@ -235,6 +258,15 @@ public class AutonomousOpMode extends LinearOpMode {
         brush.setPower(1);
         waitOneFullHardwareCycle();
         Thread.sleep(500);
+
+        //we dont need power to hold arm at 90 degrees
+        shoulderMotor.setPower(0.0);
+
+        //we adjust people rod position so that people have time to settle and
+        // dont swing too much when we drop them
+        peopleDrop.setPosition(0.25);
+
+
         /*
          We are assuming gyro calibration with robot pointing backward was performed right before.
          At the start of autonomous mode, we are visually pointing robot (using the arm)
@@ -374,7 +406,7 @@ public class AutonomousOpMode extends LinearOpMode {
             }
 
             if (color != BeaconColor.none && opModeIsActive()) {
-                peopleDrop.setPosition(0);
+                dropPeople();
                 waitOneFullHardwareCycle();
                 BeaconColor allianceColor = blueAlliance ? BeaconColor.blue : BeaconColor.red;
                 //robot has detected the beacon's color
@@ -397,9 +429,9 @@ public class AutonomousOpMode extends LinearOpMode {
                     }
                 }
                 // move backwards and drop people
-                mecanumWheels.powerMotors(0.5, 0, 0);
+                mecanumWheels.powerMotors(0.7, 0, 0);
                 waitOneFullHardwareCycle();
-                Thread.sleep(400);
+                Thread.sleep(600);
 
                 mecanumWheels.powerMotors(0, 0, 0);
                 waitOneFullHardwareCycle();
@@ -416,7 +448,7 @@ public class AutonomousOpMode extends LinearOpMode {
             }
             waitOneFullHardwareCycle();
 
-            peopleDrop.setPosition(110.0 / 255);
+            peopleDrop.setPosition(0.5); // almost vertical position
             waitOneFullHardwareCycle();
         }
 

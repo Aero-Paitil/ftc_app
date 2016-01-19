@@ -6,6 +6,7 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorController;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.TouchSensor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 /**
@@ -17,9 +18,12 @@ public class DriverOpMode extends OpMode {
     final static private double CLIMBER_RELEASE_POS_LEFT = 90 / 255d;
 
     MecanumWheels mecanumWheels;
+
+    TouchSensor rearWheelsTouch;
     DcMotor rearWheels;
     DcMotor brush;
     DcMotor shoulderMotor;
+    DcMotor puller;
 
     Servo rightButtonPusher, leftButtonPusher;
     Servo skiLiftHandleRight, skiLiftHandleLeft;
@@ -27,6 +31,7 @@ public class DriverOpMode extends OpMode {
     Servo spool1;
     Servo spool2;
     Servo peopleDrop;
+    ElapsedTime peopleDropTime;
 
     enum SweeperState {Undeployed, BarForward, StartingBrushes, Deployed, StoppingBrushes, BarBack}
 
@@ -42,18 +47,26 @@ public class DriverOpMode extends OpMode {
 
     boolean movingRearWheelsUp, movingRearWheelsHoldingPos;
 
+    boolean pullingUp, pullingDown;
+
     @Override
     public void init() {
         mecanumWheels = new MecanumWheels(hardwareMap, telemetry, true); //We are using the Gyro.
 
         rearWheels = hardwareMap.dcMotor.get("RearWheels");
         rearWheels.setMode(DcMotorController.RunMode.RESET_ENCODERS);
+        rearWheelsTouch = hardwareMap.touchSensor.get("Rear Wheels Touch");
+
         brush = hardwareMap.dcMotor.get("Brush");
 
         shoulderMotor = hardwareMap.dcMotor.get("Arm");
         shoulderMotor.setMode(DcMotorController.RunMode.RESET_ENCODERS);
         movingShoulderSmall = false;
         movingShoulderBig = false;
+
+        puller = hardwareMap.dcMotor.get("Puller");
+        pullingUp = false;
+        pullingDown = false;
 
     }
 
@@ -82,8 +95,8 @@ public class DriverOpMode extends OpMode {
 
         //Zero is the dropping position, 1 is the initial position.
         peopleDrop = hardwareMap.servo.get("PeopleDrop");
-        peopleDrop.setPosition(110.0 / 255);
-
+        peopleDrop.setPosition(0.5); // almost vertical position
+        peopleDropTime = new ElapsedTime();
 
         spool1 = hardwareMap.servo.get("Spool1");
         spool1.setPosition(0.5);
@@ -161,13 +174,12 @@ public class DriverOpMode extends OpMode {
         }
 
         //this code controls the rear wheels
-        //todo check limits
         int rearWheelsPosition = rearWheels.getCurrentPosition();
         telemetry.addData("rear wheel position", rearWheelsPosition);
         if (gamepad1.a || gamepad1.b) {
             if (!movingRearWheelsHoldingPos) {
                 rearWheels.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
-                rearWheels.setPower(1);
+                rearWheels.setPower(1.0);
                 movingRearWheelsHoldingPos = true;
             }
 
@@ -177,11 +189,15 @@ public class DriverOpMode extends OpMode {
             } else { //gamepad1.b
                 finalPosition = rearWheelsPosition - 100;
             }
-            rearWheels.setTargetPosition(finalPosition);
+            if (gamepad1.a || !rearWheelsTouch.isPressed()) {
+                rearWheels.setTargetPosition(finalPosition);
+            } else {
+                rearWheels.setPower(0.0);
+            }
 
         } else {
             if (movingRearWheelsHoldingPos) {
-                rearWheels.setPower(0.3);
+                rearWheels.setPower(0.9);
                 movingRearWheelsHoldingPos = false;
             }
         }
@@ -198,14 +214,17 @@ public class DriverOpMode extends OpMode {
             }
         }
 
-        contolArm();
-
         // frontSweeperDeployed, brushDeployed;
         if (gamepad1.start) {
             deploySweeper();
         } else if (gamepad1.guide) {
             undeploySweeper();
         }
+
+        // second gamepad
+
+        contolArm();
+
 
         telemetry.addData("spool1", spool1.getConnectionInfo());
         telemetry.addData("spool2", spool2.getConnectionInfo());
@@ -222,6 +241,56 @@ public class DriverOpMode extends OpMode {
             spool1.setPosition(0.5);
             spool2.setPosition(0.5);
 
+        }
+
+        // controlling hanging
+        if (gamepad2.start){
+            if (! pullingUp) {
+                pullingUp = true;
+                puller.setMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
+                puller.setPower (1.0);
+            }
+        } else {
+            if (pullingUp){
+                pullingUp = false;
+                int currentPos = puller.getCurrentPosition();
+                puller.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
+                puller.setTargetPosition(currentPos);
+                puller.setPower (1.0);
+            }
+        }
+        if (gamepad2.guide) {
+            if (! pullingDown) {
+                pullingDown = true;
+                puller.setMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
+                puller.setPower(-1.0);
+            }
+        } else {
+            if (pullingDown){
+                int currentPos = puller.getCurrentPosition();
+                puller.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
+                puller.setTargetPosition(currentPos);
+                puller.setPower(1.0);
+                pullingDown = false;
+            }
+        }
+
+
+
+        //putting people into the delivery position
+        double currentPos, desiredPos;
+        if (gamepad2.dpad_right || gamepad2.dpad_left) {
+            currentPos = peopleDrop.getPosition();
+            if (gamepad2.dpad_right) {
+                desiredPos = currentPos - 0.025;
+            } else {
+                desiredPos = currentPos + 0.025;
+
+            }
+            if (desiredPos >= 0.0 && desiredPos<= 1.0 && peopleDropTime.time() > 0.08) {
+                peopleDrop.setPosition(desiredPos);
+                peopleDropTime.reset();
+            }
         }
     }
 
