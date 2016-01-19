@@ -16,11 +16,11 @@ import com.qualcomm.robotcore.hardware.Servo;
  * revised by Athena on 12/7/2015 - rotate method
  * revised by Alex on 12/8/2015 - going forward set distance, rotate, go until touching something
  */
-public class AutonomousOpMode extends LinearOpMode {
+public abstract class AutonomousOpMode extends LinearOpMode {
 
     enum BeaconColor {red, blue, none}
 
-    boolean blueAlliance = true;
+    boolean blueAlliance = isBlueAlliance();
 
     final static int STOP_AT_DISTANCE_READING = 50;                     //ODS reading; robot will stop at this distance from wall
     final static int MID_POINT_ALPHA_BACK = 15;                         //(0 + 30) / 2 = 15
@@ -50,6 +50,8 @@ public class AutonomousOpMode extends LinearOpMode {
 
     ElapsedTime distanceTimer;
     double lastDistance = 0;
+
+    abstract boolean isBlueAlliance();
 
     // gyro heading is from 0 to 359
     public void rotateToHeading(double requiredHeading) throws InterruptedException {
@@ -346,9 +348,10 @@ public class AutonomousOpMode extends LinearOpMode {
             frontSweeper.setPosition(125 / 255d);
             waitOneFullHardwareCycle();
 
-            // shift to the left to find line
+            // shift to find line
             if (colorSensorBack.alpha() < MID_POINT_ALPHA_BACK && !checkTouchObject() && opModeIsActive()) {
-                mecanumWheels.powerMotors(0, 0.8, 0);
+                double strafePower = blueAlliance ? 0.8 : -0.8;
+                mecanumWheels.powerMotors(0, strafePower, 0);
                 while (colorSensorBack.alpha() < MID_POINT_ALPHA_BACK && !checkTouchObject() && opModeIsActive()) {
                     waitOneFullHardwareCycle();
                 }
@@ -358,7 +361,7 @@ public class AutonomousOpMode extends LinearOpMode {
                 // if we overshot, move back
                 if (colorSensorBack.alpha() < MID_POINT_ALPHA_BACK && !checkTouchObject() && opModeIsActive()) {
                     telemetry.addData("Overshot", colorSensorBack.alpha());
-                    mecanumWheels.powerMotors(0, -0.8, 0);
+                    mecanumWheels.powerMotors(0, -strafePower, 0);
                     waitOneFullHardwareCycle();
                     while (colorSensorBack.alpha() < MID_POINT_ALPHA_BACK && !checkTouchObject() && opModeIsActive()) {
                         waitOneFullHardwareCycle();
@@ -372,7 +375,8 @@ public class AutonomousOpMode extends LinearOpMode {
             //Thread.sleep(1000);
 
             // last shift to the right to make sure it's on the right side of the line.
-            mecanumWheels.powerMotors(0, -0.2, 0);
+            double tiltPower = blueAlliance ? -0.2 : 0.2;
+            mecanumWheels.powerMotors(0, tiltPower, 0);
             waitOneFullHardwareCycle();
             Thread.sleep(100);
 
@@ -428,7 +432,7 @@ public class AutonomousOpMode extends LinearOpMode {
                         leftButtonPusher.setPosition(0);
                     }
                 }
-                // move backwards and drop people
+                // move backwards to release people
                 mecanumWheels.powerMotors(0.7, 0, 0);
                 waitOneFullHardwareCycle();
                 Thread.sleep(600);
@@ -438,7 +442,8 @@ public class AutonomousOpMode extends LinearOpMode {
                 Thread.sleep(100);
 
                 // move sideways.
-                mecanumWheels.powerMotors(0, -1d, 0);
+                double strafePower = blueAlliance ? -1.0 : 1.0;
+                mecanumWheels.powerMotors(0, strafePower, 0);
                 waitOneFullHardwareCycle();
                 Thread.sleep(2500);
 
