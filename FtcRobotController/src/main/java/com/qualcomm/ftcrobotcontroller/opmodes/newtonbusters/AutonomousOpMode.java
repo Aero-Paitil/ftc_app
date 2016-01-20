@@ -25,8 +25,8 @@ public abstract class AutonomousOpMode extends LinearOpMode {
     final static int STOP_AT_DISTANCE_READING = 50;                     //ODS reading; robot will stop at this distance from wall
     final static int MID_POINT_ALPHA_BACK = 15;                         //(0 + 30) / 2 = 15
     final static int MID_POINT_ALPHA_FRONT = 5;                         //(0 + 10) / 2 = 5
-    final static double CORRECTION_MULTIPLIER = 0.012;                  //kp constant power
-    final static double LINE_FOLLOW_MOTOR_POWER = -0.2;                 //power of the motor
+    final static double CORRECTION_MULTIPLIER = 1.0;                 //kp constant power
+    final static double LINE_FOLLOW_MOTOR_POWER = -0.15;                 //power of the motor
 
     final static int ENCODER_COUNTS_PER_ROTATION = 2 * 1140;
     //one wheel rotation covers ~12 inches
@@ -59,7 +59,7 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         mecanumWheels.setRunMode(DcMotorController.RunMode.RUN_WITHOUT_ENCODERS);
 
 
-        double MIN_ROTATE_POWER = 0.2;
+        double MIN_ROTATE_POWER = 0.3;
 
         // make sure requiredHeading is positive and less than 360
         while (requiredHeading >= 360) {
@@ -89,7 +89,7 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         // start rotation fast, then slow down as you approach the required heading
         rotateToTolerance(60, requiredHeading, power * 2);
         rotateToTolerance(30, requiredHeading, power * 1.5);
-        rotateToTolerance(1.5, requiredHeading, power);
+        rotateToTolerance(2.5, requiredHeading, power * 0.75);
         mecanumWheels.powerMotors(0, 0, 0);
         waitOneFullHardwareCycle();
     }
@@ -114,7 +114,7 @@ public abstract class AutonomousOpMode extends LinearOpMode {
             waitOneFullHardwareCycle();
             // if current gyro heading is not close enough to the required heading
             // wait and check again
-            while (headingDelta > tolerance && opModeIsActive()) {
+            while (headingDelta > tolerance  && opModeIsActive()) {
                 waitOneFullHardwareCycle();
                 headingDelta = getHeadingDelta(requiredHeading);
                 telemetry.addData("delta", headingDelta);
@@ -161,7 +161,8 @@ public abstract class AutonomousOpMode extends LinearOpMode {
             lastDistance = ultrasonicLevelAverage;
             distanceTimer.reset();
         }
-        return (ultrasonicLevelAverage < 18 && ultrasonicLevelAverage > 0.1);
+        telemetry.addData("ultrasonicLevelAverage: ", ultrasonicLevelAverage);
+        return (ultrasonicLevelAverage < 15 && ultrasonicLevelAverage > 0.1);
     }
 
     public BeaconColor checkBeaconColor() {
@@ -375,10 +376,23 @@ public abstract class AutonomousOpMode extends LinearOpMode {
             //Thread.sleep(1000);
 
             // last shift to the right to make sure it's on the right side of the line.
-            double tiltPower = blueAlliance ? -0.2 : 0.2;
-            mecanumWheels.powerMotors(0, tiltPower, 0);
-            waitOneFullHardwareCycle();
-            Thread.sleep(100);
+            double tiltPower = blueAlliance ? -0.3 : -0.3;
+            //mecanumWheels.powerMotors(0, tiltPower, 0);
+            //waitOneFullHardwareCycle();
+            //Thread.sleep(100);
+
+            if (colorSensorBack.alpha() > MID_POINT_ALPHA_BACK && !checkTouchObject() && opModeIsActive()) {
+                mecanumWheels.powerMotors(0, tiltPower, 0);
+                waitOneFullHardwareCycle();
+                while (colorSensorBack.alpha() > MID_POINT_ALPHA_BACK && !checkTouchObject() && opModeIsActive()) {
+                    waitOneFullHardwareCycle();
+                }
+                mecanumWheels.powerMotors(0, 0, 0);
+                waitOneFullHardwareCycle();
+                Thread.sleep(100);
+            }
+
+
 
             // follow line
             i = 0;
@@ -388,8 +402,8 @@ public abstract class AutonomousOpMode extends LinearOpMode {
                 //DbgLog.msg(i + " BEACON alpha " + alpha);
                 //DbgLog.msg(i + " BEACON distance " + ultrasonicSensorRight.getUltrasonicLevel());
 
-                double powerDelta = (alpha - MID_POINT_ALPHA_BACK) * CORRECTION_MULTIPLIER;   //Delta = difference
-                mecanumWheels.powerMotors(-0.2, 0, powerDelta);
+                double powerDelta = (alpha - MID_POINT_ALPHA_BACK) * (-LINE_FOLLOW_MOTOR_POWER/MID_POINT_ALPHA_BACK)*CORRECTION_MULTIPLIER;   //Delta = difference
+                mecanumWheels.powerMotors(LINE_FOLLOW_MOTOR_POWER, 0, powerDelta);
                 waitOneFullHardwareCycle();
                 i++;
             }
@@ -403,6 +417,7 @@ public abstract class AutonomousOpMode extends LinearOpMode {
             BeaconColor color = BeaconColor.none;
             for (int c = 0; c < 10; c++) {
                 color = checkBeaconColor();
+                telemetry.addData("color from beacon color: ", color );
                 waitOneFullHardwareCycle();
                 if (color != BeaconColor.none) {
                     break;
