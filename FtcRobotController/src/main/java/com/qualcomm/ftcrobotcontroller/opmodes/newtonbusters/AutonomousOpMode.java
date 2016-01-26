@@ -251,16 +251,17 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         //we are going to raise the arm so it doesnt obstruct people rod
         shoulderMotor.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
         int currentArmPos = shoulderMotor.getCurrentPosition();
-        shoulderMotor.setTargetPosition(currentArmPos-1350);
+        shoulderMotor.setTargetPosition(currentArmPos - 1350);
         shoulderMotor.setPower(0.3);
 
         // deploy sweeper
         frontSweeper.setPosition(105 / 255d);
         waitOneFullHardwareCycle();
-        Thread.sleep(1500);
+        //Thread.sleep(1500);
+        Thread.sleep(500);  //Start brush rotation before the bar is down
         brush.setPower(1);
         waitOneFullHardwareCycle();
-        Thread.sleep(500);
+        Thread.sleep(1000);
 
         //we dont need power to hold arm at 90 degrees
         shoulderMotor.setPower(0.0);
@@ -287,7 +288,10 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         //alpha() is to measure the brightness.
         //maintain the direction until robot "sees" the edge of white line/touches/close to some other object
         int i = 0;
-        while (colorSensorFront.alpha() < MID_POINT_ALPHA_FRONT && opModeIsActive()) {
+        ElapsedTime timer = new ElapsedTime();
+        timer.reset();
+        double alpha = colorSensorFront.alpha();
+        while (alpha < MID_POINT_ALPHA_FRONT && timer.time() < 15 && opModeIsActive()) {
             // keep going
             currentHeading = mecanumWheels.getGyroHeading();
             error = headingToBeaconZone - currentHeading;
@@ -308,13 +312,19 @@ public abstract class AutonomousOpMode extends LinearOpMode {
 
             waitOneFullHardwareCycle();
             //Thread.sleep(25);
+            alpha = colorSensorFront.alpha();
             i++;
         }
         //mecanumWheels.powerMotors(0, 0, 0);
         //waitOneFullHardwareCycle();
         //Thread.sleep(100);
+        boolean lineDetected = false;
+        boolean lineFollowed = false;
+        if (alpha >= MID_POINT_ALPHA_FRONT){
+            lineDetected = true;
+        }
 
-        if (!checkTouchObject() && opModeIsActive()) {
+        if (lineDetected && opModeIsActive()) {
             // move debris out out of the way passed the line
             mecanumWheels.powerMotors(DRIVING_POWER, 0, 0);
             waitOneFullHardwareCycle();
@@ -393,16 +403,15 @@ public abstract class AutonomousOpMode extends LinearOpMode {
             }
 
 
-
             // follow line
             i = 0;
             while (!checkTouchObject() && opModeIsActive()) {
 
-                double alpha = colorSensorBack.alpha();
+                alpha = colorSensorBack.alpha();
                 //DbgLog.msg(i + " BEACON alpha " + alpha);
                 //DbgLog.msg(i + " BEACON distance " + ultrasonicSensorRight.getUltrasonicLevel());
 
-                double powerDelta = (alpha - MID_POINT_ALPHA_BACK) * (-LINE_FOLLOW_MOTOR_POWER/MID_POINT_ALPHA_BACK)*CORRECTION_MULTIPLIER;   //Delta = difference
+                double powerDelta = (alpha - MID_POINT_ALPHA_BACK) * (-LINE_FOLLOW_MOTOR_POWER / MID_POINT_ALPHA_BACK) * CORRECTION_MULTIPLIER;   //Delta = difference
                 mecanumWheels.powerMotors(LINE_FOLLOW_MOTOR_POWER, 0, powerDelta);
                 waitOneFullHardwareCycle();
                 i++;
@@ -410,6 +419,12 @@ public abstract class AutonomousOpMode extends LinearOpMode {
             mecanumWheels.powerMotors(0, 0, 0);
             waitOneFullHardwareCycle();
             Thread.sleep(100);
+
+            // check if we have followed the line successfully
+            if (colorSensorBack.alpha()>MID_POINT_ALPHA_BACK/2.0) {
+                lineFollowed = true;
+            }
+
             DbgLog.msg(i + " BEACON distance " + ultrasonicSensorRight.getUltrasonicLevel());
             DbgLog.msg(i + " BEACON heading " + mecanumWheels.getGyroHeading());
 
@@ -417,7 +432,7 @@ public abstract class AutonomousOpMode extends LinearOpMode {
             BeaconColor color = BeaconColor.none;
             for (int c = 0; c < 10; c++) {
                 color = checkBeaconColor();
-                telemetry.addData("color from beacon color: ", color );
+                telemetry.addData("color from beacon color: ", color);
                 waitOneFullHardwareCycle();
                 if (color != BeaconColor.none) {
                     break;
@@ -456,6 +471,9 @@ public abstract class AutonomousOpMode extends LinearOpMode {
                 waitOneFullHardwareCycle();
                 Thread.sleep(100);
 
+            }
+
+            if (lineFollowed) {
                 // move sideways.
                 double strafePower = blueAlliance ? -1.0 : 1.0;
                 mecanumWheels.powerMotors(0, strafePower, 0);
@@ -468,9 +486,11 @@ public abstract class AutonomousOpMode extends LinearOpMode {
             }
             waitOneFullHardwareCycle();
 
-            peopleDrop.setPosition(0.5); // almost vertical position
-            waitOneFullHardwareCycle();
         }
+
+        // Put people rod into vertical position no matter what
+        peopleDrop.setPosition(0.5); // almost vertical position
+        waitOneFullHardwareCycle();
 
     }
 
