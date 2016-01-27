@@ -197,11 +197,13 @@ public class DriverOpMode extends OpMode {
 
         } else {
             if (movingRearWheelsHoldingPos) {
-                rearWheels.setPower(0.9);
+                //rearWheels.setPower(0.9);
+                rearWheels.setMode(DcMotorController.RunMode.RUN_WITHOUT_ENCODERS);
+                rearWheels.setPower(0);
                 movingRearWheelsHoldingPos = false;
             }
         }
-        if (gamepad1.y) {
+        /*if (gamepad1.y) {
             if (!movingRearWheelsUp) {
                 rearWheels.setMode(DcMotorController.RunMode.RUN_WITHOUT_ENCODERS);
                 rearWheels.setPower(-0.3);
@@ -212,12 +214,12 @@ public class DriverOpMode extends OpMode {
                 rearWheels.setPower(0);
                 movingRearWheelsUp = false;
             }
-        }
+        } */
 
         // frontSweeperDeployed, brushDeployed;
-        if (gamepad1.start) {
+        if (gamepad1.x) {
             deploySweeper();
-        } else if (gamepad1.guide) {
+        } else if (gamepad1.y) {
             undeploySweeper();
         }
 
@@ -304,14 +306,14 @@ public class DriverOpMode extends OpMode {
                 break;
             case BarForward:
             case StoppingBrushes:
-                if (sweeperTimer.time() > 1.5) {
+                if (sweeperTimer.time() > 0.5) {
                     brush.setPower(1);
                     sweeperTimer.reset();
                     sweeperState = SweeperState.StartingBrushes;
                 }
                 break;
             case StartingBrushes:
-                if (sweeperTimer.time() > 0.5) {
+                if (sweeperTimer.time() > 1.0) {
                     sweeperState = SweeperState.Deployed;
                 }
                 break;
@@ -338,7 +340,7 @@ public class DriverOpMode extends OpMode {
                 }
                 break;
             case BarBack:
-                if (sweeperTimer.time() > 1.5) {
+                if (sweeperTimer.time() > 1) {
                     sweeperState = SweeperState.Undeployed;
                 }
                 break;

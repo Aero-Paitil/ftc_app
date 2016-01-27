@@ -107,6 +107,7 @@ public abstract class AutonomousOpMode extends LinearOpMode {
     // remember to zero the power after this method call if you want to stop rotation
     private void rotateToTolerance(double tolerance, double requiredHeading, double power) throws InterruptedException {
         double headingDelta = getHeadingDelta(requiredHeading);
+        double lastHeading = headingDelta;
 
         if (headingDelta > tolerance) {
             // power motors
@@ -114,8 +115,9 @@ public abstract class AutonomousOpMode extends LinearOpMode {
             waitOneFullHardwareCycle();
             // if current gyro heading is not close enough to the required heading
             // wait and check again
-            while (headingDelta > tolerance  && opModeIsActive()) {
-                waitOneFullHardwareCycle();
+            while (headingDelta > tolerance  && headingDelta <= lastHeading+1 && opModeIsActive()) {
+                waitForNextHardwareCycle();
+                lastHeading = headingDelta;
                 headingDelta = getHeadingDelta(requiredHeading);
                 telemetry.addData("delta", headingDelta);
             }
@@ -197,6 +199,19 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         }
     }
 
+    public void telemetry() {
+        telemetry.addData("Beacon", "" + colorSensorBeacon.red() + "/" + colorSensorBeacon.green() + "/" +
+                        colorSensorBeacon.blue() + "   "+
+                " at " +colorSensorBeacon.getI2cAddress() + " "+colorSensorBeacon.getConnectionInfo());
+        telemetry.addData("Drive Back", colorSensorBack.alpha() +
+                " at "+colorSensorBack.getI2cAddress() + " "+colorSensorBack.getConnectionInfo());
+        telemetry.addData("Drive Front", colorSensorFront.alpha() +
+                " at "+ colorSensorFront.getI2cAddress() + " " + colorSensorFront.getConnectionInfo());
+        telemetry.addData("Ultrasonic Right", ultrasonicSensorRight.getUltrasonicLevel());
+        telemetry.addData("Ultrasonic Left", ultrasonicSensorLeft.getUltrasonicLevel());
+        telemetry.addData("heading", mecanumWheels.getGyroHeading());
+    }
+
     @Override
     public void runOpMode() throws InterruptedException {
 
@@ -245,6 +260,8 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         distanceTimer = new ElapsedTime();
         distanceTimer.reset();
         lastDistance = 0;
+
+        telemetry();
 
         waitForStart();
 
@@ -319,7 +336,7 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         //waitOneFullHardwareCycle();
         //Thread.sleep(100);
         boolean lineDetected = false;
-        boolean lineFollowed = false;
+        boolean lineFollowSuccess = false;
         if (alpha >= MID_POINT_ALPHA_FRONT){
             lineDetected = true;
         }
@@ -405,7 +422,8 @@ public abstract class AutonomousOpMode extends LinearOpMode {
 
             // follow line
             i = 0;
-            while (!checkTouchObject() && opModeIsActive()) {
+            timer.reset();
+            while (!checkTouchObject() && opModeIsActive() && timer.time() < 8) {
 
                 alpha = colorSensorBack.alpha();
                 //DbgLog.msg(i + " BEACON alpha " + alpha);
@@ -419,11 +437,6 @@ public abstract class AutonomousOpMode extends LinearOpMode {
             mecanumWheels.powerMotors(0, 0, 0);
             waitOneFullHardwareCycle();
             Thread.sleep(100);
-
-            // check if we have followed the line successfully
-            if (colorSensorBack.alpha()>MID_POINT_ALPHA_BACK/2.0) {
-                lineFollowed = true;
-            }
 
             DbgLog.msg(i + " BEACON distance " + ultrasonicSensorRight.getUltrasonicLevel());
             DbgLog.msg(i + " BEACON heading " + mecanumWheels.getGyroHeading());
@@ -439,29 +452,43 @@ public abstract class AutonomousOpMode extends LinearOpMode {
                 }
             }
 
-            if (color != BeaconColor.none && opModeIsActive()) {
+            telemetry();
+
+            // check if we have followed the line successfully
+            //if ((color != BeaconColor.none || colorSensorBack.alpha() > MID_POINT_ALPHA_BACK/2.0) && Math.abs(mecanumWheels.getGyroHeading() - headingToBeacon) < 2.5) {
+            if (color != BeaconColor.none){
+                lineFollowSuccess = true;
+            }
+
+            //color != BeaconColor.none
+            if (lineFollowSuccess && opModeIsActive()) {
                 dropPeople();
                 waitOneFullHardwareCycle();
-                BeaconColor allianceColor = blueAlliance ? BeaconColor.blue : BeaconColor.red;
-                //robot has detected the beacon's color
-                //our beacon color sensor is on the right (when front of robot is facing forward)
-                if (color == allianceColor) {
-                    //deploy the right button pusher
-                    rightButtonPusher.setPosition(1);
-                    waitOneFullHardwareCycle();
-                    Thread.sleep(2500);
-                    if (opModeIsActive()) {
-                        rightButtonPusher.setPosition(0);
-                    }
-                } else {
-                    //deploy the left button pusher
-                    leftButtonPusher.setPosition(1);
-                    waitOneFullHardwareCycle();
-                    Thread.sleep(2500);
-                    if (opModeIsActive()) {
-                        leftButtonPusher.setPosition(0);
+                if (opModeIsActive()) {
+                    BeaconColor allianceColor = blueAlliance ? BeaconColor.blue : BeaconColor.red;
+                    //robot has detected the beacon's color
+                    //our beacon color sensor is on the right (when front of robot is facing forward)
+                    if (color == allianceColor) {
+                        //deploy the right button pusher
+                        rightButtonPusher.setPosition(1);
+                        waitOneFullHardwareCycle();
+                        Thread.sleep(2500);
+                        if (opModeIsActive()) {
+                            rightButtonPusher.setPosition(0);
+                        }
+                    } else {
+                        //deploy the left button pusher
+                        leftButtonPusher.setPosition(1);
+                        waitOneFullHardwareCycle();
+                        Thread.sleep(2500);
+                        if (opModeIsActive()) {
+                            leftButtonPusher.setPosition(0);
+                        }
                     }
                 }
+
+                telemetry();
+
                 // move backwards to release people
                 mecanumWheels.powerMotors(0.7, 0, 0);
                 waitOneFullHardwareCycle();
@@ -471,21 +498,26 @@ public abstract class AutonomousOpMode extends LinearOpMode {
                 waitOneFullHardwareCycle();
                 Thread.sleep(100);
 
+                if (opModeIsActive()) {
+                    // move sideways.
+                    double strafePower = blueAlliance ? -1.0 : 1.0;
+                    mecanumWheels.powerMotors(0, strafePower, 0);
+                    waitOneFullHardwareCycle();
+                    Thread.sleep(2500);
+
+                    mecanumWheels.powerMotors(0, 0, 0);
+                    waitOneFullHardwareCycle();
+                    Thread.sleep(100);
+                }
+
             }
 
-            if (lineFollowed) {
-                // move sideways.
-                double strafePower = blueAlliance ? -1.0 : 1.0;
-                mecanumWheels.powerMotors(0, strafePower, 0);
-                waitOneFullHardwareCycle();
-                Thread.sleep(2500);
-
-                mecanumWheels.powerMotors(0, 0, 0);
-                waitOneFullHardwareCycle();
-                Thread.sleep(100);
-            }
             waitOneFullHardwareCycle();
 
+        } else {
+            mecanumWheels.powerMotors(0, 0, 0);
+            waitOneFullHardwareCycle();
+            Thread.sleep(100);
         }
 
         // Put people rod into vertical position no matter what

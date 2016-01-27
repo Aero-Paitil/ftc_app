@@ -15,7 +15,7 @@ public class GyroCalibration extends LinearOpMode{
         mecanumWheels.forwardSetup();
         waitForStart();
         while (opModeIsActive()){
-            telemetry.addData("GyroHeading", mecanumWheels.getGyroHeading());
+            telemetry.addData("heading", mecanumWheels.getGyroHeading());
             waitOneFullHardwareCycle();
         }
     }
