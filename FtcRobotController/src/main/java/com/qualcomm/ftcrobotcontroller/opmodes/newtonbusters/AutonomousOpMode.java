@@ -45,6 +45,9 @@ public abstract class AutonomousOpMode extends LinearOpMode {
     Servo skiLiftHandleRight, skiLiftHandleLeft;
     Servo frontSweeper;
     Servo peopleDrop;
+    Servo wheelProtectionPort5, wheelProtectionPort6;
+    Servo spool1;
+    Servo spool2;
     DcMotor brush;
     DcMotor shoulderMotor;
 
@@ -115,11 +118,13 @@ public abstract class AutonomousOpMode extends LinearOpMode {
             waitOneFullHardwareCycle();
             // if current gyro heading is not close enough to the required heading
             // wait and check again
-            while (headingDelta > tolerance  && headingDelta <= lastHeading+1 && opModeIsActive()) {
+            ElapsedTime timer = new ElapsedTime();
+            timer.reset();
+            while (headingDelta > tolerance && headingDelta <= lastHeading + 1 && timer.time() < 10 && opModeIsActive()) {
                 waitForNextHardwareCycle();
                 lastHeading = headingDelta;
                 headingDelta = getHeadingDelta(requiredHeading);
-                telemetry.addData("delta", headingDelta);
+                //telemetry.addData("delta", headingDelta);
             }
         }
     }
@@ -148,7 +153,7 @@ public abstract class AutonomousOpMode extends LinearOpMode {
             waitForNextHardwareCycle();
         }
         //we assume that we are too far away to get a valid value
-        if (n<1) {
+        if (n < 1) {
             return false;
         }
         double ultrasonicLevelAverage = sum / n;
@@ -183,15 +188,16 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         }
         return color;
     }
+
     public void dropPeople() throws InterruptedException {
         double currentPos = peopleDrop.getPosition();
         double newPos = currentPos;
-        while (newPos >= 0 && opModeIsActive()){
+        while (newPos >= 0 && opModeIsActive()) {
             newPos = currentPos - 0.025;
-            if (newPos >= 0){
+            if (newPos >= 0) {
                 peopleDrop.setPosition(newPos);
                 waitOneFullHardwareCycle();
-                Thread.sleep(80);
+                sleep(80);
                 currentPos = peopleDrop.getPosition();
             } else {
                 break;
@@ -201,15 +207,36 @@ public abstract class AutonomousOpMode extends LinearOpMode {
 
     public void telemetry() {
         telemetry.addData("Beacon", "" + colorSensorBeacon.red() + "/" + colorSensorBeacon.green() + "/" +
-                        colorSensorBeacon.blue() + "   "+
-                " at " +colorSensorBeacon.getI2cAddress() + " "+colorSensorBeacon.getConnectionInfo());
+                colorSensorBeacon.blue() + "   " +
+                " at " + colorSensorBeacon.getI2cAddress() + " " + colorSensorBeacon.getConnectionInfo());
         telemetry.addData("Drive Back", colorSensorBack.alpha() +
-                " at "+colorSensorBack.getI2cAddress() + " "+colorSensorBack.getConnectionInfo());
+                " at " + colorSensorBack.getI2cAddress() + " " + colorSensorBack.getConnectionInfo());
         telemetry.addData("Drive Front", colorSensorFront.alpha() +
-                " at "+ colorSensorFront.getI2cAddress() + " " + colorSensorFront.getConnectionInfo());
+                " at " + colorSensorFront.getI2cAddress() + " " + colorSensorFront.getConnectionInfo());
         telemetry.addData("Ultrasonic Right", ultrasonicSensorRight.getUltrasonicLevel());
         telemetry.addData("Ultrasonic Left", ultrasonicSensorLeft.getUltrasonicLevel());
         telemetry.addData("heading", mecanumWheels.getGyroHeading());
+    }
+
+    public void runForDistance(double power, double inches) throws InterruptedException {
+        double diffCounts = inches * ENCODER_COUNTS_PER_ROTATION / 12.0;
+        long startpos = mecanumWheels.motorFrontLeft.getCurrentPosition();
+        double diff = 0;
+        mecanumWheels.powerMotors(power, 0, 0);
+        ElapsedTime timer = new ElapsedTime();
+        timer.reset();
+        while (diff <= diffCounts && timer.time() < 5) {
+            waitOneFullHardwareCycle();
+            diff = Math.abs(mecanumWheels.motorFrontLeft.getCurrentPosition() - startpos);
+        }
+
+        stopMoving();
+    }
+
+    public void stopMoving() throws InterruptedException {
+        mecanumWheels.powerMotors(0, 0, 0);
+        waitOneFullHardwareCycle();
+        sleep(100);
     }
 
     @Override
@@ -241,6 +268,17 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         //value 200/255 is the initial position, value 100/255 is the deployed position
         frontSweeper.setPosition(125.0 / 255);
 
+        wheelProtectionPort5 = hardwareMap.servo.get("WheelProtectionLeft");
+        wheelProtectionPort5.setPosition(0.5);
+        wheelProtectionPort6 = hardwareMap.servo.get("WheelProtectionRight");
+        wheelProtectionPort6.setPosition(0.5);
+
+        spool1 = hardwareMap.servo.get("Spool1");
+        spool1.setPosition(0.5);
+        spool2 = hardwareMap.servo.get("Spool2");
+        spool2.setPosition(0.5);
+
+
         brush = hardwareMap.dcMotor.get("Brush");
         brush.setMode(DcMotorController.RunMode.RUN_WITHOUT_ENCODERS);
 
@@ -261,24 +299,63 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         distanceTimer.reset();
         lastDistance = 0;
 
-        telemetry();
-
+        while (!opModeIsActive()) {
+            telemetry();
+            waitOneFullHardwareCycle();
+            sleep(500);
+        }
         waitForStart();
 
         //we are going to raise the arm so it doesnt obstruct people rod
         shoulderMotor.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
         int currentArmPos = shoulderMotor.getCurrentPosition();
-        shoulderMotor.setTargetPosition(currentArmPos - 1350);
+        int targetArmPos = currentArmPos - 1350;
+        shoulderMotor.setTargetPosition(targetArmPos);
         shoulderMotor.setPower(0.3);
+        waitOneFullHardwareCycle();
+
+        //the goal of this code is to clear the debris immediately infront of the robot
+
+        //we drive forward for 0.5 seconds at half power to move the debris away from the
+        //front of the robot.
+        runForDistance(0.3, 12);
+
+        // move back to the line
+        runForDistance(-0.3, 6);
+
+
+        //This code raises the servos to make room for the sweeper
+        ElapsedTime servoTimer = new ElapsedTime();
+        wheelProtectionPort5.setPosition(0.8);
+        wheelProtectionPort6.setPosition(0.75);
+        waitOneFullHardwareCycle();
+        servoTimer.reset();
+        while (servoTimer.time() < 2) {
+            waitOneFullHardwareCycle();
+        }
+        wheelProtectionPort5.setPosition(0.5);
+        wheelProtectionPort6.setPosition(0.5);
+        waitOneFullHardwareCycle();
+
+        //checking to see if the arm is raised. If not, we try
+        //to raise the arm again.
+        currentArmPos = shoulderMotor.getCurrentPosition();
+        if (Math.abs(targetArmPos - currentArmPos) > 100) {
+            shoulderMotor.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
+            shoulderMotor.setTargetPosition(targetArmPos);
+            shoulderMotor.setPower(0.3);
+            waitOneFullHardwareCycle();
+        }
+
 
         // deploy sweeper
-        frontSweeper.setPosition(105 / 255d);
+        frontSweeper.setPosition(104 / 255d);
         waitOneFullHardwareCycle();
-        //Thread.sleep(1500);
-        Thread.sleep(500);  //Start brush rotation before the bar is down
+        //sleep(1500);
+        sleep(500);  //Start brush rotation before the bar is down
         brush.setPower(1);
         waitOneFullHardwareCycle();
-        Thread.sleep(1000);
+        sleep(1000);
 
         //we dont need power to hold arm at 90 degrees
         shoulderMotor.setPower(0.0);
@@ -328,47 +405,40 @@ public abstract class AutonomousOpMode extends LinearOpMode {
             mecanumWheels.powerMotors(DRIVING_POWER, 0, clockwiseSpeed);
 
             waitOneFullHardwareCycle();
-            //Thread.sleep(25);
+            //sleep(25);
             alpha = colorSensorFront.alpha();
             i++;
         }
         //mecanumWheels.powerMotors(0, 0, 0);
         //waitOneFullHardwareCycle();
-        //Thread.sleep(100);
+        //sleep(100);
         boolean lineDetected = false;
         boolean lineFollowSuccess = false;
-        if (alpha >= MID_POINT_ALPHA_FRONT){
+        if (alpha >= MID_POINT_ALPHA_FRONT) {
             lineDetected = true;
         }
 
         if (lineDetected && opModeIsActive()) {
             // move debris out out of the way passed the line
-            mecanumWheels.powerMotors(DRIVING_POWER, 0, 0);
-            waitOneFullHardwareCycle();
-            long startpos = Math.abs(mecanumWheels.motorFrontLeft.getCurrentPosition());
-            long endpos = startpos;
-            while (endpos - startpos < 0.5 * (2 * 1140)) {
-                waitOneFullHardwareCycle();
-                endpos = Math.abs(mecanumWheels.motorFrontLeft.getCurrentPosition());
-            }
-            mecanumWheels.powerMotors(0, 0, 0);
-            waitOneFullHardwareCycle();
-            Thread.sleep(100);
+            runForDistance(DRIVING_POWER, 6);
+
 
             // move back to the line
+            long startpos = mecanumWheels.motorFrontLeft.getCurrentPosition();
+            long diff = 0;
             mecanumWheels.powerMotors(-0.5, 0, 0);
-            while (colorSensorFront.alpha() < MID_POINT_ALPHA_FRONT && opModeIsActive()) {
+            timer.reset();
+            while ((colorSensorFront.alpha() < MID_POINT_ALPHA_FRONT || (diff < 0.5 * (ENCODER_COUNTS_PER_ROTATION) + 100) && timer.time() < 5 && opModeIsActive())) {
                 waitOneFullHardwareCycle();
+                diff = Math.abs(mecanumWheels.motorFrontLeft.getCurrentPosition() - startpos);
             }
-            mecanumWheels.powerMotors(0, 0, 0);
-            waitOneFullHardwareCycle();
-            Thread.sleep(100);
+            stopMoving();
 
             // rotate to the beacon
             double headingToBeacon = blueAlliance ? 270 : 90;
             rotateToHeading(headingToBeacon);
             waitOneFullHardwareCycle();
-            //Thread.sleep(1000);
+            //sleep(1000);
 
             // undeploy sweeper
             brush.setPower(0);
@@ -380,43 +450,41 @@ public abstract class AutonomousOpMode extends LinearOpMode {
             if (colorSensorBack.alpha() < MID_POINT_ALPHA_BACK && !checkTouchObject() && opModeIsActive()) {
                 double strafePower = blueAlliance ? 0.8 : -0.8;
                 mecanumWheels.powerMotors(0, strafePower, 0);
-                while (colorSensorBack.alpha() < MID_POINT_ALPHA_BACK && !checkTouchObject() && opModeIsActive()) {
+                timer.reset();
+                while (colorSensorBack.alpha() < MID_POINT_ALPHA_BACK && !checkTouchObject() && timer.time() < 5 && opModeIsActive()) {
                     waitOneFullHardwareCycle();
                 }
-                mecanumWheels.powerMotors(0, 0, 0);
-                waitOneFullHardwareCycle();
-                Thread.sleep(100);
+                stopMoving();
+
                 // if we overshot, move back
                 if (colorSensorBack.alpha() < MID_POINT_ALPHA_BACK && !checkTouchObject() && opModeIsActive()) {
                     telemetry.addData("Overshot", colorSensorBack.alpha());
                     mecanumWheels.powerMotors(0, -strafePower, 0);
                     waitOneFullHardwareCycle();
-                    while (colorSensorBack.alpha() < MID_POINT_ALPHA_BACK && !checkTouchObject() && opModeIsActive()) {
+                    timer.reset();
+                    while (colorSensorBack.alpha() < MID_POINT_ALPHA_BACK && timer.time() < 3 && !checkTouchObject() && opModeIsActive()) {
                         waitOneFullHardwareCycle();
                     }
-                    mecanumWheels.powerMotors(0, 0, 0);
-                    waitOneFullHardwareCycle();
-                    Thread.sleep(100);
+                    stopMoving();
                 }
 
             }
-            //Thread.sleep(1000);
+            //sleep(1000);
 
             // last shift to the right to make sure it's on the right side of the line.
             double tiltPower = blueAlliance ? -0.3 : -0.3;
             //mecanumWheels.powerMotors(0, tiltPower, 0);
             //waitOneFullHardwareCycle();
-            //Thread.sleep(100);
+            //sleep(100);
 
             if (colorSensorBack.alpha() > MID_POINT_ALPHA_BACK && !checkTouchObject() && opModeIsActive()) {
                 mecanumWheels.powerMotors(0, tiltPower, 0);
                 waitOneFullHardwareCycle();
-                while (colorSensorBack.alpha() > MID_POINT_ALPHA_BACK && !checkTouchObject() && opModeIsActive()) {
+                timer.reset();
+                while (colorSensorBack.alpha() > MID_POINT_ALPHA_BACK && timer.time() < 3 && !checkTouchObject() && opModeIsActive()) {
                     waitOneFullHardwareCycle();
                 }
-                mecanumWheels.powerMotors(0, 0, 0);
-                waitOneFullHardwareCycle();
-                Thread.sleep(100);
+                stopMoving();
             }
 
 
@@ -434,9 +502,7 @@ public abstract class AutonomousOpMode extends LinearOpMode {
                 waitOneFullHardwareCycle();
                 i++;
             }
-            mecanumWheels.powerMotors(0, 0, 0);
-            waitOneFullHardwareCycle();
-            Thread.sleep(100);
+            stopMoving();
 
             DbgLog.msg(i + " BEACON distance " + ultrasonicSensorRight.getUltrasonicLevel());
             DbgLog.msg(i + " BEACON heading " + mecanumWheels.getGyroHeading());
@@ -456,7 +522,7 @@ public abstract class AutonomousOpMode extends LinearOpMode {
 
             // check if we have followed the line successfully
             //if ((color != BeaconColor.none || colorSensorBack.alpha() > MID_POINT_ALPHA_BACK/2.0) && Math.abs(mecanumWheels.getGyroHeading() - headingToBeacon) < 2.5) {
-            if (color != BeaconColor.none){
+            if (color != BeaconColor.none) {
                 lineFollowSuccess = true;
             }
 
@@ -472,7 +538,7 @@ public abstract class AutonomousOpMode extends LinearOpMode {
                         //deploy the right button pusher
                         rightButtonPusher.setPosition(1);
                         waitOneFullHardwareCycle();
-                        Thread.sleep(2500);
+                        sleep(2500);
                         if (opModeIsActive()) {
                             rightButtonPusher.setPosition(0);
                         }
@@ -480,7 +546,7 @@ public abstract class AutonomousOpMode extends LinearOpMode {
                         //deploy the left button pusher
                         leftButtonPusher.setPosition(1);
                         waitOneFullHardwareCycle();
-                        Thread.sleep(2500);
+                        sleep(2500);
                         if (opModeIsActive()) {
                             leftButtonPusher.setPosition(0);
                         }
@@ -492,22 +558,18 @@ public abstract class AutonomousOpMode extends LinearOpMode {
                 // move backwards to release people
                 mecanumWheels.powerMotors(0.7, 0, 0);
                 waitOneFullHardwareCycle();
-                Thread.sleep(600);
+                sleep(600);
 
-                mecanumWheels.powerMotors(0, 0, 0);
-                waitOneFullHardwareCycle();
-                Thread.sleep(100);
+                stopMoving();
 
                 if (opModeIsActive()) {
                     // move sideways.
                     double strafePower = blueAlliance ? -1.0 : 1.0;
                     mecanumWheels.powerMotors(0, strafePower, 0);
                     waitOneFullHardwareCycle();
-                    Thread.sleep(2500);
+                    sleep(2500);
 
-                    mecanumWheels.powerMotors(0, 0, 0);
-                    waitOneFullHardwareCycle();
-                    Thread.sleep(100);
+                    stopMoving();
                 }
 
             }
@@ -515,14 +577,14 @@ public abstract class AutonomousOpMode extends LinearOpMode {
             waitOneFullHardwareCycle();
 
         } else {
-            mecanumWheels.powerMotors(0, 0, 0);
-            waitOneFullHardwareCycle();
-            Thread.sleep(100);
+            stopMoving();
         }
 
         // Put people rod into vertical position no matter what
         peopleDrop.setPosition(0.5); // almost vertical position
         waitOneFullHardwareCycle();
+
+        telemetry();
 
     }
 

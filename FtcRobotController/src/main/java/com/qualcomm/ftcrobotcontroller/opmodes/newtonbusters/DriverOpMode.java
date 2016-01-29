@@ -31,6 +31,7 @@ public class DriverOpMode extends OpMode {
     Servo spool1;
     Servo spool2;
     Servo peopleDrop;
+    Servo wheelProtectionPort5, wheelProtectionPort6;
     ElapsedTime peopleDropTime;
 
     enum SweeperState {Undeployed, BarForward, StartingBrushes, Deployed, StoppingBrushes, BarBack}
@@ -103,8 +104,12 @@ public class DriverOpMode extends OpMode {
         spool2 = hardwareMap.servo.get("Spool2");
         spool2.setPosition(0.5);
 
+        wheelProtectionPort5 = hardwareMap.servo.get("WheelProtectionLeft");
+        wheelProtectionPort5.setPosition(0.5);
+        wheelProtectionPort6 = hardwareMap.servo.get("WheelProtectionRight");
+        wheelProtectionPort6.setPosition(0.5);
     }
-
+    
     @Override
     public void loop() {
 
