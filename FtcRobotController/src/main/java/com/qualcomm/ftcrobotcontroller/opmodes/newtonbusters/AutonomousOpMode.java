@@ -428,7 +428,7 @@ public abstract class AutonomousOpMode extends LinearOpMode {
             long diff = 0;
             mecanumWheels.powerMotors(-0.5, 0, 0);
             timer.reset();
-            while ((colorSensorFront.alpha() < MID_POINT_ALPHA_FRONT || (diff < 0.5 * (ENCODER_COUNTS_PER_ROTATION) + 100) && timer.time() < 5 && opModeIsActive())) {
+            while (colorSensorFront.alpha() < MID_POINT_ALPHA_FRONT && (diff < 0.5 * (ENCODER_COUNTS_PER_ROTATION) + 100) && timer.time() < 5 && opModeIsActive()) {
                 waitOneFullHardwareCycle();
                 diff = Math.abs(mecanumWheels.motorFrontLeft.getCurrentPosition() - startpos);
             }

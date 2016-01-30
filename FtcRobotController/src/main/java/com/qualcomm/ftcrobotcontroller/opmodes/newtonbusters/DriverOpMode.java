@@ -305,7 +305,7 @@ public class DriverOpMode extends OpMode {
         switch (sweeperState) {
             case Undeployed:
             case BarBack:
-                frontSweeper.setPosition(105 / 255d);
+                frontSweeper.setPosition(104 / 255d);
                 sweeperTimer.reset();
                 sweeperState = SweeperState.BarForward;
                 break;
