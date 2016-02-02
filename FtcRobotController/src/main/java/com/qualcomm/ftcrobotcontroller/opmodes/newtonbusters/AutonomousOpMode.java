@@ -34,6 +34,9 @@ public abstract class AutonomousOpMode extends LinearOpMode {
     //final static int TARGET_POSITION1 = 2 * ENCODER_COUNTS_PER_ROTATION;
     final static double DRIVING_POWER = 1;
 
+    final static public double SWEEPER_UNDEPLOYED_POS = 1.0;
+    final static public double SWEEPER_DEPLOYED_POS = 0.0;
+
     MecanumWheels mecanumWheels;
 
     UltrasonicSensor ultrasonicSensorRight;
@@ -266,7 +269,7 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         skiLiftHandleLeft.setPosition(240.0 / 255);
         frontSweeper = hardwareMap.servo.get("FrontSweeper");
         //value 200/255 is the initial position, value 100/255 is the deployed position
-        frontSweeper.setPosition(125.0 / 255);
+        frontSweeper.setPosition(SWEEPER_UNDEPLOYED_POS);
 
         wheelProtectionPort5 = hardwareMap.servo.get("WheelProtectionLeft");
         wheelProtectionPort5.setPosition(0.5);
@@ -349,7 +352,7 @@ public abstract class AutonomousOpMode extends LinearOpMode {
 
 
         // deploy sweeper
-        frontSweeper.setPosition(104 / 255d);
+        frontSweeper.setPosition(SWEEPER_DEPLOYED_POS);
         waitOneFullHardwareCycle();
         //sleep(1500);
         sleep(500);  //Start brush rotation before the bar is down
@@ -443,7 +446,7 @@ public abstract class AutonomousOpMode extends LinearOpMode {
             // undeploy sweeper
             brush.setPower(0);
             waitOneFullHardwareCycle();
-            frontSweeper.setPosition(125 / 255d);
+            frontSweeper.setPosition(SWEEPER_UNDEPLOYED_POS);
             waitOneFullHardwareCycle();
 
             // shift to find line

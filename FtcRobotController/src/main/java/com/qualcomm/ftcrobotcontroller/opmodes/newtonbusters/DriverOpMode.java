@@ -17,6 +17,9 @@ public class DriverOpMode extends OpMode {
     final static private double CLIMBER_RELEASE_POS_RIGHT = 195 / 255d;
     final static private double CLIMBER_RELEASE_POS_LEFT = 90 / 255d;
 
+    final static public double SWEEPER_UNDEPLOYED_POS = 0.9;
+    final static public double SWEEPER_DEPLOYED_POS = 0.0;
+
     MecanumWheels mecanumWheels;
 
     TouchSensor rearWheelsTouch;
@@ -39,6 +42,10 @@ public class DriverOpMode extends OpMode {
     SweeperState sweeperState;
     ElapsedTime sweeperTimer;
 
+    ElapsedTime wheelProtectionTimer;
+    enum WheelProtectionState {Undeployed, Deploying, Deployed}
+    WheelProtectionState wheelProtectionState;
+
 
     //Servo peopleDrop;
 
@@ -46,7 +53,7 @@ public class DriverOpMode extends OpMode {
 
     boolean movingShoulderBig, movingShoulderSmall;
 
-    boolean movingRearWheelsUp, movingRearWheelsHoldingPos;
+    boolean movingRearWheelsHoldingPos;
 
     boolean pullingUp, pullingDown;
 
@@ -90,7 +97,7 @@ public class DriverOpMode extends OpMode {
         skiLiftHandleLeft.setPosition(240.0 / 255);
         frontSweeper = hardwareMap.servo.get("FrontSweeper");
         //value 200/255 is the initial position, value 100/255 is the deployed position
-        frontSweeper.setPosition(121.0 / 255);
+        frontSweeper.setPosition(SWEEPER_UNDEPLOYED_POS);
         sweeperState = SweeperState.Undeployed;
         sweeperTimer = new ElapsedTime();
 
@@ -108,8 +115,12 @@ public class DriverOpMode extends OpMode {
         wheelProtectionPort5.setPosition(0.5);
         wheelProtectionPort6 = hardwareMap.servo.get("WheelProtectionRight");
         wheelProtectionPort6.setPosition(0.5);
+
+        wheelProtectionTimer = new ElapsedTime();
+        wheelProtectionState = WheelProtectionState.Undeployed;
+
     }
-    
+
     @Override
     public void loop() {
 
@@ -227,6 +238,23 @@ public class DriverOpMode extends OpMode {
         } else if (gamepad1.y) {
             undeploySweeper();
         }
+        //This code raises the servos to make room for the sweeper
+        if (gamepad1.guide) {
+            if (wheelProtectionState == WheelProtectionState.Undeployed) {
+                wheelProtectionTimer.reset();
+                wheelProtectionPort5.setPosition(0.8);
+                wheelProtectionPort6.setPosition(0.75);
+                wheelProtectionState = WheelProtectionState.Deploying;
+            }
+            else if (wheelProtectionState == WheelProtectionState.Deploying) {
+                if (wheelProtectionTimer.time()>=2) {
+                    wheelProtectionPort5.setPosition(0.5);
+                    wheelProtectionPort6.setPosition(0.5);
+                    wheelProtectionState = WheelProtectionState.Deployed;
+                }
+            }
+
+        }
 
         // second gamepad
 
@@ -305,7 +333,7 @@ public class DriverOpMode extends OpMode {
         switch (sweeperState) {
             case Undeployed:
             case BarBack:
-                frontSweeper.setPosition(104 / 255d);
+                frontSweeper.setPosition(SWEEPER_DEPLOYED_POS);
                 sweeperTimer.reset();
                 sweeperState = SweeperState.BarForward;
                 break;
@@ -339,7 +367,7 @@ public class DriverOpMode extends OpMode {
             case StoppingBrushes:
             case BarForward:
                 if (sweeperTimer.time() > 0.5) {
-                    frontSweeper.setPosition(118 / 255d);
+                    frontSweeper.setPosition(SWEEPER_UNDEPLOYED_POS);
                     sweeperTimer.reset();
                     sweeperState = SweeperState.BarBack;
                 }
