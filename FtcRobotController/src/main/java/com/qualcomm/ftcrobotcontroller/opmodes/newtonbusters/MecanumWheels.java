@@ -11,7 +11,15 @@ import com.qualcomm.robotcore.robocol.Telemetry;
  * This class is controlling the mecanum wheels driving platform. It can be used with or without the gyro sensor.
  * Created by Aryoman on 11/24/2015.
  */
-public class MecanumWheels { //defining the 4 motors
+public class MecanumWheels {
+
+    // this variable is for gyro drift mitigation;
+    // we store the heading of the pointed robot in this variable when running GyroCalibration op mode;
+    // on AutomousOpMode init we calculate the difference between current and saved heading,
+    // it gives us gyro drift, which we store as gyroForwardOffset.
+    static double pointedHeading;
+
+    //defining the 4 motors
     DcMotor motorFrontLeft;
     DcMotor motorFrontRight;
     DcMotor motorRearLeft;
@@ -19,7 +27,7 @@ public class MecanumWheels { //defining the 4 motors
     GyroSensor sensorGyro;
     Telemetry telemetry;
     boolean useGyro;
-    double gyroForwardOffset;
+    double gyroForwardOffset; //between 0 and 359 inclusive
 
 
     public MecanumWheels(HardwareMap hardwareMap, Telemetry telemetry, boolean useGyro) {
@@ -99,8 +107,40 @@ public class MecanumWheels { //defining the 4 motors
     public void resetGyroHeading() {
         //sensorGyro.resetZAxisIntegrator();
         gyroForwardOffset = sensorGyro.getHeading();
-        telemetry.addData("Gyro heading new offset", gyroForwardOffset);
+        telemetry.addData("Gyro heading offset", gyroForwardOffset);
     }
+
+
+    public double getHeadingError(double requiredHeading) {
+
+        double headingError = sensorGyro.getHeading()-requiredHeading;
+        if (headingError > 180) {
+            headingError -= 360;
+        } else if (headingError < -180) {
+            headingError +=360;
+        }
+        return headingError;
+    }
+
+
+    public void adjustGyroHeading() {
+        gyroForwardOffset = getHeadingError(pointedHeading); // returned range -180 - +180
+        telemetry.addData("Gyro heading error", gyroForwardOffset);
+        // gyroForwardOffset range should be 0-360
+        if (gyroForwardOffset<0) { gyroForwardOffset +=360; }
+        telemetry.addData("Gyro heading offset", gyroForwardOffset+" deg");
+    }
+
+    public double getGyroHeading() {
+        double heading = sensorGyro.getHeading() - gyroForwardOffset;
+        if (heading < 0) {
+            heading += 360;
+        }
+
+        telemetry.addData("heading", heading);
+        return heading;
+    }
+
 
     public void powerMotors(double forward, double right, double clockwise) {
         powerMotors(forward, right, clockwise, false);
@@ -263,16 +303,5 @@ public class MecanumWheels { //defining the 4 motors
         powerMotors(power, 0, 0);
         // this method must be followed by a delay for completion
     }
-
-    public double getGyroHeading() {
-        double heading = sensorGyro.getHeading() - gyroForwardOffset;
-        if (heading < 0) {
-            heading += 360;
-        }
-
-        telemetry.addData("heading", heading);
-        return heading;
-    }
-
 
 }

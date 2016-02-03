@@ -22,11 +22,11 @@ public abstract class AutonomousOpMode extends LinearOpMode {
 
     boolean blueAlliance = isBlueAlliance();
 
-    final static int STOP_AT_DISTANCE_READING = 50;                     //ODS reading; robot will stop at this distance from wall
+    //final static int STOP_AT_DISTANCE_READING = 50;                   //ODS reading; robot will stop at this distance from wall
     final static int MID_POINT_ALPHA_BACK = 15;                         //(0 + 30) / 2 = 15
     final static int MID_POINT_ALPHA_FRONT = 5;                         //(0 + 10) / 2 = 5
-    final static double CORRECTION_MULTIPLIER = 1.0;                 //kp constant power
-    final static double LINE_FOLLOW_MOTOR_POWER = -0.15;                 //power of the motor
+    final static double CORRECTION_MULTIPLIER = 1.0;                    //kp constant power
+    final static double LINE_FOLLOW_MOTOR_POWER = -0.15;                //power of the motor
 
     final static int ENCODER_COUNTS_PER_ROTATION = 2 * 1140;
     //one wheel rotation covers ~12 inches
@@ -34,8 +34,9 @@ public abstract class AutonomousOpMode extends LinearOpMode {
     //final static int TARGET_POSITION1 = 2 * ENCODER_COUNTS_PER_ROTATION;
     final static double DRIVING_POWER = 1;
 
-    final static public double SWEEPER_UNDEPLOYED_POS = 1.0;
-    final static public double SWEEPER_DEPLOYED_POS = 0.0;
+    final static public double SWEEPER_INITIAL_POS = 1.0;
+    final static public double SWEEPER_UNDEPLOYED_POS = 0.85;
+    final static public double SWEEPER_DEPLOYED_POS = 0.07;
 
     MecanumWheels mecanumWheels;
 
@@ -269,7 +270,7 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         skiLiftHandleLeft.setPosition(240.0 / 255);
         frontSweeper = hardwareMap.servo.get("FrontSweeper");
         //value 200/255 is the initial position, value 100/255 is the deployed position
-        frontSweeper.setPosition(SWEEPER_UNDEPLOYED_POS);
+        frontSweeper.setPosition(SWEEPER_INITIAL_POS);
 
         wheelProtectionPort5 = hardwareMap.servo.get("WheelProtectionLeft");
         wheelProtectionPort5.setPosition(0.5);
@@ -305,11 +306,19 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         while (!opModeIsActive()) {
             telemetry();
             waitOneFullHardwareCycle();
-            sleep(500);
+            sleep(250);
+            mecanumWheels.adjustGyroHeading();
         }
+
         waitForStart();
 
-        //we are going to raise the arm so it doesnt obstruct people rod
+        /*
+         Before autonomous mode, we are calibrating gyro and visually pointing the robot
+         (using the arm as a pointing aid) to the white line (just past its start)
+         */
+        double headingToBeaconZone = mecanumWheels.getGyroHeading();
+
+        //we are going to raise the arm so it doesn't obstruct people rod
         shoulderMotor.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
         int currentArmPos = shoulderMotor.getCurrentPosition();
         int targetArmPos = currentArmPos - 1350;
@@ -333,7 +342,7 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         wheelProtectionPort6.setPosition(0.75);
         waitOneFullHardwareCycle();
         servoTimer.reset();
-        while (servoTimer.time() < 2) {
+        while (servoTimer.time() < 2.5) {
             waitOneFullHardwareCycle();
         }
         wheelProtectionPort5.setPosition(0.5);
@@ -368,15 +377,7 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         peopleDrop.setPosition(0.25);
 
 
-        /*
-         We are assuming gyro calibration with robot pointing backward was performed right before.
-         At the start of autonomous mode, we are visually pointing robot (using the arm)
-         to the white line (just past its start)
-         */
-        double headingToBeaconZone = mecanumWheels.getGyroHeading();
-
         //go to the white line maintaining gyro headings to beacon
-
         mecanumWheels.setRunMode(DcMotorController.RunMode.RUN_WITHOUT_ENCODERS);
         waitOneFullHardwareCycle();
         mecanumWheels.powerMotors(DRIVING_POWER, 0, 0);
@@ -388,7 +389,7 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         ElapsedTime timer = new ElapsedTime();
         timer.reset();
         double alpha = colorSensorFront.alpha();
-        while (alpha < MID_POINT_ALPHA_FRONT && timer.time() < 15 && opModeIsActive()) {
+        while (alpha < MID_POINT_ALPHA_FRONT && timer.time() < 12 && opModeIsActive()) {
             // keep going
             currentHeading = mecanumWheels.getGyroHeading();
             error = headingToBeaconZone - currentHeading;

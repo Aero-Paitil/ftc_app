@@ -17,8 +17,8 @@ public class DriverOpMode extends OpMode {
     final static private double CLIMBER_RELEASE_POS_RIGHT = 195 / 255d;
     final static private double CLIMBER_RELEASE_POS_LEFT = 90 / 255d;
 
-    final static public double SWEEPER_UNDEPLOYED_POS = 0.9;
-    final static public double SWEEPER_DEPLOYED_POS = 0.0;
+    final static public double SWEEPER_UNDEPLOYED_POS = 0.85 ;
+    final static public double SWEEPER_DEPLOYED_POS = 0.07;
 
     MecanumWheels mecanumWheels;
 
