@@ -124,7 +124,8 @@ public abstract class AutonomousOpMode extends LinearOpMode {
             // wait and check again
             ElapsedTime timer = new ElapsedTime();
             timer.reset();
-            while (headingDelta > tolerance && headingDelta <= lastHeading + 1 && timer.time() < 10 && opModeIsActive()) {
+            while (headingDelta > tolerance && headingDelta <= lastHeading + 1 && opModeIsActive()) {
+                checkTimeout(timer, 10);
                 waitForNextHardwareCycle();
                 lastHeading = headingDelta;
                 headingDelta = getHeadingDelta(requiredHeading);
@@ -243,6 +244,22 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         sleep(100);
     }
 
+    public void checkTimeout(ElapsedTime timer, int timeoutSecs) throws InterruptedException {
+        if (timer.time() > timeoutSecs) {
+            stopMoving();
+            brush.setPower(0);
+            waitOneFullHardwareCycle();
+            peopleDrop.setPosition(0.5);
+            waitOneFullHardwareCycle();
+            while (opModeIsActive()) {
+                telemetry();
+                telemetry.addData("Robot STOPPED", "timeout of " + timeoutSecs + " exceeded");
+                waitOneFullHardwareCycle();
+            }
+
+        }
+    }
+
     @Override
     public void runOpMode() throws InterruptedException {
 
@@ -288,6 +305,7 @@ public abstract class AutonomousOpMode extends LinearOpMode {
 
         shoulderMotor = hardwareMap.dcMotor.get("Arm");
         shoulderMotor.setMode(DcMotorController.RunMode.RESET_ENCODERS);
+        waitOneFullHardwareCycle();
 
         colorSensorFront = hardwareMap.colorSensor.get("Color Sensor Front");
         colorSensorFront.setI2cAddress(0x40);
@@ -336,7 +354,7 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         runForDistance(-0.3, 6);
 
 
-        //This code raises the servos to make room for the sweeper
+        //This code raises the wheel protection to make room for the sweeper
         ElapsedTime servoTimer = new ElapsedTime();
         wheelProtectionPort5.setPosition(0.8);
         wheelProtectionPort6.setPosition(0.75);
@@ -344,6 +362,7 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         servoTimer.reset();
         while (servoTimer.time() < 2.5) {
             waitOneFullHardwareCycle();
+            sleep(100);
         }
         wheelProtectionPort5.setPosition(0.5);
         wheelProtectionPort6.setPosition(0.5);
@@ -389,7 +408,8 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         ElapsedTime timer = new ElapsedTime();
         timer.reset();
         double alpha = colorSensorFront.alpha();
-        while (alpha < MID_POINT_ALPHA_FRONT && timer.time() < 12 && opModeIsActive()) {
+        while (alpha < MID_POINT_ALPHA_FRONT && opModeIsActive()) {
+            checkTimeout(timer, 12);
             // keep going
             currentHeading = mecanumWheels.getGyroHeading();
             error = headingToBeaconZone - currentHeading;
@@ -432,9 +452,10 @@ public abstract class AutonomousOpMode extends LinearOpMode {
             long diff = 0;
             mecanumWheels.powerMotors(-0.5, 0, 0);
             timer.reset();
-            while (colorSensorFront.alpha() < MID_POINT_ALPHA_FRONT && (diff < 0.5 * (ENCODER_COUNTS_PER_ROTATION) + 100) && timer.time() < 5 && opModeIsActive()) {
+            while (colorSensorFront.alpha() < MID_POINT_ALPHA_FRONT && (diff < 0.5 * (ENCODER_COUNTS_PER_ROTATION) + 100) && opModeIsActive()) {
                 waitOneFullHardwareCycle();
                 diff = Math.abs(mecanumWheels.motorFrontLeft.getCurrentPosition() - startpos);
+                checkTimeout(timer, 5);
             }
             stopMoving();
 
@@ -455,8 +476,9 @@ public abstract class AutonomousOpMode extends LinearOpMode {
                 double strafePower = blueAlliance ? 0.8 : -0.8;
                 mecanumWheels.powerMotors(0, strafePower, 0);
                 timer.reset();
-                while (colorSensorBack.alpha() < MID_POINT_ALPHA_BACK && !checkTouchObject() && timer.time() < 5 && opModeIsActive()) {
+                while (colorSensorBack.alpha() < MID_POINT_ALPHA_BACK && !checkTouchObject() && opModeIsActive()) {
                     waitOneFullHardwareCycle();
+                    checkTimeout(timer, 5);
                 }
                 stopMoving();
 
@@ -466,8 +488,9 @@ public abstract class AutonomousOpMode extends LinearOpMode {
                     mecanumWheels.powerMotors(0, -strafePower, 0);
                     waitOneFullHardwareCycle();
                     timer.reset();
-                    while (colorSensorBack.alpha() < MID_POINT_ALPHA_BACK && timer.time() < 3 && !checkTouchObject() && opModeIsActive()) {
+                    while (colorSensorBack.alpha() < MID_POINT_ALPHA_BACK && !checkTouchObject() && opModeIsActive()) {
                         waitOneFullHardwareCycle();
+                        checkTimeout(timer, 3);
                     }
                     stopMoving();
                 }
@@ -485,8 +508,9 @@ public abstract class AutonomousOpMode extends LinearOpMode {
                 mecanumWheels.powerMotors(0, tiltPower, 0);
                 waitOneFullHardwareCycle();
                 timer.reset();
-                while (colorSensorBack.alpha() > MID_POINT_ALPHA_BACK && timer.time() < 3 && !checkTouchObject() && opModeIsActive()) {
+                while (colorSensorBack.alpha() > MID_POINT_ALPHA_BACK && !checkTouchObject() && opModeIsActive()) {
                     waitOneFullHardwareCycle();
+                    checkTimeout(timer, 3);
                 }
                 stopMoving();
             }
@@ -495,7 +519,9 @@ public abstract class AutonomousOpMode extends LinearOpMode {
             // follow line
             i = 0;
             timer.reset();
-            while (!checkTouchObject() && opModeIsActive() && timer.time() < 8) {
+            while (!checkTouchObject() && opModeIsActive()) {
+
+                checkTimeout(timer, 7);
 
                 alpha = colorSensorBack.alpha();
                 //DbgLog.msg(i + " BEACON alpha " + alpha);

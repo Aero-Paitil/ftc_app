@@ -152,13 +152,9 @@ public class MecanumWheels {
                 telemetry.addData("ERROR", "Field coordinates require Gyro.");
                 return;
             }
-            //get the angle from field's forward to robot's forward
-            double gyroHeading = sensorGyro.getHeading();
-            //adjusting for current firld forward direction
-            double headingDegrees = gyroHeading - gyroForwardOffset;
-            if (headingDegrees < 0) {
-                headingDegrees += 360;
-            }
+
+            //returns heading corrected for drift or driver offset
+            double headingDegrees = getGyroHeading();
             //headingDegrees is clockwise
             double myheading = -Math.PI * headingDegrees / 180.0;
 
