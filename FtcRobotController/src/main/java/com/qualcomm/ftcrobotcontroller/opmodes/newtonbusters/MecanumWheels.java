@@ -107,7 +107,7 @@ public class MecanumWheels {
     public void resetGyroHeading() {
         //sensorGyro.resetZAxisIntegrator();
         gyroForwardOffset = sensorGyro.getHeading();
-        telemetry.addData("Gyro heading offset", gyroForwardOffset);
+        DbgLog.msg("Gyro heading offset " + gyroForwardOffset);
     }
 
 
@@ -128,7 +128,7 @@ public class MecanumWheels {
         telemetry.addData("Gyro heading error", gyroForwardOffset);
         // gyroForwardOffset range should be 0-360
         if (gyroForwardOffset<0) { gyroForwardOffset +=360; }
-        telemetry.addData("Gyro heading offset", gyroForwardOffset+" deg");
+        DbgLog.msg("Gyro heading offset " + gyroForwardOffset + " deg");
     }
 
     public double getGyroHeading() {
