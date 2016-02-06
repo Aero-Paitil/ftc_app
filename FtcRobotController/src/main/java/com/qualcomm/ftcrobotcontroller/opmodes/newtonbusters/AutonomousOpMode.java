@@ -141,11 +141,11 @@ public abstract class AutonomousOpMode extends LinearOpMode {
 
         for (int i = 0; i < 10; i++) {
             ultrasonicLevelRight = ultrasonicSensorRight.getUltrasonicLevel();
-            if (ultrasonicLevelRight < 5 || ultrasonicLevelRight > 60) {
+            if (ultrasonicLevelRight <= 5 || ultrasonicLevelRight > 60) {
                 ultrasonicLevelRight = 500;
             }
             ultrasonicLevelLeft = ultrasonicSensorLeft.getUltrasonicLevel();
-            if (ultrasonicLevelLeft < 5 || ultrasonicLevelLeft > 60) {
+            if (ultrasonicLevelLeft <= 5 || ultrasonicLevelLeft > 60) {
                 ultrasonicLevelLeft = 500;
             }
             ultrasonicLevelTake = Math.min(ultrasonicLevelLeft, ultrasonicLevelRight);
@@ -163,11 +163,10 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         }
         double ultrasonicLevelAverage = sum / n;
 
-        telemetry.addData("ultrasonic level right", ultrasonicLevelAverage);
         DbgLog.msg("ULTRASONIC RIGHT " + ultrasonicLevelAverage);
         // check if the distance has changed for the last 2 secs
         if (distanceTimer.time() > 2) {
-            if (lastDistance > 0 && lastDistance == ultrasonicLevelAverage) {
+            if (lastDistance > 0 && lastDistance < 25 && lastDistance == ultrasonicLevelAverage) {
                 return true;
             }
             lastDistance = ultrasonicLevelAverage;
@@ -433,16 +432,8 @@ public abstract class AutonomousOpMode extends LinearOpMode {
             alpha = colorSensorFront.alpha();
             i++;
         }
-        //mecanumWheels.powerMotors(0, 0, 0);
-        //waitOneFullHardwareCycle();
-        //sleep(100);
-        boolean lineDetected = false;
-        boolean lineFollowSuccess = false;
-        if (alpha >= MID_POINT_ALPHA_FRONT) {
-            lineDetected = true;
-        }
 
-        if (lineDetected && opModeIsActive()) {
+        if (opModeIsActive()) {
             // move debris out out of the way passed the line
             runForDistance(DRIVING_POWER, 6);
 
@@ -472,23 +463,23 @@ public abstract class AutonomousOpMode extends LinearOpMode {
             waitOneFullHardwareCycle();
 
             // shift to find line
-            if (colorSensorBack.alpha() < MID_POINT_ALPHA_BACK && !checkTouchObject() && opModeIsActive()) {
+            if (colorSensorBack.alpha() < MID_POINT_ALPHA_BACK && opModeIsActive()) {
                 double strafePower = blueAlliance ? 0.8 : -0.8;
                 mecanumWheels.powerMotors(0, strafePower, 0);
                 timer.reset();
-                while (colorSensorBack.alpha() < MID_POINT_ALPHA_BACK && !checkTouchObject() && opModeIsActive()) {
+                while (colorSensorBack.alpha() < MID_POINT_ALPHA_BACK && opModeIsActive()) {
                     waitOneFullHardwareCycle();
                     checkTimeout(timer, 5);
                 }
                 stopMoving();
 
                 // if we overshot, move back
-                if (colorSensorBack.alpha() < MID_POINT_ALPHA_BACK && !checkTouchObject() && opModeIsActive()) {
+                if (colorSensorBack.alpha() < MID_POINT_ALPHA_BACK && opModeIsActive()) {
                     telemetry.addData("Overshot", colorSensorBack.alpha());
                     mecanumWheels.powerMotors(0, -strafePower, 0);
                     waitOneFullHardwareCycle();
                     timer.reset();
-                    while (colorSensorBack.alpha() < MID_POINT_ALPHA_BACK && !checkTouchObject() && opModeIsActive()) {
+                    while (colorSensorBack.alpha() < MID_POINT_ALPHA_BACK && opModeIsActive()) {
                         waitOneFullHardwareCycle();
                         checkTimeout(timer, 3);
                     }
@@ -504,11 +495,11 @@ public abstract class AutonomousOpMode extends LinearOpMode {
             //waitOneFullHardwareCycle();
             //sleep(100);
 
-            if (colorSensorBack.alpha() > MID_POINT_ALPHA_BACK && !checkTouchObject() && opModeIsActive()) {
+            if (colorSensorBack.alpha() > MID_POINT_ALPHA_BACK && opModeIsActive()) {
                 mecanumWheels.powerMotors(0, tiltPower, 0);
                 waitOneFullHardwareCycle();
                 timer.reset();
-                while (colorSensorBack.alpha() > MID_POINT_ALPHA_BACK && !checkTouchObject() && opModeIsActive()) {
+                while (colorSensorBack.alpha() > MID_POINT_ALPHA_BACK && opModeIsActive()) {
                     waitOneFullHardwareCycle();
                     checkTimeout(timer, 3);
                 }
@@ -551,6 +542,7 @@ public abstract class AutonomousOpMode extends LinearOpMode {
             telemetry();
 
             // check if we have followed the line successfully
+            boolean lineFollowSuccess = false;
             //if ((color != BeaconColor.none || colorSensorBack.alpha() > MID_POINT_ALPHA_BACK/2.0) && Math.abs(mecanumWheels.getGyroHeading() - headingToBeacon) < 2.5) {
             if (color != BeaconColor.none) {
                 lineFollowSuccess = true;
