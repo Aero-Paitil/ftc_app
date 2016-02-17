@@ -1,5 +1,7 @@
 package com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters;
 
+import android.content.SharedPreferences;
+
 import com.qualcomm.ftccommon.DbgLog;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.ColorSensor;
@@ -320,7 +322,29 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         distanceTimer.reset();
         lastDistance = 0;
 
+        //retrieve preferences from AutonomousOptions
+        SharedPreferences prefs = AutonomousOptions.getSharedPrefs(hardwareMap);
+
+        String delayString = prefs.getString(AutonomousOptions.DELAY_PREF, null);
+        int delay;
+        try {
+            delay = Integer.parseInt(delayString.split(" ")[0]);
+        } catch (Exception e){
+            delay = 0;
+        }
+
+        boolean parkInBeacon = false;
+        String parkingString = prefs.getString(AutonomousOptions.END_POS_PREF, null);
+        if (parkingString != null){
+            if (parkingString.contains("beacon")){
+                parkInBeacon = true;
+            }
+        }
+
+
         while (!opModeIsActive()) {
+            telemetry.addData("Delay", delay+" sec");
+            telemetry.addData("Park in Beacon Zone", parkInBeacon);
             telemetry();
             waitOneFullHardwareCycle();
             sleep(250);
@@ -328,6 +352,9 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         }
 
         waitForStart();
+
+        //if delay preference set, execution will be delayed
+        sleep(delay * 1000);
 
         /*
          Before autonomous mode, we are calibrating gyro and visually pointing the robot
@@ -584,7 +611,7 @@ public abstract class AutonomousOpMode extends LinearOpMode {
 
                 stopMoving();
 
-                if (opModeIsActive()) {
+                if (opModeIsActive() && !parkInBeacon) {
                     // move sideways.
                     double strafePower = blueAlliance ? -1.0 : 1.0;
                     mecanumWheels.powerMotors(0, strafePower, 0);
