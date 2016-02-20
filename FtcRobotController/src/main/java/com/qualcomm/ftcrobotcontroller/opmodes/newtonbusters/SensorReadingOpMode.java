@@ -13,7 +13,8 @@ import com.qualcomm.robotcore.hardware.UltrasonicSensor;
 public class SensorReadingOpMode extends OpMode {
     ColorSensor colorSensorFront;
     ColorSensor colorSensorDrive;
-    ColorSensor colorSensorBeacon;
+    ColorSensor colorSensorBeaconRight;
+    ColorSensor colorSensorBeaconLeft;
     //OpticalDistanceSensor opticalDistSensorLeft;
     //OpticalDistanceSensor opticalDistSensorRight;
     UltrasonicSensor ultrasonicSensorRight;
@@ -28,8 +29,12 @@ public class SensorReadingOpMode extends OpMode {
         colorSensorFront.enableLed(true);
         colorSensorDrive = hardwareMap.colorSensor.get("Color Sensor Bottom");
         colorSensorDrive.enableLed(true);
-        colorSensorBeacon = hardwareMap.colorSensor.get("Color Sensor Beacon");
-        colorSensorBeacon.setI2cAddress(0x3e);
+        colorSensorBeaconRight = hardwareMap.colorSensor.get("Color Sensor Beacon Right");
+        colorSensorBeaconRight.setI2cAddress(0x3e);
+        colorSensorBeaconRight.enableLed(false);
+        colorSensorBeaconLeft = hardwareMap.colorSensor.get("Color Sensor Beacon Left");
+        colorSensorBeaconLeft.setI2cAddress(0x42);
+        colorSensorBeaconLeft.enableLed(false);
         ultrasonicSensorRight = hardwareMap.ultrasonicSensor.get("Distance Sensor Right");
         ultrasonicSensorLeft = hardwareMap.ultrasonicSensor.get("Distance Sensor Left");
         touchSensor = hardwareMap.touchSensor.get("Rear Wheels Touch");
@@ -40,9 +45,12 @@ public class SensorReadingOpMode extends OpMode {
 
     @Override
     public void loop() {
-        telemetry.addData("Beacon", "" + colorSensorBeacon.red() + "/" + colorSensorBeacon.green() + "/" +
-                colorSensorBeacon.blue() + "   " + colorSensorBeacon.alpha() +
-                " at " +colorSensorBeacon.getI2cAddress() + " "+colorSensorBeacon.getConnectionInfo());
+        telemetry.addData("Beacon Right", "" + colorSensorBeaconRight.red() + "/" + colorSensorBeaconRight.green() + "/" +
+                colorSensorBeaconRight.blue() + "   " + colorSensorBeaconRight.alpha() +
+                " at " + colorSensorBeaconRight.getI2cAddress() + " " + colorSensorBeaconRight.getConnectionInfo());
+        telemetry.addData("Beacon Left", "" + colorSensorBeaconLeft.red() + "/" + colorSensorBeaconLeft.green() + "/" +
+                colorSensorBeaconLeft.blue() + "   " + colorSensorBeaconLeft.alpha() +
+                " at " + colorSensorBeaconLeft.getI2cAddress() + " " + colorSensorBeaconLeft.getConnectionInfo());
         telemetry.addData("Drive Back", "" + colorSensorDrive.red() + "/" + colorSensorDrive.green() + "/" +
                 colorSensorDrive.blue()+"   " + colorSensorDrive.alpha()+
                 " at "+colorSensorDrive.getI2cAddress() + " "+colorSensorDrive.getConnectionInfo());

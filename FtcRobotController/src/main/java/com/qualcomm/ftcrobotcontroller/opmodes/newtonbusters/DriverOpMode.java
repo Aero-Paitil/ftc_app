@@ -60,7 +60,7 @@ public class DriverOpMode extends OpMode {
     @Override
     public void init() {
         mecanumWheels = new MecanumWheels(hardwareMap, telemetry, true); //We are using the Gyro.
-
+        mecanumWheels.powerMotors(0,0,0);
         rearWheels = hardwareMap.dcMotor.get("RearWheels");
         rearWheels.setMode(DcMotorController.RunMode.RESET_ENCODERS);
         rearWheelsTouch = hardwareMap.touchSensor.get("Rear Wheels Touch");
@@ -191,7 +191,7 @@ public class DriverOpMode extends OpMode {
 
         //this code controls the rear wheels
         int rearWheelsPosition = rearWheels.getCurrentPosition();
-        telemetry.addData("rear wheel position", rearWheelsPosition);
+        //telemetry.addData("rear wheel position", rearWheelsPosition);
         if (gamepad1.a || gamepad1.b) {
             if (!movingRearWheelsHoldingPos) {
                 rearWheels.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
@@ -261,8 +261,8 @@ public class DriverOpMode extends OpMode {
         contolArm();
 
 
-        telemetry.addData("spool1", spool1.getConnectionInfo());
-        telemetry.addData("spool2", spool2.getConnectionInfo());
+        //telemetry.addData("spool1", spool1.getConnectionInfo());
+        //telemetry.addData("spool2", spool2.getConnectionInfo());
 
         // controls spools
         if (gamepad2.y) {
@@ -382,7 +382,7 @@ public class DriverOpMode extends OpMode {
     }
 
     void contolArm() {
-        telemetry.addData("Shoulder", shoulderMotor.getCurrentPosition());
+        //telemetry.addData("Shoulder", shoulderMotor.getCurrentPosition());
 
         // small shoulder adjustments
         if (!movingShoulderBig) {

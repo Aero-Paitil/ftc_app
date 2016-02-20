@@ -46,7 +46,8 @@ public abstract class AutonomousOpMode extends LinearOpMode {
     UltrasonicSensor ultrasonicSensorLeft;
     ColorSensor colorSensorFront;
     ColorSensor colorSensorBack;
-    ColorSensor colorSensorBeacon;
+    ColorSensor colorSensorBeaconRight;
+    ColorSensor colorSensorBeaconLeft;
     Servo rightButtonPusher, leftButtonPusher;
     Servo skiLiftHandleRight, skiLiftHandleLeft;
     Servo frontSweeper;
@@ -178,10 +179,13 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         return (ultrasonicLevelAverage < 15 && ultrasonicLevelAverage > 0.1);
     }
 
+    /*
+     This method returns beacon color on the right
+     */
     public BeaconColor checkBeaconColor() {
         BeaconColor color;
-        int blue = colorSensorBeacon.blue();
-        int red = colorSensorBeacon.red();
+        int blue = colorSensorBeaconRight.blue();
+        int red = colorSensorBeaconRight.red();
         if (blue > red) {
             DbgLog.msg("BEACON Detecting blue");
             color = BeaconColor.blue;
@@ -212,9 +216,9 @@ public abstract class AutonomousOpMode extends LinearOpMode {
     }
 
     public void telemetry() {
-        telemetry.addData("Beacon", "" + colorSensorBeacon.red() + "/" + colorSensorBeacon.green() + "/" +
-                colorSensorBeacon.blue() + "   " +
-                " at " + colorSensorBeacon.getI2cAddress() + " " + colorSensorBeacon.getConnectionInfo());
+        telemetry.addData("Beacon", "" + colorSensorBeaconRight.red() + "/" + colorSensorBeaconRight.green() + "/" +
+                colorSensorBeaconRight.blue() + "   " +
+                " at " + colorSensorBeaconRight.getI2cAddress() + " " + colorSensorBeaconRight.getConnectionInfo());
         telemetry.addData("Drive Back", colorSensorBack.alpha() +
                 " at " + colorSensorBack.getI2cAddress() + " " + colorSensorBack.getConnectionInfo());
         telemetry.addData("Drive Front", colorSensorFront.alpha() +
@@ -312,8 +316,12 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         colorSensorFront.setI2cAddress(0x40);
         colorSensorFront.enableLed(true);
         colorSensorBack = hardwareMap.colorSensor.get("Color Sensor Bottom");
-        colorSensorBeacon = hardwareMap.colorSensor.get("Color Sensor Beacon");
-        colorSensorBeacon.setI2cAddress(0x3e);
+        colorSensorBeaconRight = hardwareMap.colorSensor.get("Color Sensor Beacon Right");
+        colorSensorBeaconRight.setI2cAddress(0x3e);
+        colorSensorBeaconRight.enableLed(false);
+        colorSensorBeaconLeft = hardwareMap.colorSensor.get("Color Sensor Beacon Left");
+        colorSensorBeaconLeft.setI2cAddress(0x42);
+        colorSensorBeaconLeft.enableLed(false);
 
         ultrasonicSensorRight = hardwareMap.ultrasonicSensor.get("Distance Sensor Right");
         ultrasonicSensorLeft = hardwareMap.ultrasonicSensor.get("Distance Sensor Left");

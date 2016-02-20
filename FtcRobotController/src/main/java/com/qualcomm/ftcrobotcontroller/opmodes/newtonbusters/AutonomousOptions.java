@@ -42,7 +42,7 @@ public class AutonomousOptions extends OpMode {
 
     private static Map<String, String[]> createMap() {
         Map<String, String[]> result = new HashMap<String, String[]>();
-        result.put(ALLIANCE_PREF, new String[]{"red", "blue"});
+        result.put(ALLIANCE_PREF,   String[]{"red", "blue"});
         result.put(DELAY_PREF, new String[]{"0 sec", "3 sec", "5 sec", "7 sec"});
         result.put(END_POS_PREF, new String[]{"floor goal", "beacon zone"});
 
