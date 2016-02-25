@@ -34,6 +34,7 @@ package com.qualcomm.ftcrobotcontroller.opmodes;
 import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.AutonomousOpMode;
 import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.AutonomousOptions;
 import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.BlueAutonomous;
+import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.DemoOpMode;
 import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.DriverOpMode;
 import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.GyroCalibration;
 import com.qualcomm.ftcrobotcontroller.opmodes.newtonbusters.GyroDriveMecanumWheels;
@@ -71,6 +72,8 @@ public class FtcOpModeRegister implements OpModeRegister {
         manager.register("DriverMode", DriverOpMode.class);
         manager.register("SensorReadingOpMode", SensorReadingOpMode.class);
         manager.register("GyroDriveMecanumWheels", GyroDriveMecanumWheels.class);
+
+        manager.register("DemoOpMode", DemoOpMode.class);
 
         //manager.register("MecanumWheelsOpMode", MecanumWheelsOpMode.class);
         //manager.register("AutoLinearOpMode", AutoLinearOpMode.class);
