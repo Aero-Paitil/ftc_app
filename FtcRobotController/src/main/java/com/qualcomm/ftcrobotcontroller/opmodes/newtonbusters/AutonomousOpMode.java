@@ -20,13 +20,13 @@ import com.qualcomm.robotcore.hardware.Servo;
  */
 public abstract class AutonomousOpMode extends LinearOpMode {
 
-    enum BeaconColor {red, blue, none}
+    enum BeaconColor {red, blue, none} //only accounts for the right side color of the Beacon
 
     boolean blueAlliance = isBlueAlliance();
 
     //final static int STOP_AT_DISTANCE_READING = 50;                   //ODS reading; robot will stop at this distance from wall
-    final static int MID_POINT_ALPHA_BACK = 15;                         //(0 + 30) / 2 = 15
-    final static int MID_POINT_ALPHA_FRONT = 5;                         //(0 + 10) / 2 = 5
+    static int MID_POINT_ALPHA_BACK = 15;                         //(0 + 30) / 2 = 15
+    static int MID_POINT_ALPHA_FRONT = 5;                         //(0 + 10) / 2 = 5
     final static double CORRECTION_MULTIPLIER = 1.0;                    //kp constant power
     final static double LINE_FOLLOW_MOTOR_POWER = -0.15;                //power of the motor
 
@@ -40,6 +40,8 @@ public abstract class AutonomousOpMode extends LinearOpMode {
     final static public double SWEEPER_UNDEPLOYED_POS = 0.85;
     final static public double SWEEPER_DEPLOYED_POS = 0.07;
 
+    final static private double SKI_LIFT_RIGHT_INITIAL_POSITION = 30/255d;
+    final static private double SKI_LIFT_LEFT_INITIAL_POSITION = 254/255d;
     MecanumWheels mecanumWheels;
 
     UltrasonicSensor ultrasonicSensorRight;
@@ -184,13 +186,16 @@ public abstract class AutonomousOpMode extends LinearOpMode {
      */
     public BeaconColor checkBeaconColor() {
         BeaconColor color;
-        int blue = colorSensorBeaconRight.blue();
-        int red = colorSensorBeaconRight.red();
-        if (blue > red) {
-            DbgLog.msg("BEACON Detecting blue");
+        int blueR = colorSensorBeaconRight.blue();
+        int redR = colorSensorBeaconRight.red();
+        int blueL = colorSensorBeaconLeft.blue();
+        int redL = colorSensorBeaconLeft.blue();
+
+        if (blueR >= redR && redL >= blueL) { //blue Right, red Left
+            DbgLog.msg("BEACON Detecting blue on the right");
             color = BeaconColor.blue;
-        } else if (red > blue) {
-            DbgLog.msg("BEACON Detecting red");
+        } else if (redR >= blueR && blueL >= redL) { //blue Left, red Right
+            DbgLog.msg("BEACON Detecting red on the right");
             color = BeaconColor.red;
         } else {
             DbgLog.msg("BEACON No color detected");
@@ -216,12 +221,15 @@ public abstract class AutonomousOpMode extends LinearOpMode {
     }
 
     public void telemetry() {
-        telemetry.addData("Beacon", "" + colorSensorBeaconRight.red() + "/" + colorSensorBeaconRight.green() + "/" +
-                colorSensorBeaconRight.blue() + "   " +
-                " at " + colorSensorBeaconRight.getI2cAddress() + " " + colorSensorBeaconRight.getConnectionInfo());
-        telemetry.addData("Drive Back", colorSensorBack.alpha() +
+        telemetry.addData("Beacon Color Right - R/G/B: ", "" + colorSensorBeaconRight.red() + "/" + colorSensorBeaconRight.green() + "/" +
+                colorSensorBeaconRight.blue() + "     Light reading: " + colorSensorBeaconRight.alpha() + "    " +
+                 " at " + colorSensorBeaconRight.getI2cAddress() + " " + colorSensorBeaconRight.getConnectionInfo());
+        telemetry.addData("Beacon Color Left - R/G/B: ", "" + colorSensorBeaconLeft.red() + "/" + colorSensorBeaconLeft.green() + "/" +
+                colorSensorBeaconLeft.blue() + "     Light reading: " + colorSensorBeaconLeft.alpha() + "     " +
+                " at " + colorSensorBeaconLeft.getI2cAddress() + " " + colorSensorBeaconLeft.getConnectionInfo());
+        telemetry.addData("Drive Back color sensor light reading: ", colorSensorBack.alpha() +
                 " at " + colorSensorBack.getI2cAddress() + " " + colorSensorBack.getConnectionInfo());
-        telemetry.addData("Drive Front", colorSensorFront.alpha() +
+        telemetry.addData("Drive Front color sensor light reading: ", colorSensorFront.alpha() +
                 " at " + colorSensorFront.getI2cAddress() + " " + colorSensorFront.getConnectionInfo());
         telemetry.addData("Ultrasonic Right", ultrasonicSensorRight.getUltrasonicLevel());
         telemetry.addData("Ultrasonic Left", ultrasonicSensorLeft.getUltrasonicLevel());
@@ -286,10 +294,10 @@ public abstract class AutonomousOpMode extends LinearOpMode {
 
         skiLiftHandleRight = hardwareMap.servo.get("SkiLiftHandleRight");
         //value 45/255 is the initial position, value 195/255 is the deployed position
-        skiLiftHandleRight.setPosition(45.0 / 255);
+        skiLiftHandleRight.setPosition(SKI_LIFT_RIGHT_INITIAL_POSITION);
         skiLiftHandleLeft = hardwareMap.servo.get("SkiLiftHandleLeft");
         //value 240/255 is the initial position, value 90/255 is the deployed position
-        skiLiftHandleLeft.setPosition(240.0 / 255);
+        skiLiftHandleLeft.setPosition(SKI_LIFT_LEFT_INITIAL_POSITION);
         frontSweeper = hardwareMap.servo.get("FrontSweeper");
         //value 200/255 is the initial position, value 100/255 is the deployed position
         frontSweeper.setPosition(SWEEPER_INITIAL_POS);
@@ -333,7 +341,7 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         //retrieve preferences from AutonomousOptions
         SharedPreferences prefs = AutonomousOptions.getSharedPrefs(hardwareMap);
 
-        String delayString = prefs.getString(AutonomousOptions.DELAY_PREF, null);
+        String delayString = prefs.getString(AutonomousOptions.DELAY_PREF, "1 second");
         int delay;
         try {
             delay = Integer.parseInt(delayString.split(" ")[0]);
