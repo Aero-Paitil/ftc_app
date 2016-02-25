@@ -14,10 +14,10 @@ import com.qualcomm.robotcore.util.ElapsedTime;
  * This class has the code for our driver controlled mode.
  */
 public class DriverOpMode extends OpMode {
-    final static private double LIFT_RELEASE_POS_RIGHT = 195 / 255d;
-    final static private double LIFT_RELEASE_POS_LEFT = 90 / 255d;
-    final static private double LIFT_INIT_POS_RIGHT = 30 / 255d;
-    final static private double LIFT_INIT_POS_LEFT = 254/255d;
+    final static private double LIFT_RELEASE_POS_RIGHT = 215 / 255d;
+    final static private double LIFT_RELEASE_POS_LEFT = 25 / 255d;
+    final static private double LIFT_INIT_POS_RIGHT = 55 / 255d;
+    final static private double LIFT_INIT_POS_LEFT = 185 /255d;
 
     final static public double SWEEPER_UNDEPLOYED_POS = 0.85 ;
     final static public double SWEEPER_DEPLOYED_POS = 0.07;
