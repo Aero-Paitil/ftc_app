@@ -45,17 +45,17 @@ public class SensorReadingOpMode extends OpMode {
 
     @Override
     public void loop() {
-        telemetry.addData("Beacon Right", "" + colorSensorBeaconRight.red() + "/" + colorSensorBeaconRight.green() + "/" +
-                colorSensorBeaconRight.blue() + "   " + colorSensorBeaconRight.alpha() +
+        telemetry.addData("Beacon Right - R/G/B: ", "" + colorSensorBeaconRight.red() + "/" + colorSensorBeaconRight.green() + "/" +
+                colorSensorBeaconRight.blue() + "       Light reading:" + colorSensorBeaconRight.alpha() +
                 " at " + colorSensorBeaconRight.getI2cAddress() + " " + colorSensorBeaconRight.getConnectionInfo());
-        telemetry.addData("Beacon Left", "" + colorSensorBeaconLeft.red() + "/" + colorSensorBeaconLeft.green() + "/" +
-                colorSensorBeaconLeft.blue() + "   " + colorSensorBeaconLeft.alpha() +
+        telemetry.addData("Beacon Left - R/G/B: ", "" + colorSensorBeaconLeft.red() + "/" + colorSensorBeaconLeft.green() + "/" +
+                colorSensorBeaconLeft.blue() + "       Light reading:" + colorSensorBeaconLeft.alpha() +
                 " at " + colorSensorBeaconLeft.getI2cAddress() + " " + colorSensorBeaconLeft.getConnectionInfo());
-        telemetry.addData("Drive Back", "" + colorSensorDrive.red() + "/" + colorSensorDrive.green() + "/" +
-                colorSensorDrive.blue()+"   " + colorSensorDrive.alpha()+
+        telemetry.addData("Drive Back - R/G/B: ", "" + colorSensorDrive.red() + "/" + colorSensorDrive.green() + "/" +
+                colorSensorDrive.blue()+"       Light reading:" + colorSensorDrive.alpha()+
                 " at "+colorSensorDrive.getI2cAddress() + " "+colorSensorDrive.getConnectionInfo());
-        telemetry.addData("Drive Front", "" + colorSensorFront.red() + "/" + colorSensorFront.green() + "/" +
-                colorSensorFront.blue()+"   " + colorSensorFront.alpha()+
+        telemetry.addData("Drive Front - R/G/B: ", "" + colorSensorFront.red() + "/" + colorSensorFront.green() + "/" +
+                colorSensorFront.blue()+"       Light reading:" + colorSensorFront.alpha()+
                 " at "+colorSensorFront.getI2cAddress() + " "+colorSensorFront.getConnectionInfo());
         telemetry.addData("Ultrasonic Right", ultrasonicSensorRight.getUltrasonicLevel());
         telemetry.addData("Ultrasonic Left", ultrasonicSensorLeft.getUltrasonicLevel());
