@@ -40,8 +40,8 @@ public abstract class AutonomousOpMode extends LinearOpMode {
     final static public double SWEEPER_UNDEPLOYED_POS = 0.85;
     final static public double SWEEPER_DEPLOYED_POS = 0.07;
 
-    final static private double SKI_LIFT_RIGHT_INITIAL_POSITION = 30/255d;
-    final static private double SKI_LIFT_LEFT_INITIAL_POSITION = 254/255d;
+    final static private double SKI_LIFT_RIGHT_INITIAL_POSITION = 55/255d;
+    final static private double SKI_LIFT_LEFT_INITIAL_POSITION = 185/255d;
     MecanumWheels mecanumWheels;
 
     UltrasonicSensor ultrasonicSensorRight;
