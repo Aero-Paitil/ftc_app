@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.hardware.TouchSensor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 /**
+ * Driver mode for demo purposes - has beacon pressers instead of arm movements
  * Created by Aryoman on 2/22/2016.
  */
 public class DemoOpMode extends OpMode {
@@ -41,7 +42,7 @@ public class DemoOpMode extends OpMode {
 
     ElapsedTime wheelProtectionTimer;
 
-    ElapsedTime beaconPresserLeft, beaconPresserRight;
+    ElapsedTime beaconPresserLeftTimer, beaconPresserRightTimer;
 
     enum WheelProtectionState {Undeployed, Deploying, Deployed}
 
@@ -88,6 +89,9 @@ public class DemoOpMode extends OpMode {
         leftButtonPusher.setDirection(Servo.Direction.REVERSE);
         rightButtonPusher.setPosition(0.5);
         leftButtonPusher.setPosition(0.5);
+        beaconPresserLeftTimer = new ElapsedTime();
+        beaconPresserRightTimer = new ElapsedTime();
+        movingBeaconPresser = false;
 
         skiLiftHandleRight = hardwareMap.servo.get("SkiLiftHandleRight");
         //value 45/255 is the initial position, value 195/255 is the deployed position
@@ -256,9 +260,10 @@ public class DemoOpMode extends OpMode {
         }
 
         // second gamepad
-
         contolArm();
 
+        // beacon pressers
+        beaconPressers();
 
         telemetry.addData("spool1", spool1.getConnectionInfo());
         telemetry.addData("spool2", spool2.getConnectionInfo());
@@ -383,37 +388,30 @@ public class DemoOpMode extends OpMode {
         if (gamepad2.left_trigger > 0.5) {
             if (!movingBeaconPresser) {
                 leftButtonPusher.setPosition(1);
-                beaconPresserLeft.reset();
-                if(beaconPresserLeft.time()>2.5)
-                {
+                beaconPresserLeftTimer.reset();
+                movingBeaconPresser = true;
+            } else {
+                if(beaconPresserLeftTimer.time()>2.5) {
                     leftButtonPusher.setPosition(0);
                 }
-                beaconPresserLeft.reset();
-                if(beaconPresserLeft.time()>1)
-                {
-                    leftButtonPusher.setPosition(0.5);
-                }
-                movingBeaconPresser = true;
             }
         }
         else if (gamepad2.right_trigger > 0.5) {
             if (!movingBeaconPresser) {
                 rightButtonPusher.setPosition(1);
-                beaconPresserRight.reset();
-                if(beaconPresserRight.time()>2.5)
-                {
+                beaconPresserRightTimer.reset();
+                movingBeaconPresser = true;
+            } else {
+                if(beaconPresserRightTimer.time()>2.5) {
                     rightButtonPusher.setPosition(0);
                 }
-                beaconPresserRight.reset();
-                if(beaconPresserRight.time()>1)
-                {
-                    rightButtonPusher.setPosition(0.5);
-                }
-
-                movingBeaconPresser = true;
             }
-        } else if (movingBeaconPresser) {
-            movingBeaconPresser = false;
+        } else {
+            if (movingBeaconPresser) {
+                rightButtonPusher.setPosition(0.5);
+                leftButtonPusher.setPosition(0.5);
+                movingBeaconPresser = false;
+            }
         }
     }
 
@@ -434,12 +432,6 @@ public class DemoOpMode extends OpMode {
             }
         }
 
-    }
-
-    public void changeShoulderPosition(int byCounts) {
-        int currentPosition = shoulderMotor.getCurrentPosition();
-        int newPosition = currentPosition + byCounts;
-        setShoulderPosition(newPosition);
     }
 
     private void setShoulderPosition(int position) {
