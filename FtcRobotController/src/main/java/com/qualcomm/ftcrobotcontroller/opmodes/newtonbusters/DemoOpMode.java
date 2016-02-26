@@ -12,8 +12,10 @@ import com.qualcomm.robotcore.util.ElapsedTime;
  * Created by Aryoman on 2/22/2016.
  */
 public class DemoOpMode extends OpMode {
-    final static private double CLIMBER_RELEASE_POS_RIGHT = 195 / 255d;
-    final static private double CLIMBER_RELEASE_POS_LEFT = 90 / 255d;
+    final static private double LIFT_RELEASE_POS_RIGHT = 215 / 255d;
+    final static private double LIFT_RELEASE_POS_LEFT = 25 / 255d;
+    final static private double LIFT_INIT_POS_RIGHT = 55 / 255d;
+    final static private double LIFT_INIT_POS_LEFT = 185 /255d;
 
     final static public double SWEEPER_UNDEPLOYED_POS = 0.85;
     final static public double SWEEPER_DEPLOYED_POS = 0.07;
@@ -63,7 +65,7 @@ public class DemoOpMode extends OpMode {
     @Override
     public void init() {
         mecanumWheels = new MecanumWheels(hardwareMap, telemetry, true); //We are using the Gyro.
-
+        mecanumWheels.powerMotors(0,0,0);
         rearWheels = hardwareMap.dcMotor.get("RearWheels");
         rearWheels.setMode(DcMotorController.RunMode.RESET_ENCODERS);
         rearWheelsTouch = hardwareMap.touchSensor.get("Rear Wheels Touch");
@@ -86,6 +88,8 @@ public class DemoOpMode extends OpMode {
 
         rightButtonPusher = hardwareMap.servo.get("RightButtonPusher");
         leftButtonPusher = hardwareMap.servo.get("LeftButtonPusher");
+        //0 servo setting means touch pusher isn't deployed, all the way in, didn't touch/sense anything
+        //1 servo setting means touch pusher is deployed, and touched/sensed something
         leftButtonPusher.setDirection(Servo.Direction.REVERSE);
         rightButtonPusher.setPosition(0.5);
         leftButtonPusher.setPosition(0.5);
@@ -95,10 +99,10 @@ public class DemoOpMode extends OpMode {
 
         skiLiftHandleRight = hardwareMap.servo.get("SkiLiftHandleRight");
         //value 45/255 is the initial position, value 195/255 is the deployed position
-        skiLiftHandleRight.setPosition(45.0 / 255);
+        skiLiftHandleRight.setPosition(LIFT_INIT_POS_RIGHT);
         skiLiftHandleLeft = hardwareMap.servo.get("SkiLiftHandleLeft");
         //value 240/255 is the initial position, value 90/255 is the deployed position
-        skiLiftHandleLeft.setPosition(240.0 / 255);
+        skiLiftHandleLeft.setPosition(LIFT_INIT_POS_LEFT);
         frontSweeper = hardwareMap.servo.get("FrontSweeper");
         //value 200/255 is the initial position, value 100/255 is the deployed position
         frontSweeper.setPosition(SWEEPER_UNDEPLOYED_POS);
@@ -128,6 +132,7 @@ public class DemoOpMode extends OpMode {
 
     @Override
     public void loop() {
+
         //changing field coordinates
         if (gamepad1.left_bumper && gamepad1.right_bumper) {
             mecanumWheels.resetGyroHeading();
@@ -140,10 +145,10 @@ public class DemoOpMode extends OpMode {
             //releasing climbers
             if (gamepad1.right_bumper) {
                 if (!rightClimberReleased) {
-                    skiLiftHandleRight.setPosition(CLIMBER_RELEASE_POS_RIGHT);
+                    skiLiftHandleRight.setPosition(LIFT_RELEASE_POS_RIGHT);
                     rightClimberReleased = true;
                 } else {
-                    skiLiftHandleRight.setPosition(45 / 255d);
+                    skiLiftHandleRight.setPosition(LIFT_INIT_POS_RIGHT);
                     rightClimberReleased = false;
                 }
                 while (true) {
@@ -153,10 +158,10 @@ public class DemoOpMode extends OpMode {
                 }
             } else if (gamepad1.left_bumper) {
                 if (!leftClimberReleased) {
-                    skiLiftHandleLeft.setPosition(CLIMBER_RELEASE_POS_LEFT);
+                    skiLiftHandleLeft.setPosition(LIFT_RELEASE_POS_LEFT);
                     leftClimberReleased = true;
                 } else {
-                    skiLiftHandleLeft.setPosition(240 / 255d);
+                    skiLiftHandleLeft.setPosition(LIFT_INIT_POS_LEFT);
                     leftClimberReleased = false;
                 }
                 while (true) {
