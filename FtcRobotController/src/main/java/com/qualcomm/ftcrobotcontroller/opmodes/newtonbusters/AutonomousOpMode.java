@@ -189,12 +189,12 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         int blueR = colorSensorBeaconRight.blue();
         int redR = colorSensorBeaconRight.red();
         int blueL = colorSensorBeaconLeft.blue();
-        int redL = colorSensorBeaconLeft.blue();
+        int redL = colorSensorBeaconLeft.red();
 
-        if (blueR >= redR && redL >= blueL) { //blue Right, red Left
+        if (blueR > redR || redL > blueL) { //blue Right, red Left
             DbgLog.msg("BEACON Detecting blue on the right");
             color = BeaconColor.blue;
-        } else if (redR >= blueR && blueL >= redL) { //blue Left, red Right
+        } else if (redR > blueR || blueL > redL) { //blue Left, red Right
             DbgLog.msg("BEACON Detecting red on the right");
             color = BeaconColor.red;
         } else {
