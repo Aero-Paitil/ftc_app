@@ -5,13 +5,18 @@ import android.content.SharedPreferences;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * Created by Aryoman on 2/16/2016.
  * revised by JASMINE on 2/16/2016.
  */
 public class AutonomousOptions extends OpMode {
 
-    enum State  {DisplayAll, DisplayDelay, DisplayEndPos}
+    //enum State  {DisplayAll, DisplayDelay, DisplayEndPos}
+    enum State  {DisplayAll, DisplaySingle}
 
     State menuState = State.DisplayAll;
 
@@ -34,13 +39,18 @@ public class AutonomousOptions extends OpMode {
         return hardwareMap.appContext.getSharedPreferences("autonomous", 0);
     }
 
-    /*private static Map<String, String[]> createMap() {
-        Map<String, String[]> result = new HashMap<String, String[]>();
-       result.put(DELAY_PREF, DELAYS);
-        result.put(END_POS_PREF, END_POS);
 
-        return Collections.unmodifiableMap(result);
-    }*/
+    private static Map<String, String[]> prefMap = new HashMap<String, String[]>();
+    static {
+        prefMap.put(DELAY_PREF, DELAYS);
+        prefMap.put(END_POS_PREF, END_POS);
+    }
+    private static String[] prefKeys = prefMap.keySet().toArray(new String[prefMap.keySet().size()]);
+    static {
+        Arrays.sort(prefKeys);
+    }
+    private static int keyIdx = 0;
+
 
     public int getIndex(String val, String[] array) {
         if(array!=null){
@@ -63,36 +73,6 @@ public class AutonomousOptions extends OpMode {
         }
     }
 
-    private void selectOption(String key, String[] array, State state) {
-        if (key != null) {
-            String prefValue = prefs.getString(key, NONE);
-            selectionIdx = getIndex(prefValue, array);
-            telemetry.addData(key, prefValue);
-        }
-        telemetry.addData("Choose", "X - accept Y - change");
-        if (gamepad1.x) {
-            while (gamepad1.x) {
-                telemetry.addData("Success", "");
-            }
-            menuState = state;
-            telemetry.clearData();
-        }
-        if (gamepad1.y) {
-            while (gamepad1.y) {
-            }
-            if(key!=null) {
-                selectionIdx++;
-                if (selectionIdx >= array.length) {
-                    selectionIdx = 0;
-                }
-                editor.putString(key, array[selectionIdx]);
-                editor.apply();
-            }else{
-                menuState=state;
-                telemetry.clearData();
-            }
-        }
-    }
 
     @Override
     public void loop() {
@@ -100,108 +80,62 @@ public class AutonomousOptions extends OpMode {
             case DisplayAll:
                 telemetry.addData(DELAY_PREF, prefs.getString(DELAY_PREF, NONE));
                 telemetry.addData(END_POS_PREF,prefs.getString(END_POS_PREF,NONE));
-                selectOption(null, null, State.DisplayDelay);
+                displayAll();
                 break;
-            case DisplayDelay:
-                selectOption(DELAY_PREF, DELAYS, State.DisplayEndPos);
-                break;
-            case DisplayEndPos:
-                selectOption(END_POS_PREF, END_POS, State.DisplayAll);
+            case DisplaySingle:
+                displaySingle();
                 break;
         }
     }
+
+    void displayAll () {
+
+        telemetry.clearData();
+        telemetry.addData("Choose", "X - accept Y - change");
+        for (String key : prefKeys) {
+            telemetry.addData(key, prefs.getString(key, NONE));
+        }
+        if (gamepad1.y) {
+            while (gamepad1.y) {
+            }
+            menuState = State.DisplaySingle;
+        }
+    }
+
+    void displaySingle () {
+
+        telemetry.clearData();
+        telemetry.addData("Choose", "X - accept Y - change");
+        String key = prefKeys[keyIdx];
+        String[] array = prefMap.get(key);
+        if (key != null) {
+            String prefValue = prefs.getString(key, NONE);
+            selectionIdx = getIndex(prefValue, array);
+            telemetry.addData(key, prefValue);
+        }
+        if (gamepad1.x) {
+            while (gamepad1.x) {
+            }
+            int nextKeyIdx = keyIdx+1;
+            if (nextKeyIdx >= prefKeys.length) {
+                keyIdx = 0;
+                menuState = State.DisplayAll;
+            }
+            else {
+                keyIdx = nextKeyIdx;
+            }
+        }
+        if (gamepad1.y) {
+            while (gamepad1.y) {
+            }
+            selectionIdx++;
+            if (selectionIdx >= array.length) {
+                selectionIdx = 0;
+            }
+            editor.putString(key, array[selectionIdx]);
+            editor.apply();
+        }
+    }
+
 }
 
-
-
-
-/*        switch (menuState) {
-            case DisplayAll:
-                telemetry.addData(ALLIANCE_PREF, prefs.getString(ALLIANCE_PREF, NONE));
-                telemetry.addData(DELAY_PREF, prefs.getString(DELAY_PREF, NONE));
-                telemetry.addData(END_POS_PREF, prefs.getString(END_POS_PREF, NONE));
-                telemetry.addData("Choose", "X - accept Y - change");
-                if (gamepad1.x) {
-                    while (gamepad1.x) {
-                        telemetry.addData("Success", "");
-                    }
-                }
-                if (gamepad1.y) {
-                    while (gamepad1.y) {
-                    }
-                    menuState = MenuState.DisplayAlliance;
-                    telemetry.clearData();
-        }
-                break;
-            case DisplayAlliance:
-                prefValue = prefs.getString(ALLIANCE_PREF, NONE);
-                selectionIdx = getIndex(prefValue, ALLIANCE);
-                telemetry.addData(ALLIANCE_PREF, prefValue);
-                telemetry.addData("Choose", "X - accept Y - change");
-                if (gamepad1.x) {
-                    while (gamepad1.x) {
-                    }
-                    menuState = MenuState.DisplayDelay;
-                    telemetry.clearData();
-                } else if (gamepad1.y) {
-                    while (gamepad1.y) {
-                    }
-                    selectionIdx++;
-
-                    if (selectionIdx >= ALLIANCE.length) {
-                        selectionIdx = 0;
-                    }
-                    editor.putString(ALLIANCE_PREF, ALLIANCE[selectionIdx]);
-                    editor.apply();
-                }
-                break;
-            case DisplayDelay:
-                prefValue = prefs.getString(DELAY_PREF, NONE);
-                telemetry.addData(DELAY_PREF, prefValue);
-                selectionIdx = getIndex(prefValue, DELAYS);
-                telemetry.addData("Choose", "X - accept Y - change");
-                if (gamepad1.x) {
-                    while (gamepad1.x) {
-                    }
-
-                    menuState = MenuState.DisplayEndPos;
-                    telemetry.clearData();
-                } else if (gamepad1.y) {
-                    while (gamepad1.y) {
-                    }
-                    selectionIdx++;
-
-                    if (selectionIdx >= DELAYS.length) {
-                        selectionIdx = 0;
-
-                    }
-                    editor.putString(DELAY_PREF, DELAYS[selectionIdx]);
-                    editor.apply();
-                }
-                break;
-            case DisplayEndPos:
-                prefValue = prefs.getString(END_POS_PREF, NONE);
-                telemetry.addData(END_POS_PREF, prefValue);
-                selectionIdx = getIndex(prefValue, END_POS);
-                telemetry.addData("Choose", "X - accept Y - change");
-                if (gamepad1.x) {
-                    while (gamepad1.x) {
-                    }
-
-                    menuState = MenuState.DisplayAll;
-                    telemetry.clearData();
-                } else if (gamepad1.y) {
-                    while (gamepad1.y) {
-                    }
-                    selectionIdx++;
-
-                    if (selectionIdx >= END_POS.length) {
-                        selectionIdx = 0;
-
-                    }
-                    editor.putString(END_POS_PREF, END_POS[selectionIdx]);
-                    editor.apply();
-                }
-                break;
-
-        }*/
