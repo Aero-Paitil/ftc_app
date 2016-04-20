@@ -14,8 +14,10 @@ import com.qualcomm.robotcore.util.ElapsedTime;
  * This class has the code for our driver controlled mode.
  */
 public class DriverOpMode extends OpMode {
-    final static private double CLIMBER_RELEASE_POS_RIGHT = 195 / 255d;
-    final static private double CLIMBER_RELEASE_POS_LEFT = 90 / 255d;
+    final static private double LIFT_RELEASE_POS_RIGHT = 215 / 255d;
+    final static private double LIFT_RELEASE_POS_LEFT = 25 / 255d;
+    final static private double LIFT_INIT_POS_RIGHT = 55 / 255d;
+    final static private double LIFT_INIT_POS_LEFT = 185 /255d;
 
     final static public double SWEEPER_UNDEPLOYED_POS = 0.85 ;
     final static public double SWEEPER_DEPLOYED_POS = 0.07;
@@ -60,7 +62,7 @@ public class DriverOpMode extends OpMode {
     @Override
     public void init() {
         mecanumWheels = new MecanumWheels(hardwareMap, telemetry, true); //We are using the Gyro.
-
+        mecanumWheels.powerMotors(0,0,0);
         rearWheels = hardwareMap.dcMotor.get("RearWheels");
         rearWheels.setMode(DcMotorController.RunMode.RESET_ENCODERS);
         rearWheelsTouch = hardwareMap.touchSensor.get("Rear Wheels Touch");
@@ -91,10 +93,10 @@ public class DriverOpMode extends OpMode {
 
         skiLiftHandleRight = hardwareMap.servo.get("SkiLiftHandleRight");
         //value 45/255 is the initial position, value 195/255 is the deployed position
-        skiLiftHandleRight.setPosition(45.0 / 255);
+        skiLiftHandleRight.setPosition(LIFT_INIT_POS_RIGHT);
         skiLiftHandleLeft = hardwareMap.servo.get("SkiLiftHandleLeft");
         //value 240/255 is the initial position, value 90/255 is the deployed position
-        skiLiftHandleLeft.setPosition(240.0 / 255);
+        skiLiftHandleLeft.setPosition(LIFT_INIT_POS_LEFT);
         frontSweeper = hardwareMap.servo.get("FrontSweeper");
         //value 200/255 is the initial position, value 100/255 is the deployed position
         frontSweeper.setPosition(SWEEPER_UNDEPLOYED_POS);
@@ -136,10 +138,10 @@ public class DriverOpMode extends OpMode {
             //releasing climbers
             if (gamepad1.right_bumper) {
                 if (!rightClimberReleased) {
-                    skiLiftHandleRight.setPosition(CLIMBER_RELEASE_POS_RIGHT);
+                    skiLiftHandleRight.setPosition(LIFT_RELEASE_POS_RIGHT);
                     rightClimberReleased = true;
                 } else {
-                    skiLiftHandleRight.setPosition(45 / 255d);
+                    skiLiftHandleRight.setPosition(LIFT_INIT_POS_RIGHT);
                     rightClimberReleased = false;
                 }
                 while (true) {
@@ -149,10 +151,10 @@ public class DriverOpMode extends OpMode {
                 }
             } else if (gamepad1.left_bumper) {
                 if (!leftClimberReleased) {
-                    skiLiftHandleLeft.setPosition(CLIMBER_RELEASE_POS_LEFT);
+                    skiLiftHandleLeft.setPosition(LIFT_RELEASE_POS_LEFT);
                     leftClimberReleased = true;
                 } else {
-                    skiLiftHandleLeft.setPosition(240 / 255d);
+                    skiLiftHandleLeft.setPosition(LIFT_INIT_POS_LEFT);
                     leftClimberReleased = false;
                 }
                 while (true) {
@@ -191,7 +193,7 @@ public class DriverOpMode extends OpMode {
 
         //this code controls the rear wheels
         int rearWheelsPosition = rearWheels.getCurrentPosition();
-        telemetry.addData("rear wheel position", rearWheelsPosition);
+        //telemetry.addData("rear wheel position", rearWheelsPosition);
         if (gamepad1.a || gamepad1.b) {
             if (!movingRearWheelsHoldingPos) {
                 rearWheels.setMode(DcMotorController.RunMode.RUN_TO_POSITION);
@@ -261,8 +263,8 @@ public class DriverOpMode extends OpMode {
         contolArm();
 
 
-        telemetry.addData("spool1", spool1.getConnectionInfo());
-        telemetry.addData("spool2", spool2.getConnectionInfo());
+        //telemetry.addData("spool1", spool1.getConnectionInfo());
+        //telemetry.addData("spool2", spool2.getConnectionInfo());
 
         // controls spools
         if (gamepad2.y) {
@@ -382,7 +384,7 @@ public class DriverOpMode extends OpMode {
     }
 
     void contolArm() {
-        telemetry.addData("Shoulder", shoulderMotor.getCurrentPosition());
+        //telemetry.loop("Shoulder", shoulderMotor.getCurrentPosition());
 
         // small shoulder adjustments
         if (!movingShoulderBig) {

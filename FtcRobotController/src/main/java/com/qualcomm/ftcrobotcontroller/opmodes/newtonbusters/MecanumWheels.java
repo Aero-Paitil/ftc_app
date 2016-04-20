@@ -167,7 +167,7 @@ public class MecanumWheels {
 
             // Telemetry - all doubles are scaled to (-100, 100)
             telemetry.addData("Heading", headingDegrees + " deg");
-            telemetry.addData("Fld Forward,Right", (int) (fieldForward * 100) + ", " + (int) (fieldRight * 100));
+            //telemetry.addData("Fld Forward,Right", (int) (fieldForward * 100) + ", " + (int) (fieldRight * 100));
         }
 
         //add deadband so you don't strafe when you don't want to. A deadband is essentially if you want to go to the right,
@@ -207,9 +207,11 @@ public class MecanumWheels {
         motorRearRight.setPower(rear_right);
 
         // Telemetry - all doubles are scaled to (-100, 100)
+        /*
         telemetry.addData("Robot Forward,Right,Clockwise", (int) (forward * 100) +
                 ", " + (int) (right * 100)+
                 ", " + (int) (clockwise * 100));
+        */
         telemetry.addData("DC1,2,3,4", (int) (front_left * 100) + ", " +
                 (int) (front_right * 100) + ", " +
                 (int) (rear_left * 100) + ", " +

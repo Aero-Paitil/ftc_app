@@ -1,0 +1,47 @@
+
+<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<Robot>
+    <MotorController name="Motor Controller Wheels 24" serialNumber="AL00VH14">
+        <Motor name="DC2" port="1" />
+        <Motor name="DC4" port="2" />
+    </MotorController>
+    <MotorController name="Motor Controller Wheels 13" serialNumber="AL00VHHU">
+        <Motor name="DC1" port="1" />
+        <Motor name="DC3" port="2" />
+    </MotorController>
+    <DeviceInterfaceModule name="Device Interface Module 1" serialNumber="AL00XK69">
+        <ColorSensor name="Color Sensor Beacon Left" port="0" />
+        <ColorSensor name="Color Sensor Bottom" port="2" />
+        <ColorSensor name="Color Sensor Beacon Right" port="3" />
+        <Gyro name="Gyro Sensor" port="4" />
+        <ColorSensor name="Color Sensor Front" port="5" />
+        <OpticalDistanceSensor name="Optical Distance" port="0" />
+        <TouchSensor name="Rear Wheels Touch" port="0" />
+    </DeviceInterfaceModule>
+    <MotorController name="Motor Controller Arm and Rear wheels" serialNumber="AH00QHO7">
+        <Motor name="Arm" port="1" />
+        <Motor name="RearWheels" port="2" />
+    </MotorController>
+    <ServoController name="Servo Controller Extension" serialNumber="AL00XP7S">
+        <Servo name="Spool1" port="1" />
+        <Servo name="Spool2" port="3" />
+        <Servo name="WheelProtectionLeft" port="5" />
+        <Servo name="WheelProtectionRight" port="6" />
+    </ServoController>
+    <MotorController name="Motor Controller 1" serialNumber="AL00VIK6">
+        <Motor name="Brush" port="1" />
+        <Motor name="Puller" port="2" />
+    </MotorController>
+    <LegacyModuleController name="Legacy Module 2" serialNumber="AL00YC6D">
+        <UltrasonicSensor name="Distance Sensor Right" port="4" />
+        <UltrasonicSensor name="Distance Sensor Left" port="5" />
+    </LegacyModuleController>
+    <ServoController name="Servo Controller 1" serialNumber="AI02QTJ5">
+        <Servo name="RightButtonPusher" port="1" />
+        <Servo name="LeftButtonPusher" port="2" />
+        <Servo name="PeopleDrop" port="3" />
+        <Servo name="SkiLiftHandleLeft" port="4" />
+        <Servo name="SkiLiftHandleRight" port="5" />
+        <Servo name="FrontSweeper" port="6" />
+    </ServoController>
+</Robot>
