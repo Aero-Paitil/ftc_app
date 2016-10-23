@@ -146,17 +146,14 @@ public class VuforiaTest extends LinearOpMode {
              * documentation directory.
              */
             VuforiaTrackables allImages = this.vuforia.loadTrackablesFromAsset("FTC_2016-17");
+            List<VuforiaTrackable> allTrackables = new ArrayList<VuforiaTrackable>(allImages);
             VuforiaTrackable imageTarget = allImages.get(3); // this is the "Gears" picture
             imageTarget.setName("Target");  // Gears
-
-            /** For convenience, gather together all the trackable objects in one easily-iterable collection */
-            List<VuforiaTrackable> allTrackables = new ArrayList<VuforiaTrackable>();
-            allTrackables.addAll(allImages);
 
             /**
              * We use units of mm here because that's the recommended units of measurement for the
              * size values specified in the XML for the ImageTarget trackables in data sets. E.g.:
-             *      <ImageTarget name="stones" size="247 173"/>
+             *      <ImageTarget name="stones" size="247 173"/> *NOTE FROM BRANDON: We actually are using the gears image here.
              * You don't *have to* use mm here, but the units here and the units used in the XML
              * target configuration files *must* correspond for the math to work out correctly.
              */
