@@ -8,11 +8,10 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.RobotLog;
-import com.vuforia.Vuforia;
 
 import org.firstinspires.ftc.robotcore.external.ClassFactory;
 import org.firstinspires.ftc.robotcore.external.matrices.OpenGLMatrix;
-import org.firstinspires.ftc.robotcore.external.matrices.VectorF;
+//import org.firstinspires.ftc.robotcore.external.matrices.VectorF;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesOrder;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesReference;
@@ -35,6 +34,10 @@ public class DriverMode extends OpMode {
     private static final float FIELDWIDTH = 2743.2f; //3580.0f; // millimeter
     private static final float IMAGEHEIGHTOVERFLOOR = 146.05f; // millimeter
     private ElapsedTime timer = new ElapsedTime();
+    private ElapsedTime motorleftTimer = new ElapsedTime();
+    private ElapsedTime motorrightTimer = new ElapsedTime();
+    private double lastLeftForward = 0;
+    private double lastRightForward = 0;
 
     private static final String TAG = "Driver Mode";
     private OpenGLMatrix lastLocation = null;
@@ -96,16 +99,46 @@ public class DriverMode extends OpMode {
         }
 
         /* assigning the motors the scaled powers that we just calculated in the step above. */
-        motorLeft1.setPower(leftForward);
-        motorRight1.setPower(rightForward);
-        motorLeft1.setPower(leftForward);
-        motorRight2.setPower(rightForward);
+        powerMotors(rightForward, leftForward);
 
-        if (timer.time() > 1){
+        if (timer.time() > 0.5){
             vuforiaLoop();
         }
     }
 
+    private void powerMotors(double rightForward, double leftForward) {
+        double diffLeft = leftForward - lastLeftForward;
+        if (Math.abs(diffLeft) <= 0.2){
+            motorLeft1.setPower(leftForward);
+            motorLeft2.setPower(leftForward);
+            lastLeftForward = leftForward;
+            motorleftTimer.reset();
+        }
+        else if (motorleftTimer.time() >= 0.1) {
+            lastLeftForward = lastLeftForward + (0.2*diffLeft)/(Math.abs(diffLeft));
+            motorLeft1.setPower(lastLeftForward);
+            motorLeft2.setPower(lastLeftForward);
+            motorleftTimer.reset();
+        }
+        double diffRight = rightForward - lastRightForward;
+        if (Math.abs(diffRight) <= 0.2){
+            motorRight1.setPower(rightForward);
+            motorRight2.setPower(rightForward);
+            lastRightForward = rightForward;
+            motorrightTimer.reset();
+        }
+        else if (motorrightTimer.time() >= 0.1) {
+            lastRightForward = lastRightForward +(0.2*diffRight)/(Math.abs(diffRight));
+            motorRight1.setPower(lastRightForward);
+            motorRight2.setPower(lastRightForward);
+            motorrightTimer.reset();
+        }
+
+
+        motorRight1.setPower(rightForward);
+        motorRight2.setPower(rightForward);
+
+    }
     private VuforiaTrackables allImages;
     private List<VuforiaTrackable> allTrackables;
 
