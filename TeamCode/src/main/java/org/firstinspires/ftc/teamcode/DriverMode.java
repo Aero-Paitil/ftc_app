@@ -29,7 +29,7 @@ import java.util.List;
 @TeleOp(name="Driver Mode", group="nb")
 //@Disabled
 
-public class DriverMode extends OpMode{
+public class DriverMode extends OpMode {
 
     //public static final String ALLIANCE = "RED";
     private static final float FIELDWIDTH = 2743.2f; //3580.0f; // millimeter
@@ -89,7 +89,7 @@ public class DriverMode extends OpMode{
             } else if (gamepad1.dpad_left) {
                 rightForward = dpadSpeed;
                 leftForward = -dpadSpeed;
-            } else  {
+            } else {
                 leftForward = dpadSpeed;
                 rightForward = -dpadSpeed;
             }
@@ -101,7 +101,7 @@ public class DriverMode extends OpMode{
         motorLeft1.setPower(leftForward);
         motorRight2.setPower(rightForward);
 
-        if (timer.time() > 1) {
+        if (timer.time() > 1){
             vuforiaLoop();
         }
     }
