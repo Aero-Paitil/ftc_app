@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode;
 import android.content.SharedPreferences;
 
 import com.qualcomm.hardware.modernrobotics.ModernRoboticsI2cGyro;
+import com.qualcomm.hardware.modernrobotics.ModernRoboticsI2cRangeSensor;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.ColorSensor;
@@ -10,7 +11,7 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.I2cAddr;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import com.qualcomm.robotcore.util.Range;
+//import com.qualcomm.robotcore.util.Range;
 import com.qualcomm.robotcore.util.RobotLog;
 
 import org.firstinspires.ftc.robotcore.external.ClassFactory;
@@ -19,6 +20,7 @@ import org.firstinspires.ftc.robotcore.external.matrices.VectorF;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesOrder;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesReference;
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
 import org.firstinspires.ftc.robotcore.external.navigation.VuforiaLocalizer;
 import org.firstinspires.ftc.robotcore.external.navigation.VuforiaTrackable;
@@ -31,6 +33,8 @@ import java.util.List;
 /**
  * Created by Brandon Lee on 10/30/2016.
  * Updated by Athena 10/30/2016 - rotate to find an image and detect robot location
+ * Updated by Athena 11/05/2016 - rotate to an angle
+ * Updated by Sangmin and Jasmine 11/05/2016 - drive straight using gyro
  */
 
 @Autonomous(name="Autonomous Mode", group="nb")
@@ -45,6 +49,7 @@ public class AutonomousMode extends LinearOpMode {
     private VuforiaTrackables allImages;
     private List<VuforiaTrackable> allTrackables;
 
+    ModernRoboticsI2cRangeSensor rangeSensor;
     private ColorSensor colorSensorBottom;
     private ColorSensor colorSensor3c;
     private ColorSensor colorSensor3a;
@@ -58,28 +63,11 @@ public class AutonomousMode extends LinearOpMode {
 
     private double [] robotLocation = null;
 
-// constants from sample code for using gyro turn/drive
-//    // These constants define the desired driving/control characteristics
-//    // The can/should be tweaked to suite the specific robot drive train.
-//    static final double     DRIVE_SPEED             = 0.4;     // Nominal speed for better accuracy.
-//    static final double     TURN_SPEED              = 0.4;     // Nominal half speed for better accuracy.
-//
-//    static final double     HEADING_THRESHOLD       = 3 ;      // As tight as we can make it with an integer gyro
-//    static final double     P_TURN_COEFF            = 0.05;     // Larger is more responsive, but also less stable
-//    static final double     P_DRIVE_COEFF           = 0.15;     // Larger is more responsive, but also less stable
 
     @Override
     public void runOpMode() throws InterruptedException {
 
-        colorSensorBottom = hardwareMap.colorSensor.get("Color Sensor 3e");
-        colorSensorBottom.setI2cAddress(new I2cAddr(0x3e));
-        colorSensorBottom.enableLed(true);
-        colorSensor3a = hardwareMap.colorSensor.get("Color Sensor 3a");
-        colorSensor3a.setI2cAddress(new I2cAddr(0x3a));
-        colorSensor3a.enableLed(false);
-        colorSensor3c = hardwareMap.colorSensor.get("Color Sensor 3c");
-        colorSensor3c.setI2cAddress(new I2cAddr(0x3c));
-        colorSensor3c.enableLed(false);
+
 
         gyro = (ModernRoboticsI2cGyro)hardwareMap.gyroSensor.get("Gyro Sensor ");
 
@@ -101,23 +89,43 @@ public class AutonomousMode extends LinearOpMode {
         motorLeft1.setDirection(DcMotor.Direction.REVERSE);
         motorLeft2.setDirection(DcMotor.Direction.REVERSE);
 
+        rangeSensor = hardwareMap.get(ModernRoboticsI2cRangeSensor.class, "Range Sensor");
+        colorSensorBottom = hardwareMap.colorSensor.get("Color Sensor 3e");
+        colorSensorBottom.setI2cAddress(new I2cAddr(0x3e));
+        colorSensorBottom.enableLed(true);
+        colorSensor3a = hardwareMap.colorSensor.get("Color Sensor 3a");
+        colorSensor3a.setI2cAddress(new I2cAddr(0x3a));
+        colorSensor3a.enableLed(false);
+        colorSensor3c = hardwareMap.colorSensor.get("Color Sensor 3c");
+        colorSensor3c.setI2cAddress(new I2cAddr(0x3c));
+        colorSensor3c.enableLed(false);
+
         vuforiaInit();
 
         //waitForStart();
         // Wait for the game to start (Display Gyro value), and reset gyro before we move..
         while (!isStarted()) {
-            telemetry.addData(">", "Robot Heading = %d", gyro.getIntegratedZValue());
+            telemetry.addData(">", "Robot Heading = %d", gyro.getHeading());
+            telemetry.addData("bottom alpha", colorSensorBottom.alpha());
+            telemetry.addData("raw ultrasonic", rangeSensor.rawUltrasonic());
+            telemetry.addData("raw optical", rangeSensor.rawOptical());
+            telemetry.addData("cm optical", "%.2f cm", rangeSensor.cmOptical());
+            telemetry.addData("cm", "%.2f cm", rangeSensor.getDistance(DistanceUnit.CM));
             telemetry.update();
             idle();
         }
         gyro.resetZAxisIntegrator();
 
+        //rotate (headings are from 0 to 259)
+//        rotateToHeading(45);
+//        powerMotors(0, 0);
+//        idle();
+
+        // drive using Gyro to maintain heading
+        driveUntilWhite();
+
         // start tracking images
         allImages.activate();
-        idle();
-
-        rotateToHeading(90);
-        powerMotors(0, 0);
         idle();
 
         while (opModeIsActive()) {
@@ -151,16 +159,9 @@ public class AutonomousMode extends LinearOpMode {
 //        }
 
 //        powerMotors(0,0);
-//
 //        sleep(50);
 //        idle();
-//
-//        printRobotLocation(robotLocation);
-//
-//        robotLocation = updateRobotLocation();
-//
-//        printRobotLocation(robotLocation);
-//        telemetry.update();
+
 
         //stop tracking images
         allImages.deactivate();
@@ -176,7 +177,7 @@ public class AutonomousMode extends LinearOpMode {
                 " at " + colorSensor3a.getI2cAddress() + " " + colorSensor3a.getConnectionInfo());
         telemetry.addData("Color Bottom = R/G/B", colorSensorBottom.alpha() +
                 " at " + colorSensorBottom.getI2cAddress() + " " + colorSensorBottom.getConnectionInfo());
-        telemetry.addData(">", "Heading = %d", gyro.getIntegratedZValue());
+        telemetry.addData(">", "Heading = %d", gyro.getHeading());
         if (robotLocation != null && robotLocation.length == 3) {
             telemetry.addData("Location", "x = %.0f, y = %.0f, z = %.0f", robotLocation[0], robotLocation[1], robotLocation[2]);
         }
@@ -184,10 +185,10 @@ public class AutonomousMode extends LinearOpMode {
     }
 
     private void powerMotors(double leftForward, double rightForward) {
-        motorLeft1.setPower(leftForward);
-        motorLeft2.setPower(leftForward);
-        motorRight1.setPower(rightForward);
-        motorRight2.setPower(rightForward);
+        motorLeft1.setPower(-leftForward);
+        motorLeft2.setPower(-leftForward);
+        motorRight1.setPower(-rightForward);
+        motorRight2.setPower(-rightForward);
     }
 
     private void setRunMode(DcMotor.RunMode runMode) {
@@ -321,6 +322,151 @@ public class AutonomousMode extends LinearOpMode {
         return hardwareMap.appContext.getSharedPreferences("autonomous", 0);
     }
 
+
+    double DRIVING_POWER = 0.2;
+    int MID_POINT_ALPHA_FRONT = 5;
+    private void driveUntilWhite() throws InterruptedException{
+        gyro.resetZAxisIntegrator();
+        double headingToBeaconZone = getGyroHeading();
+        //setRunMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        //idle();
+        powerMotors(DRIVING_POWER, DRIVING_POWER);
+        idle();
+        double currentHeading, error, clockwiseSpeed;
+        double kp = 0.03; //experimental coefficient for proportional correction of the direction
+        //alpha() is to measure the brightness.
+        //maintain the direction until robot "sees" the edge of white line/touches/close to some other object
+        //double alpha = colorSensorBottom.alpha();
+        //while (alpha < MID_POINT_ALPHA_FRONT && opModeIsActive()) {
+        /***since we can not make color sensor work, use distance for now ***/
+        double distance = rangeSensor.getDistance(DistanceUnit.CM);
+        while (distance >18 && opModeIsActive()) {
+            // keep going
+            currentHeading = getGyroHeading();
+            error = getHeadingDelta(headingToBeaconZone);
+            if  (headingToBeaconZone>currentHeading || headingToBeaconZone-currentHeading<0) {
+                error = -error;
+            }
+            //
+            //telemetry.addData("Error value", error);
+            //don't do any correction
+            //if heading error < 1 degree
+            if (Math.abs(error) < 1) {
+                clockwiseSpeed = 0;
+            } else if (Math.abs(error) >= 1 && Math.abs(error) <= 4) {
+                clockwiseSpeed = kp * error / 4;
+            } else {
+                clockwiseSpeed = kp * Math.abs(error) / error;
+            }
+            //clockwiseSpeed = Range.clip(clockwiseSpeed, -1.0, 1.0);
+            distance = rangeSensor.getDistance(DistanceUnit.CM);
+            telemetry.addData("Current Heading", currentHeading);
+            telemetry.addData("Error", error);
+            telemetry.addData("Distance", distance);
+            telemetry.update();
+            //DbgLog.msg(i + " clockwise speed "+clockwiseSpeed);
+            powerMotors(DRIVING_POWER + clockwiseSpeed, DRIVING_POWER - clockwiseSpeed);
+
+            idle();
+            //sleep(25);
+            //alpha = colorSensorBottom.alpha();
+        }
+        powerMotors(0,0);
+        idle();
+    }
+
+    private int getGyroHeading() {
+        return gyro.getHeading();
+    }
+
+
+    // gyro heading is from 0 to 359
+    private void rotateToHeading(double requiredHeading) throws InterruptedException {
+
+        setRunMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+
+        double MIN_ROTATE_POWER = 0.15;
+
+        // make sure requiredHeading is positive and less than 360
+        while (requiredHeading >= 360) {
+            requiredHeading -= 360;
+        }
+        while (requiredHeading < 0) {
+            requiredHeading += 360;
+        }
+
+        double power;
+        // choose rotation direction
+        double currentHeading = getGyroHeading();
+        if (requiredHeading > currentHeading) {
+            if (requiredHeading - currentHeading < 180) {
+                power = MIN_ROTATE_POWER;
+            } else {
+                power = -MIN_ROTATE_POWER;
+            }
+        } else {
+            if (requiredHeading + 360 - currentHeading < 180) {
+                power = MIN_ROTATE_POWER;
+            } else {
+                power = -MIN_ROTATE_POWER;
+            }
+        }
+
+        // start rotation fast, then slow down as you approach the required heading
+        //rotateToTolerance(60, requiredHeading, power * 1);
+        //rotateToTolerance(40, requiredHeading, power * 0.7);
+        rotateToTolerance(20, requiredHeading, power);
+        powerMotors(0, 0);
+        idle();
+    }
+
+    // we want the delta to be less than 180 degrees
+    // for example, the delta between 350 and 10 should be 20
+    private double getHeadingDelta(double requiredHeading) {
+        double headingDelta = Math.abs(requiredHeading - getGyroHeading());
+        if (headingDelta > 180) {
+            headingDelta = 360 - headingDelta;
+        }
+        return headingDelta;
+    }
+
+
+    // remember to zero the power after this method call if you want to stop rotation
+    private void rotateToTolerance(double tolerance, double requiredHeading, double power) throws InterruptedException {
+        double headingDelta = getHeadingDelta(requiredHeading);
+        double lastHeadingDelta = headingDelta;
+
+        if (headingDelta > tolerance) {
+            // power motors
+            powerMotors(power, -power);
+            idle();
+            // if current gyro heading is not close enough to the required heading
+            // wait and check again
+            ElapsedTime timer = new ElapsedTime();
+            timer.reset();
+            while (headingDelta > tolerance && headingDelta <= lastHeadingDelta + 1 && opModeIsActive()) {
+                //checkTimeout(timer, 10);
+                idle();
+                lastHeadingDelta = headingDelta;
+                headingDelta = getHeadingDelta(requiredHeading);
+                telemetry.addData("delta", headingDelta);
+                telemetry.addData(">", "Rotating = %d", gyro.getHeading());
+                telemetry.update();
+            }
+        }
+    }
+
+
+// constants from sample code for using gyro turn/drive
+//    // These constants define the desired driving/control characteristics
+//    // The can/should be tweaked to suite the specific robot drive train.
+//    static final double     DRIVE_SPEED             = 0.4;     // Nominal speed for better accuracy.
+//    static final double     TURN_SPEED              = 0.4;     // Nominal half speed for better accuracy.
+//
+//    static final double     HEADING_THRESHOLD       = 3 ;      // As tight as we can make it with an integer gyro
+//    static final double     P_TURN_COEFF            = 0.05;     // Larger is more responsive, but also less stable
+//    static final double     P_DRIVE_COEFF           = 0.15;     // Larger is more responsive, but also less stable
+//
 // sample code - the error is too big - will try our own routines
 //    /**
 //     * getError determines the error between the target angle and the robot's current heading
@@ -410,85 +556,5 @@ public class AutonomousMode extends LinearOpMode {
 //        }
 //    }
 
-
-    private int getGyroHeading() {
-        return gyro.getIntegratedZValue();
-    }
-
-
-    // gyro heading is from 0 to 359
-    private void rotateToHeading(double requiredHeading) throws InterruptedException {
-
-        setRunMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-
-        double MIN_ROTATE_POWER = 0.15;
-
-        // make sure requiredHeading is positive and less than 360
-        while (requiredHeading >= 360) {
-            requiredHeading -= 360;
-        }
-        while (requiredHeading < 0) {
-            requiredHeading += 360;
-        }
-
-        double power;
-        // choose rotation direction
-        double currentHeading = getGyroHeading();
-        if (requiredHeading > currentHeading) {
-            if (requiredHeading - currentHeading < 180) {
-                power = MIN_ROTATE_POWER;
-            } else {
-                power = -MIN_ROTATE_POWER;
-            }
-        } else {
-            if (requiredHeading + 360 - currentHeading < 180) {
-                power = MIN_ROTATE_POWER;
-            } else {
-                power = -MIN_ROTATE_POWER;
-            }
-        }
-
-        // start rotation fast, then slow down as you approach the required heading
-        rotateToTolerance(60, requiredHeading, power * 1.5);
-        rotateToTolerance(30, requiredHeading, power * 1);
-        rotateToTolerance(2.5, requiredHeading, power * 0.75);
-        powerMotors(0, 0);
-        idle();
-    }
-
-    // we want the delta to be less than 180 degrees
-    // for example, the delta between 350 and 10 should be 20
-    private double getHeadingDelta(double requiredHeading) {
-        double headingDelta = Math.abs(requiredHeading - getGyroHeading());
-        if (headingDelta > 180) {
-            headingDelta = 360 - headingDelta;
-        }
-        return headingDelta;
-    }
-
-    // remember to zero the power after this method call if you want to stop rotation
-    private void rotateToTolerance(double tolerance, double requiredHeading, double power) throws InterruptedException {
-        double headingDelta = getHeadingDelta(requiredHeading);
-        double lastHeading = headingDelta;
-
-        if (headingDelta > tolerance) {
-            // power motors
-            powerMotors(power, -power);
-            idle();
-            // if current gyro heading is not close enough to the required heading
-            // wait and check again
-            ElapsedTime timer = new ElapsedTime();
-            timer.reset();
-            while (headingDelta > tolerance && headingDelta <= lastHeading + 1 && opModeIsActive()) {
-                //checkTimeout(timer, 10);
-                idle();
-                lastHeading = headingDelta;
-                headingDelta = getHeadingDelta(requiredHeading);
-                telemetry.addData("delta", headingDelta);
-                telemetry.addData(">", "Rotating = %d", gyro.getIntegratedZValue());
-                telemetry.update();
-            }
-        }
-    }
 
 }
