@@ -91,13 +91,13 @@ public class AutonomousMode extends LinearOpMode {
 
         rangeSensor = hardwareMap.get(ModernRoboticsI2cRangeSensor.class, "Range Sensor");
         colorSensorBottom = hardwareMap.colorSensor.get("Color Sensor 3e");
-        colorSensorBottom.setI2cAddress(new I2cAddr(0x3e));
+        colorSensorBottom.setI2cAddress(I2cAddr.create8bit(0x3e));
         colorSensorBottom.enableLed(true);
         colorSensor3a = hardwareMap.colorSensor.get("Color Sensor 3a");
-        colorSensor3a.setI2cAddress(new I2cAddr(0x3a));
+        colorSensor3a.setI2cAddress(I2cAddr.create8bit(0x3a));
         colorSensor3a.enableLed(false);
         colorSensor3c = hardwareMap.colorSensor.get("Color Sensor 3c");
-        colorSensor3c.setI2cAddress(new I2cAddr(0x3c));
+        colorSensor3c.setI2cAddress(I2cAddr.create8bit(0x3c));
         colorSensor3c.enableLed(false);
 
         vuforiaInit();
