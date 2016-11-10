@@ -7,6 +7,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.util.ElapsedTime;
+import com.qualcomm.robotcore.util.Range;
 import com.qualcomm.robotcore.util.RobotLog;
 
 import org.firstinspires.ftc.robotcore.external.ClassFactory;
@@ -49,6 +50,15 @@ public class DriverMode extends OpMode {
     private DcMotor motorLeft2;
     private DcMotor motorRight2;
 
+    private boolean forward;
+    private boolean backButtonPressed = false;
+
+    private double MINPOWER = 0.15;
+
+    private double scaled(double x){
+        return 0.5*(x/1.07)*(.62*x*x + .45);
+    }
+
     @Override
     public void init() {
         //"initializing" the motors
@@ -61,28 +71,38 @@ public class DriverMode extends OpMode {
         motorLeft1.setDirection(DcMotor.Direction.REVERSE);
         motorLeft2.setDirection(DcMotor.Direction.REVERSE);
 
-        vuforiaInit();
+        forward = true;
+
+        //vuforiaInit();
     }
 
     @Override
     public void start() {
-        allImages.activate();
+        //allImages.activate();
     }
+
 
     @Override
     public void loop() {
 
-        double leftForward = -gamepad1.left_stick_y;
-        double rightForward = -gamepad1.right_stick_y;
 
-        //todo adjust the deadband
-        if ((rightForward > -0.1) && (rightForward < 0.1)) rightForward = 0;
-        if ((leftForward > -0.1) && (leftForward < 0.1)) leftForward = 0;
+        double leftForward;
+        double rightForward;
+        int sign = forward ? 1 : -1;
 
-        if (gamepad1.dpad_up || gamepad1.dpad_down || gamepad1.dpad_left || gamepad1.dpad_right) {
+        if (!gamepad1.left_bumper && !gamepad1.right_bumper){
+            rightForward = -(scaled(gamepad1.left_stick_y) + sign*scaled(gamepad1.left_stick_x));
+            leftForward = -(scaled(gamepad1.left_stick_y) - sign*scaled(gamepad1.left_stick_x));
+        }
+        else {
+            leftForward = -scaled(gamepad1.left_stick_y);
+            rightForward = -scaled(gamepad1.right_stick_y);
+        }
+
+        if ((gamepad1.dpad_up || gamepad1.dpad_down || gamepad1.dpad_left || gamepad1.dpad_right)) {
             //We are using robot coordinates
 
-            double dpadSpeed = 0.5;
+            double dpadSpeed = 0.2;
 
             if (gamepad1.dpad_up) {
                 rightForward = dpadSpeed;
@@ -91,53 +111,98 @@ public class DriverMode extends OpMode {
                 rightForward = -dpadSpeed;
                 leftForward = -dpadSpeed;
             } else if (gamepad1.dpad_left) {
-                rightForward = dpadSpeed;
-                leftForward = -dpadSpeed;
+                rightForward = sign*dpadSpeed;
+                leftForward = -sign*dpadSpeed;
             } else {
-                leftForward = dpadSpeed;
-                rightForward = -dpadSpeed;
+                leftForward = sign*dpadSpeed;
+                rightForward = -sign*dpadSpeed;
             }
         }
+
+
+        //driving backwards
+        if (!forward){
+            leftForward = -leftForward;
+            rightForward = -rightForward;
+        }
+
+        //todo adjust the deadband
+        if ((rightForward > -0.01) && (rightForward < 0.01))
+            rightForward = 0;
+        else if ((rightForward > -MINPOWER) && (rightForward < MINPOWER))
+            rightForward = MINPOWER * rightForward/Math.abs(rightForward);
+
+        if ((leftForward > -0.01) && (leftForward < 0.01))
+            leftForward = 0;
+        else if ((leftForward > -MINPOWER) && (leftForward < MINPOWER))
+            leftForward = MINPOWER * leftForward/Math.abs(leftForward);
+
+        rightForward = Range.clip(rightForward, -1, 1);
+        leftForward = Range.clip(leftForward, -1, 1);
+
+        if (gamepad1.y) {
+            backButtonPressed = true;
+        } else if (backButtonPressed) {
+            backButtonPressed = false;
+
+            if (!forward){
+                forward = true;
+            } else {
+                forward = false;
+            }
+        }
+
+
+        telemetry.addData("left",leftForward);
+        telemetry.addData("right",rightForward);
+
+        telemetry.addData("back button pressed", backButtonPressed);
+        telemetry.addData("forward", forward);
 
         /* assigning the motors the scaled powers that we just calculated in the step above. */
         powerMotors(rightForward, leftForward);
 
-        if (timer.time() > 0.5){
-            vuforiaLoop();
-        }
-
-        if (gamepad1.x) {
-            goToPoint(-FIELDWIDTH / 2, -FIELDWIDTH / 12);
-        }
+//        if (timer.time() > 0.5){
+//            vuforiaLoop();
+//        }
+//
+//        if (gamepad1.x) {
+//            goToPoint(-FIELDWIDTH / 2, -FIELDWIDTH / 12);
+//        }
     }
 
     private void powerMotors(double rightForward, double leftForward) {
-        double diffLeft = leftForward - lastLeftForward;
-        if (Math.abs(diffLeft) <= 0.2){
-            motorLeft1.setPower(leftForward);
-            motorLeft2.setPower(leftForward);
-            lastLeftForward = leftForward;
-            motorleftTimer.reset();
-        }
-        else if (motorleftTimer.time() >= 0.1) {
-            lastLeftForward = lastLeftForward + (0.2*diffLeft)/(Math.abs(diffLeft));
-            motorLeft1.setPower(lastLeftForward);
-            motorLeft2.setPower(lastLeftForward);
-            motorleftTimer.reset();
-        }
-        double diffRight = rightForward - lastRightForward;
-        if (Math.abs(diffRight) <= 0.2){
-            motorRight1.setPower(rightForward);
-            motorRight2.setPower(rightForward);
-            lastRightForward = rightForward;
-            motorrightTimer.reset();
-        }
-        else if (motorrightTimer.time() >= 0.1) {
-            lastRightForward = lastRightForward +(0.2*diffRight)/(Math.abs(diffRight));
-            motorRight1.setPower(lastRightForward);
-            motorRight2.setPower(lastRightForward);
-            motorrightTimer.reset();
-        }
+        motorLeft1.setPower(leftForward);
+        motorLeft2.setPower(leftForward);
+        motorRight1.setPower(rightForward);
+        motorRight2.setPower(rightForward);
+
+//        double diffLeft = leftForward - lastLeftForward;
+//        if (Math.abs(diffLeft) <= 0.2){
+//            motorLeft1.setPower(leftForward);
+//            motorLeft2.setPower(leftForward);
+//            lastLeftForward = leftForward;
+//            motorleftTimer.reset();
+//        }
+//        else if (motorleftTimer.time() >= 0.1) {
+//            lastLeftForward = lastLeftForward + (0.2*diffLeft)/(Math.abs(diffLeft));
+//            motorLeft1.setPower(lastLeftForward);
+//            motorLeft2.setPower(lastLeftForward);
+//            motorleftTimer.reset();
+//        }
+//        double diffRight = rightForward - lastRightForward;
+//        if (Math.abs(diffRight) <= 0.2){
+//            motorRight1.setPower(rightForward);
+//            motorRight2.setPower(rightForward);
+//            lastRightForward = rightForward;
+//            motorrightTimer.reset();
+//        }
+//        else if (motorrightTimer.time() >= 0.1) {
+//            lastRightForward = lastRightForward +(0.2*diffRight)/(Math.abs(diffRight));
+//            motorRight1.setPower(lastRightForward);
+//            motorRight2.setPower(lastRightForward);
+//            motorrightTimer.reset();
+//        }
     }
     private VuforiaTrackables allImages;
     private List<VuforiaTrackable> allTrackables;
