@@ -42,6 +42,9 @@ public class AutonomousMode extends LinearOpMode {
 
     private static final float FIELD_WIDTH = 2743.2f; //3580.0f; // millimeter
     private static final float IMAGE_HEIGHT_OVER_FLOOR = 146.05f; // millimeter
+
+    private final static int ENCODER_COUNTS_PER_ROTATION = 2 * 1140;
+
     private ElapsedTime timer = new ElapsedTime();
     private ElapsedTime timer2 = new ElapsedTime();
     private static final String TAG = "Autonomous Mode";
@@ -49,7 +52,7 @@ public class AutonomousMode extends LinearOpMode {
     private VuforiaTrackables allImages;
     private List<VuforiaTrackable> allTrackables;
 
-    ModernRoboticsI2cRangeSensor rangeSensor;
+    private ModernRoboticsI2cRangeSensor rangeSensor;
     private ColorSensor colorSensorBottom;
     private ColorSensor colorSensor3c;
     private ColorSensor colorSensor3a;
@@ -125,7 +128,7 @@ public class AutonomousMode extends LinearOpMode {
         driveUntilWhite();
 
         // start tracking images
-        allImages.activate();
+        //allImages.activate(); // TODO: uncomment to track images
         idle();
 
         while (opModeIsActive()) {
@@ -322,9 +325,20 @@ public class AutonomousMode extends LinearOpMode {
         return hardwareMap.appContext.getSharedPreferences("autonomous", 0);
     }
 
+    private void moveOneRotation() throws InterruptedException{ // moves 26.5 in
+        int leftcounts = motorLeft1.getCurrentPosition();
+        int rightcounts = motorRight1.getCurrentPosition();
+        while (Math.abs(motorLeft1.getCurrentPosition() - leftcounts) < ENCODER_COUNTS_PER_ROTATION){
+            powerMotors(DRIVING_POWER, DRIVING_POWER);
+            idle();
+        }
+        powerMotors(0,0);
+    }
 
-    double DRIVING_POWER = 0.2;
-    int MID_POINT_ALPHA_FRONT = 5;
+
+    private double DRIVING_POWER = 0.2;
+    private int MID_POINT_ALPHA_FRONT = 5;
+    private double MAX_COUNTS_TO_WHITE = 3 * ENCODER_COUNTS_PER_ROTATION;
     private void driveUntilWhite() throws InterruptedException{
         gyro.resetZAxisIntegrator();
         double headingToBeaconZone = getGyroHeading();
@@ -336,11 +350,15 @@ public class AutonomousMode extends LinearOpMode {
         double kp = 0.03; //experimental coefficient for proportional correction of the direction
         //alpha() is to measure the brightness.
         //maintain the direction until robot "sees" the edge of white line/touches/close to some other object
-        //double alpha = colorSensorBottom.alpha();
-        //while (alpha < MID_POINT_ALPHA_FRONT && opModeIsActive()) {
-        /***since we can not make color sensor work, use distance for now ***/
+        double alpha = colorSensorBottom.alpha();
         double distance = rangeSensor.getDistance(DistanceUnit.CM);
-        while (distance >18 && opModeIsActive()) {
+        double leftcounts = motorLeft1.getCurrentPosition();
+        while (opModeIsActive() &&
+                (alpha < MID_POINT_ALPHA_FRONT) &&
+                (Math.abs(motorLeft1.getCurrentPosition() - leftcounts) < MAX_COUNTS_TO_WHITE) &&
+                distance > 18){
+        /***since we can not make color sensor work, use distance for now ***/
+        //while (distance >18 && opModeIsActive()) {
             // keep going
             currentHeading = getGyroHeading();
             error = getHeadingDelta(headingToBeaconZone);
@@ -363,13 +381,17 @@ public class AutonomousMode extends LinearOpMode {
             telemetry.addData("Current Heading", currentHeading);
             telemetry.addData("Error", error);
             telemetry.addData("Distance", distance);
+
+            telemetry.addData("LeftCounts", motorLeft1.getCurrentPosition());
+            telemetry.addData("RightCounts", motorRight1.getCurrentPosition());
+
             telemetry.update();
             //DbgLog.msg(i + " clockwise speed "+clockwiseSpeed);
             powerMotors(DRIVING_POWER + clockwiseSpeed, DRIVING_POWER - clockwiseSpeed);
 
             idle();
             //sleep(25);
-            //alpha = colorSensorBottom.alpha();
+            alpha = colorSensorBottom.alpha();
         }
         powerMotors(0,0);
         idle();
