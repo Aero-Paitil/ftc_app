@@ -187,11 +187,12 @@ public class AutonomousMode extends LinearOpMode {
         telemetry.update();
     }
 
-    private void powerMotors(double leftForward, double rightForward) {
+    private void powerMotors(double leftForward, double rightForward) throws InterruptedException {
         motorLeft1.setPower(-leftForward);
         motorLeft2.setPower(-leftForward);
         motorRight1.setPower(-rightForward);
         motorRight2.setPower(-rightForward);
+        idle();
     }
 
     private void setRunMode(DcMotor.RunMode runMode) {
@@ -325,10 +326,9 @@ public class AutonomousMode extends LinearOpMode {
         return hardwareMap.appContext.getSharedPreferences("autonomous", 0);
     }
 
-    private void moveOneRotation() throws InterruptedException{ // moves 26.5 in
+    private void moveByInches(double inches) throws InterruptedException{ // moves 26.5 in
         int leftcounts = motorLeft1.getCurrentPosition();
-        int rightcounts = motorRight1.getCurrentPosition();
-        while (Math.abs(motorLeft1.getCurrentPosition() - leftcounts) < ENCODER_COUNTS_PER_ROTATION){
+        while (Math.abs(motorLeft1.getCurrentPosition() - leftcounts) < ENCODER_COUNTS_PER_ROTATION*inches/26.5){
             powerMotors(DRIVING_POWER, DRIVING_POWER);
             idle();
         }
@@ -338,7 +338,7 @@ public class AutonomousMode extends LinearOpMode {
 
     private double DRIVING_POWER = 0.2;
     private int MID_POINT_ALPHA_FRONT = 5;
-    private double MAX_COUNTS_TO_WHITE = 3 * ENCODER_COUNTS_PER_ROTATION;
+    private double MAX_COUNTS_TO_WHITE = 3 * ENCODER_COUNTS_PER_ROTATION; // 4.5 to reach white line
     private void driveUntilWhite() throws InterruptedException{
         gyro.resetZAxisIntegrator();
         double headingToBeaconZone = getGyroHeading();
@@ -347,7 +347,7 @@ public class AutonomousMode extends LinearOpMode {
         powerMotors(DRIVING_POWER, DRIVING_POWER);
         idle();
         double currentHeading, error, clockwiseSpeed;
-        double kp = 0.03; //experimental coefficient for proportional correction of the direction
+        double kp = 0.05 ; //experimental coefficient for proportional correction of the direction
         //alpha() is to measure the brightness.
         //maintain the direction until robot "sees" the edge of white line/touches/close to some other object
         double alpha = colorSensorBottom.alpha();
@@ -356,7 +356,7 @@ public class AutonomousMode extends LinearOpMode {
         while (opModeIsActive() &&
                 (alpha < MID_POINT_ALPHA_FRONT) &&
                 (Math.abs(motorLeft1.getCurrentPosition() - leftcounts) < MAX_COUNTS_TO_WHITE) &&
-                distance > 18){
+                distance > 50){
         /***since we can not make color sensor work, use distance for now ***/
         //while (distance >18 && opModeIsActive()) {
             // keep going
@@ -371,7 +371,7 @@ public class AutonomousMode extends LinearOpMode {
             //if heading error < 1 degree
             if (Math.abs(error) < 1) {
                 clockwiseSpeed = 0;
-            } else if (Math.abs(error) >= 1 && Math.abs(error) <= 4) {
+            } else if (Math.abs(error) >= 1 && Math.abs(error) <= 8) {
                 clockwiseSpeed = kp * error / 4;
             } else {
                 clockwiseSpeed = kp * Math.abs(error) / error;
@@ -393,9 +393,26 @@ public class AutonomousMode extends LinearOpMode {
             //sleep(25);
             alpha = colorSensorBottom.alpha();
         }
+
+//        powerMotors(0,0);
+//        sleep(500);
+//
+//        moveByInches(5);
+//
+//        powerMotors(0,0);
+//
+//        while (alpha < MID_POINT_ALPHA_FRONT){
+//
+//            powerMotors(0.15,-0.15);
+//
+//            alpha = colorSensorBottom.alpha();
+//
+//        }
+
         powerMotors(0,0);
-        idle();
     }
+
+
 
     private int getGyroHeading() {
         return gyro.getHeading();
