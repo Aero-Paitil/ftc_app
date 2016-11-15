@@ -12,6 +12,7 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.I2cAddr;
 import com.qualcomm.robotcore.util.ElapsedTime;
 //import com.qualcomm.robotcore.util.Range;
+import com.qualcomm.robotcore.util.Range;
 import com.qualcomm.robotcore.util.RobotLog;
 
 import org.firstinspires.ftc.robotcore.external.ClassFactory;
@@ -62,6 +63,7 @@ public class AutonomousMode extends LinearOpMode {
     private DcMotor motorRight1;
     private DcMotor motorLeft2;
     private DcMotor motorRight2;
+    private DcMotor motorBrush;
     private ModernRoboticsI2cGyro gyro    = null;
 
     private double [] robotLocation = null;
@@ -70,10 +72,7 @@ public class AutonomousMode extends LinearOpMode {
     @Override
     public void runOpMode() throws InterruptedException {
 
-
-
         gyro = (ModernRoboticsI2cGyro)hardwareMap.gyroSensor.get("Gyro Sensor ");
-
         gyro.calibrate();
 
         // make sure the gyro is calibrated before continuing
@@ -87,6 +86,7 @@ public class AutonomousMode extends LinearOpMode {
         motorRight1 = hardwareMap.dcMotor.get("D1right");
         motorLeft2 = hardwareMap.dcMotor.get("D2left");
         motorRight2 = hardwareMap.dcMotor.get("D2right");
+        motorBrush = hardwareMap.dcMotor.get("Brush");
 
         //setting the motors on the right side in reverse so both wheels spin the same way.
         motorLeft1.setDirection(DcMotor.Direction.REVERSE);
@@ -188,10 +188,10 @@ public class AutonomousMode extends LinearOpMode {
     }
 
     private void powerMotors(double leftForward, double rightForward) throws InterruptedException {
-        motorLeft1.setPower(-leftForward);
-        motorLeft2.setPower(-leftForward);
-        motorRight1.setPower(-rightForward);
-        motorRight2.setPower(-rightForward);
+        motorLeft1.setPower(leftForward);
+        motorLeft2.setPower(leftForward);
+        motorRight1.setPower(rightForward);
+        motorRight2.setPower(rightForward);
         idle();
     }
 
@@ -338,16 +338,17 @@ public class AutonomousMode extends LinearOpMode {
 
     private double DRIVING_POWER = 0.2;
     private int MID_POINT_ALPHA_FRONT = 5;
-    private double MAX_COUNTS_TO_WHITE = 3 * ENCODER_COUNTS_PER_ROTATION; // 4.5 to reach white line
+    private double MAX_COUNTS_TO_WHITE = 2.26 * ENCODER_COUNTS_PER_ROTATION; // 4.5 to reach white line
     private void driveUntilWhite() throws InterruptedException{
         gyro.resetZAxisIntegrator();
         double headingToBeaconZone = getGyroHeading();
         //setRunMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         //idle();
         powerMotors(DRIVING_POWER, DRIVING_POWER);
+        motorBrush.setPower(-1);
         idle();
         double currentHeading, error, clockwiseSpeed;
-        double kp = 0.05 ; //experimental coefficient for proportional correction of the direction
+        double kp = 0.03 ; //experimental coefficient for proportional correction of the direction
         //alpha() is to measure the brightness.
         //maintain the direction until robot "sees" the edge of white line/touches/close to some other object
         double alpha = colorSensorBottom.alpha();
@@ -355,23 +356,18 @@ public class AutonomousMode extends LinearOpMode {
         double leftcounts = motorLeft1.getCurrentPosition();
         while (opModeIsActive() &&
                 (alpha < MID_POINT_ALPHA_FRONT) &&
-                (Math.abs(motorLeft1.getCurrentPosition() - leftcounts) < MAX_COUNTS_TO_WHITE) &&
-                distance > 50){
-        /***since we can not make color sensor work, use distance for now ***/
-        //while (distance >18 && opModeIsActive()) {
+                (Math.abs(motorLeft1.getCurrentPosition() - leftcounts) < MAX_COUNTS_TO_WHITE)){
             // keep going
             currentHeading = getGyroHeading();
             error = getHeadingDelta(headingToBeaconZone);
             if  (headingToBeaconZone>currentHeading || headingToBeaconZone-currentHeading<0) {
                 error = -error;
             }
-            //
-            //telemetry.addData("Error value", error);
             //don't do any correction
             //if heading error < 1 degree
             if (Math.abs(error) < 1) {
                 clockwiseSpeed = 0;
-            } else if (Math.abs(error) >= 1 && Math.abs(error) <= 8) {
+            } else if (Math.abs(error) >= 1 && Math.abs(error) <= 4) {
                 clockwiseSpeed = kp * error / 4;
             } else {
                 clockwiseSpeed = kp * Math.abs(error) / error;
@@ -387,7 +383,7 @@ public class AutonomousMode extends LinearOpMode {
 
             telemetry.update();
             //DbgLog.msg(i + " clockwise speed "+clockwiseSpeed);
-            powerMotors(DRIVING_POWER + clockwiseSpeed, DRIVING_POWER - clockwiseSpeed);
+            powerMotors(DRIVING_POWER - clockwiseSpeed, DRIVING_POWER + clockwiseSpeed);
 
             idle();
             //sleep(25);
@@ -398,20 +394,17 @@ public class AutonomousMode extends LinearOpMode {
 //        sleep(500);
 //
 //        moveByInches(5);
-//
 //        powerMotors(0,0);
 //
 //        while (alpha < MID_POINT_ALPHA_FRONT){
-//
 //            powerMotors(0.15,-0.15);
-//
 //            alpha = colorSensorBottom.alpha();
-//
 //        }
-
+        motorBrush.setPower(0);
+        idle();
         powerMotors(0,0);
+        idle();
     }
-
 
 
     private int getGyroHeading() {
