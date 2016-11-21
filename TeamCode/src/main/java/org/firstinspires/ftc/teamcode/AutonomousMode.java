@@ -10,9 +10,8 @@ import com.qualcomm.robotcore.hardware.ColorSensor;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.I2cAddr;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
-//import com.qualcomm.robotcore.util.Range;
-import com.qualcomm.robotcore.util.Range;
 import com.qualcomm.robotcore.util.RobotLog;
 
 import org.firstinspires.ftc.robotcore.external.ClassFactory;
@@ -46,8 +45,6 @@ public class AutonomousMode extends LinearOpMode {
 
     private final static int ENCODER_COUNTS_PER_ROTATION = 2 * 1140;
 
-    private ElapsedTime timer = new ElapsedTime();
-    private ElapsedTime timer2 = new ElapsedTime();
     private static final String TAG = "Autonomous Mode";
 
     private VuforiaTrackables allImages;
@@ -59,11 +56,15 @@ public class AutonomousMode extends LinearOpMode {
     private ColorSensor colorSensor3a;
 
     //defining the 4 motors
+    // the motors are slaved:
+    // the power that goes to the first goes to the second
     private DcMotor motorLeft1;
+    //private DcMotor motorLeft2;
     private DcMotor motorRight1;
-    private DcMotor motorLeft2;
-    private DcMotor motorRight2;
+    //private DcMotor motorRight2;
     private DcMotor motorBrush;
+    private DcMotor motorBelt;
+    private Servo servoBeaconPad;
     private ModernRoboticsI2cGyro gyro    = null;
 
     private double [] robotLocation = null;
@@ -83,14 +84,18 @@ public class AutonomousMode extends LinearOpMode {
 
         //"initializing" the motors
         motorLeft1 = hardwareMap.dcMotor.get("D1left");
+        //motorLeft2 = hardwareMap.dcMotor.get("D2left");
         motorRight1 = hardwareMap.dcMotor.get("D1right");
-        motorLeft2 = hardwareMap.dcMotor.get("D2left");
-        motorRight2 = hardwareMap.dcMotor.get("D2right");
+        //motorRight2 = hardwareMap.dcMotor.get("D2right");
         motorBrush = hardwareMap.dcMotor.get("Brush");
+        motorBelt = hardwareMap.dcMotor.get("Belt");
 
-        //setting the motors on the right side in reverse so both wheels spin the same way.
-        motorLeft1.setDirection(DcMotor.Direction.REVERSE);
-        motorLeft2.setDirection(DcMotor.Direction.REVERSE);
+        // reset encoders
+        setRunMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+        // use running by speed mode (to make robot move straight, when equal power is applied left and right)
+        setRunMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        setZeroPowerMode(DcMotor.ZeroPowerBehavior.BRAKE);
 
         rangeSensor = hardwareMap.get(ModernRoboticsI2cRangeSensor.class, "Range Sensor");
         colorSensorBottom = hardwareMap.colorSensor.get("Color Sensor 3e");
@@ -108,7 +113,8 @@ public class AutonomousMode extends LinearOpMode {
         //waitForStart();
         // Wait for the game to start (Display Gyro value), and reset gyro before we move..
         while (!isStarted()) {
-            telemetry.addData(">", "Robot Heading = %d", gyro.getHeading());
+            telemetry.addData(">", "Robot Heading = %d", getGyroHeading());
+            telemetry.addData(">", "Robot Raw Heading = %d",getGyroRawHeading());
             telemetry.addData("bottom alpha", colorSensorBottom.alpha());
             telemetry.addData("raw ultrasonic", rangeSensor.rawUltrasonic());
             telemetry.addData("raw optical", rangeSensor.rawOptical());
@@ -117,53 +123,84 @@ public class AutonomousMode extends LinearOpMode {
             telemetry.update();
             idle();
         }
-        gyro.resetZAxisIntegrator();
+        //motorBelt.setPower(0.5); // the box is too small at the moment
+        servoBeaconPad = hardwareMap.servo.get("BeaconPad");
+        setPadPosition((128-15)/3*2+15); // to avoid pad covering camera
+        gyro.resetZAxisIntegrator(); //reset gyro heading to 0
 
-        //rotate (headings are from 0 to 259)
-//        rotateToHeading(45);
-//        powerMotors(0, 0);
-//        idle();
+        // starting with robot at the wall on the edge of 3rd and 4th tile
+        // robot facing backward
 
-        // drive using Gyro to maintain heading
-        driveUntilWhite();
+        // move forward
+        moveByInches(-12);
 
-        // start tracking images
-        //allImages.activate(); // TODO: uncomment to track images
-        idle();
+        // rotate -45 from heading 0
+        rotate(-1/8.0, 0);
 
-        while (opModeIsActive()) {
-            updateRobotLocation();
-            idle();
+        // go to white line
+        driveUntilWhiteUsingSpeed(-0.5);
+
+        // go 9 inches past white line
+        moveByInches(-9);
+
+        // rotate 45 degrees CCW from heading -45
+        rotate(-1/8.0, -45);
+        telemetry();
+
+        // detect color (red alliance
+        boolean colorDetected = false;
+        while (!colorDetected && opModeIsActive()) {
+            if (colorSensor3a.red() > 0 && colorSensor3c.blue() > 0
+                    ) {
+                colorDetected = true;
+                setPadPosition(15);
+            } else if (colorSensor3c.red() > 0 && colorSensor3a.blue() > 0) {
+                colorDetected = true;
+                setPadPosition(240);
+            }
             telemetry();
             idle();
         }
-//        double rotationPower = 0.15;
-//        timer.reset();
-//        timer2.reset();
 
-//        while (robotLocation == null && opModeIsActive()) {
-//
-//            // looks like we never get the position if the phone is constantly moving
-//            // but we can get position when it just starting to move
-//            // with 1.5 power, 0.2 sec rest, 0.6 sec move, we can always get the position
-//            // from the third tile from an image. One iteration with this settings is about 15 degrees.
-//            if (timer.time()<0.2) {
-//                powerMotors(0,0);
-//            } else if (timer.time()<0.8) {
-//                //robot rotates until it knows its location
-//                powerMotors(rotationPower, -rotationPower);
-//            } else if (timer.time() >= 0.8) {
-//                timer.reset();
-//            }
-//            sleep(50);
-//            idle();
-//
-//            robotLocation = updateRobotLocation();
-//        }
+        // if color is detected, move forward to hit the beacon
+        if (colorDetected) {
+            driveUntilHit(6, -0.3);
+        }
 
-//        powerMotors(0,0);
-//        sleep(50);
-//        idle();
+        // move 8 inches back
+        moveByInches(8);
+
+        // rotate 90 degrees from heading -90
+        rotate(1/4.0, -90);
+
+        // drive the distance between two white lines
+        moveByInches(-47.5, 0.5);
+
+        // rotate 90 degrees CCW from heading 0
+        rotate(-1/4.0, 0);
+
+        // detect color
+        colorDetected = false;
+        while (!colorDetected && opModeIsActive()) {
+            if (colorSensor3a.red() > 0 && colorSensor3c.blue() > 0
+                    ) {
+                colorDetected = true;
+                setPadPosition(15);
+            } else if (colorSensor3c.red() > 0 && colorSensor3a.blue() > 0) {
+                colorDetected = true;
+                setPadPosition(240);
+            }
+            telemetry();
+            idle();
+        }
+
+        // if color is detected move to the beacon
+        if (colorDetected) {
+            driveUntilHit(6, -0.3);
+        }
+
+        // move away from beacon
+        moveByInches(12);
 
 
         //stop tracking images
@@ -171,7 +208,20 @@ public class AutonomousMode extends LinearOpMode {
 
     }
 
+    private void driveUntilHit(int distincm, double drivingPower) throws InterruptedException {
+        powerMotors(drivingPower, drivingPower);
+        while (rangeSensor.getDistance(DistanceUnit.CM) > distincm){
+            idle();
+        }
+        powerMotors(0,0);
+    }
+
+    private void setPadPosition(int pos){
+        servoBeaconPad.setPosition(pos/255.0);
+    } // from 0 to 255
+
     public void telemetry() {
+        //telemetry.addData("Count: ", motorRight1.getCurrentPosition());
         telemetry.addData("Color 3c - R/G/B: ", "" + colorSensor3c.red() + "/" + colorSensor3c.green() + "/" +
                 colorSensor3c.blue() + "     Light reading: " + colorSensor3c.alpha() + "    " +
                 " at " + colorSensor3c.getI2cAddress() + " " + colorSensor3c.getConnectionInfo());
@@ -180,7 +230,8 @@ public class AutonomousMode extends LinearOpMode {
                 " at " + colorSensor3a.getI2cAddress() + " " + colorSensor3a.getConnectionInfo());
         telemetry.addData("Color Bottom = R/G/B", colorSensorBottom.alpha() +
                 " at " + colorSensorBottom.getI2cAddress() + " " + colorSensorBottom.getConnectionInfo());
-        telemetry.addData(">", "Heading = %d", gyro.getHeading());
+        telemetry.addData(">", "Heading = %d", getGyroHeading());
+        telemetry.addData(">", "Gyro Reading = %d", getGyroRawHeading());
         if (robotLocation != null && robotLocation.length == 3) {
             telemetry.addData("Location", "x = %.0f, y = %.0f, z = %.0f", robotLocation[0], robotLocation[1], robotLocation[2]);
         }
@@ -188,18 +239,20 @@ public class AutonomousMode extends LinearOpMode {
     }
 
     private void powerMotors(double leftForward, double rightForward) throws InterruptedException {
-        motorLeft1.setPower(leftForward);
-        motorLeft2.setPower(leftForward);
+        // the left side direction is reversed
+        motorLeft1.setPower(-leftForward);
         motorRight1.setPower(rightForward);
-        motorRight2.setPower(rightForward);
         idle();
     }
 
     private void setRunMode(DcMotor.RunMode runMode) {
         motorLeft1.setMode(runMode);
-        motorLeft2.setMode(runMode);
         motorRight1.setMode(runMode);
-        motorRight2.setMode(runMode);
+    }
+
+    private void setZeroPowerMode(DcMotor.ZeroPowerBehavior behavior) {
+        motorLeft1.setZeroPowerBehavior(behavior);
+        motorRight1.setZeroPowerBehavior(behavior);
     }
 
     private void vuforiaInit(){
@@ -326,26 +379,62 @@ public class AutonomousMode extends LinearOpMode {
         return hardwareMap.appContext.getSharedPreferences("autonomous", 0);
     }
 
-    private void moveByInches(double inches) throws InterruptedException{ // moves 26.5 in
-        int leftcounts = motorLeft1.getCurrentPosition();
-        while (Math.abs(motorLeft1.getCurrentPosition() - leftcounts) < ENCODER_COUNTS_PER_ROTATION*inches/26.5){
-            powerMotors(DRIVING_POWER, DRIVING_POWER);
+    private void moveByInches(double inches) throws InterruptedException {
+        moveByInches(inches, DRIVING_POWER);
+    }
+
+    private void moveByInches(double inches, double drivingPower) throws InterruptedException{ // moves 26.5 in one rotation
+        telemetry();
+        int counts = motorRight1.getCurrentPosition();
+        double sign = Math.round(inches/Math.abs(inches));
+        powerMotors(sign*drivingPower, sign*drivingPower);
+        while (opModeIsActive() && Math.abs(motorRight1.getCurrentPosition() - counts) < Math.abs(ENCODER_COUNTS_PER_ROTATION*inches/26.5)){
             idle();
+            //telemetry();
+        }
+        powerMotors(0,0);
+    }
+
+    private void driveUntilWhiteUsingSpeed(double drivingPower) throws InterruptedException{
+        powerMotors(drivingPower, drivingPower);
+        //maintain the direction until robot "sees" the edge of white line/touches/close to some other object
+        double alpha = colorSensorBottom.alpha();
+        double distance = rangeSensor.getDistance(DistanceUnit.CM);
+        while (opModeIsActive() && alpha < MID_POINT_ALPHA_FRONT && distance > 6){
+            // keep going
+            idle();
+            distance = rangeSensor.getDistance(DistanceUnit.CM);
+            alpha = colorSensorBottom.alpha();
         }
         powerMotors(0,0);
     }
 
 
-    private double DRIVING_POWER = 0.2;
+    // pcircle - part of the circle, positive - clockwise
+    private void rotate(double pcircle, int fromRawHeading) throws InterruptedException {
+        int counts = motorRight1.getCurrentPosition();
+
+        // make an adjustment for the error in current gyro heading
+        double pcircleError = getRawHeadingError(fromRawHeading)/360.0;
+        pcircle -= pcircleError;
+
+        double sign = Math.round(pcircle/Math.abs(pcircle));
+        // assuming 16 inches between wheels, 8 inches radius - 50.24 in
+        // assuming 15 inches between wheels, 7.5 inches radius - 46.24 in
+        // assuming 15.5 inches between wheels, 7.75 inches radius - 48.67 in
+        while (Math.abs(motorRight1.getCurrentPosition() - counts) < Math.abs(pcircle*ENCODER_COUNTS_PER_ROTATION*48.67/26.5)){
+            powerMotors(sign*DRIVING_POWER, -sign*DRIVING_POWER);
+        }
+        powerMotors(0,0);
+    }
+
+    private double DRIVING_POWER = 0.3;
     private int MID_POINT_ALPHA_FRONT = 5;
-    private double MAX_COUNTS_TO_WHITE = 2.26 * ENCODER_COUNTS_PER_ROTATION; // 4.5 to reach white line
-    private void driveUntilWhite() throws InterruptedException{
-        gyro.resetZAxisIntegrator();
+    //private double MAX_COUNTS_TO_WHITE = 2.26 * ENCODER_COUNTS_PER_ROTATION; // 4.5 to reach white line
+    private void driveUntilWhite(double drivingPower) throws InterruptedException{
+        //gyro.resetZAxisIntegrator();
         double headingToBeaconZone = getGyroHeading();
-        //setRunMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        //idle();
-        powerMotors(DRIVING_POWER, DRIVING_POWER);
-        motorBrush.setPower(-1);
+        powerMotors(drivingPower, drivingPower);
         idle();
         double currentHeading, error, clockwiseSpeed;
         double kp = 0.03 ; //experimental coefficient for proportional correction of the direction
@@ -353,10 +442,8 @@ public class AutonomousMode extends LinearOpMode {
         //maintain the direction until robot "sees" the edge of white line/touches/close to some other object
         double alpha = colorSensorBottom.alpha();
         double distance = rangeSensor.getDistance(DistanceUnit.CM);
-        double leftcounts = motorLeft1.getCurrentPosition();
-        while (opModeIsActive() &&
-                (alpha < MID_POINT_ALPHA_FRONT) &&
-                (Math.abs(motorLeft1.getCurrentPosition() - leftcounts) < MAX_COUNTS_TO_WHITE)){
+        //double leftcounts = motorLeft1.getCurrentPosition();
+        while (opModeIsActive() && alpha < MID_POINT_ALPHA_FRONT){
             // keep going
             currentHeading = getGyroHeading();
             error = getHeadingDelta(headingToBeaconZone);
@@ -383,39 +470,27 @@ public class AutonomousMode extends LinearOpMode {
 
             telemetry.update();
             //DbgLog.msg(i + " clockwise speed "+clockwiseSpeed);
-            powerMotors(DRIVING_POWER - clockwiseSpeed, DRIVING_POWER + clockwiseSpeed);
+            double sign = Math.round(drivingPower/Math.abs(drivingPower));
+            powerMotors(drivingPower - clockwiseSpeed * sign, drivingPower + clockwiseSpeed * sign);
 
             idle();
             //sleep(25);
             alpha = colorSensorBottom.alpha();
         }
 
-//        powerMotors(0,0);
-//        sleep(500);
-//
-//        moveByInches(5);
-//        powerMotors(0,0);
-//
-//        while (alpha < MID_POINT_ALPHA_FRONT){
-//            powerMotors(0.15,-0.15);
-//            alpha = colorSensorBottom.alpha();
-//        }
         motorBrush.setPower(0);
-        idle();
         powerMotors(0,0);
-        idle();
     }
-
 
     private int getGyroHeading() {
         return gyro.getHeading();
     }
 
+    //getIntegratedZValue is positive when moving ccw. We want it to behave the same way as getGyroHeading, so we changed the sign.
+    private int getGyroRawHeading() {return -gyro.getIntegratedZValue();}
 
     // gyro heading is from 0 to 359
     private void rotateToHeading(double requiredHeading) throws InterruptedException {
-
-        setRunMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         double MIN_ROTATE_POWER = 0.15;
 
@@ -462,6 +537,10 @@ public class AutonomousMode extends LinearOpMode {
         return headingDelta;
     }
 
+    //cc error is positive, ccw error is negative
+    private double getRawHeadingError(double requiredRawHeading) {
+        return getGyroRawHeading() - requiredRawHeading;
+    }
 
     // remember to zero the power after this method call if you want to stop rotation
     private void rotateToTolerance(double tolerance, double requiredHeading, double power) throws InterruptedException {
@@ -482,7 +561,7 @@ public class AutonomousMode extends LinearOpMode {
                 lastHeadingDelta = headingDelta;
                 headingDelta = getHeadingDelta(requiredHeading);
                 telemetry.addData("delta", headingDelta);
-                telemetry.addData(">", "Rotating = %d", gyro.getHeading());
+                telemetry.addData(">", "Rotating = %d", getGyroHeading());
                 telemetry.update();
             }
         }
