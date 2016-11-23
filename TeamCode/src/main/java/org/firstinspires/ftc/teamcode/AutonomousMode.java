@@ -2,10 +2,8 @@ package org.firstinspires.ftc.teamcode;
 
 import android.content.SharedPreferences;
 
-import com.qualcomm.ftccommon.DbgLog;
 import com.qualcomm.hardware.modernrobotics.ModernRoboticsI2cGyro;
 import com.qualcomm.hardware.modernrobotics.ModernRoboticsI2cRangeSensor;
-import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.ColorSensor;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -38,13 +36,14 @@ import java.util.List;
  * Updated by Sangmin and Jasmine 11/05/2016 - drive straight using gyro
  */
 
-@Autonomous(name="Autonomous Mode", group="nb")
-public class AutonomousMode extends LinearOpMode {
+public abstract class AutonomousMode extends LinearOpMode {
 
     private static final float FIELD_WIDTH = 2743.2f; //3580.0f; // millimeter
     private static final float IMAGE_HEIGHT_OVER_FLOOR = 146.05f; // millimeter
 
     private final static int ENCODER_COUNTS_PER_ROTATION = 2 * 1140;
+
+    private boolean isBlue = isBlueAlliance();
 
     private static final String TAG = "Autonomous Mode";
 
@@ -70,9 +69,12 @@ public class AutonomousMode extends LinearOpMode {
 
     private double [] robotLocation = null;
 
+    abstract boolean isBlueAlliance();
 
     @Override
     public void runOpMode() throws InterruptedException {
+
+        int angle, fromAngle;
 
         gyro = (ModernRoboticsI2cGyro)hardwareMap.gyroSensor.get("Gyro Sensor ");
         gyro.calibrate();
@@ -141,14 +143,16 @@ public class AutonomousMode extends LinearOpMode {
         // move forward
         moveByInches(-12);
 
-        // rotate -45 from heading 0
-        rotate(-1/8.0, 0);
+        // blue: rotate 45 from heading 0
+        // red: rotate -45 from heading 0
+        angle = isBlue? 45 : -45;
+        rotate(angle, 0);
 
         // make sure the robot has settled to get correct heading
         sleep(100);
 
         // go to white line
-        if (!driveUntilWhite(-0.5, -45)) {
+        if (!driveUntilWhite(-0.3, -45)) {
             // if line is not detected stop and
             // show telemetry while op mode is active
             powerMotors(0,0);
@@ -157,25 +161,17 @@ public class AutonomousMode extends LinearOpMode {
         }
 
         // go 9 inches past white line
-        moveByInches(-8);
+        double pastLineInches = isBlue? -6 : -8;
+        moveByInches(pastLineInches);
 
-        // rotate 45 degrees CCW from heading -45
-        rotate(-1/8.0, -45);
+        // blue: rotate 45 degrees CW from heading 45
+        // red: rotate 45 degrees CCW from heading -45
+        fromAngle = angle;
+        angle = isBlue? 45 : -45;
+        rotate(angle, fromAngle);
 
-        // detect color (red alliance
-        boolean colorDetected = false;
-        while (!colorDetected && opModeIsActive()) {
-            if (colorSensor3a.red() > 0 && colorSensor3c.blue() > 0
-                    ) {
-                colorDetected = true;
-                setPadPosition(15);
-            } else if (colorSensor3c.red() > 0 && colorSensor3a.blue() > 0) {
-                colorDetected = true;
-                setPadPosition(240);
-            }
-            telemetry();
-            idle();
-        }
+        // detect color
+        boolean colorDetected = detectColor();
 
         // if color is detected, move forward to hit the beacon
         if (colorDetected) {
@@ -186,29 +182,23 @@ public class AutonomousMode extends LinearOpMode {
         // move 8 inches back
         moveByInches(8);
 
-        // rotate 90 degrees from heading -90
-        rotate(1/4.0, -90);
+        // blue: rotate -90 degrees from heading 90
+        // red: rotate 90 degrees from heading -90
+        fromAngle = isBlue? 90 :  -90;
+        angle = isBlue? -90 : 90;
+        rotate(angle, fromAngle);
 
         // drive the distance between two white lines
         moveByInches(-47.5, 0.5);
 
-        // rotate 90 degrees CCW from heading 0
-        rotate(-1/4.0, 0);
+        // blue: rotate 90 degrees CW from heading 0
+        // red: rotate 90 degrees CCW from heading 0
+        fromAngle = 0;
+        angle = isBlue? 90 : -90;
+        rotate(angle, fromAngle);
 
         // detect color
-        colorDetected = false;
-        while (!colorDetected && opModeIsActive()) {
-            if (colorSensor3a.red() > 0 && colorSensor3c.blue() > 0
-                    ) {
-                colorDetected = true;
-                setPadPosition(15);
-            } else if (colorSensor3c.red() > 0 && colorSensor3a.blue() > 0) {
-                colorDetected = true;
-                setPadPosition(240);
-            }
-            telemetry();
-            idle();
-        }
+        colorDetected = detectColor();
 
         // if color is detected move to the beacon
         if (colorDetected) {
@@ -224,6 +214,27 @@ public class AutonomousMode extends LinearOpMode {
         //stop tracking images
         allImages.deactivate();
 
+    }
+
+    private boolean detectColor() throws InterruptedException {
+        int  padPosition;
+        // detect color (red alliance
+        boolean colorDetected = false;
+        while (!colorDetected && opModeIsActive()) {
+            if (colorSensor3a.red() > 0 && colorSensor3c.blue() > 0
+                    ) {
+                colorDetected = true;
+                padPosition = isBlue? 240 : 15;
+                setPadPosition(padPosition);
+            } else if (colorSensor3c.red() > 0 && colorSensor3a.blue() > 0) {
+                colorDetected = true;
+                padPosition = isBlue? 15 : 240;
+                setPadPosition(padPosition);
+            }
+            telemetry();
+            idle();
+        }
+        return colorDetected;
     }
 
     private void driveUntilHit(int distincm, double drivingPower) throws InterruptedException {
@@ -423,13 +434,14 @@ public class AutonomousMode extends LinearOpMode {
 
 
     // pcircle - part of the circle, positive - clockwise
-    private void rotate(double pcircle, int fromRawHeading) throws InterruptedException {
+    private void rotate(int angle, int fromRawHeading) throws InterruptedException {
         sleep(100); // to make sure robot stopped moving
 
         int counts = motorRight1.getCurrentPosition();
 
         // make an adjustment for the error in current gyro heading
         double pcircleError = getRawHeadingError(fromRawHeading)/360.0;
+        double pcircle = angle / 360.0;
         pcircle = pcircle-pcircleError;
         telemetry.addData("pcircle", pcircle*360);
         telemetry.update();
@@ -480,6 +492,10 @@ public class AutonomousMode extends LinearOpMode {
      * @throws InterruptedException
      */
     private boolean driveUntilWhite(double drivingPower, int headingToBeaconZone) throws InterruptedException{
+
+        //Use by power mode
+        setRunMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+
         double error, clockwiseSpeed;
         double kp = 0.03 ; //experimental coefficient for proportional correction of the direction
         //alpha() is to measure the brightness.
@@ -515,24 +531,24 @@ public class AutonomousMode extends LinearOpMode {
             distance = rangeSensor.getDistance(DistanceUnit.CM);
             alpha = colorSensorBottom.alpha();
         }
-
+        setRunMode(DcMotor.RunMode.RUN_USING_ENCODER);
         //motorBrush.setPower(0);
         return alpha >= MID_POINT_ALPHA_BACK;
     }
 
-    private final int getGyroHeading() {
+    private int getGyroHeading() {
         return gyro.getHeading();
     }
 
     //getIntegratedZValue is positive when moving ccw. We want it to behave the same way as getGyroHeading, so we changed the sign.
-    private final int getGyroRawHeading() {
+    private int getGyroRawHeading() {
         int heading = -gyro.getIntegratedZValue();
         telemetry.addData("Raw heading", heading);
         return heading;
     }
 
     //cc error is positive, ccw error is negative
-    private final double getRawHeadingError(double requiredRawHeading) {
+    private double getRawHeadingError(double requiredRawHeading) {
         return getGyroRawHeading() - requiredRawHeading;
     }
 
