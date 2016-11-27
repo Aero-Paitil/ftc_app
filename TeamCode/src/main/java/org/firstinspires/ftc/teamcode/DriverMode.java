@@ -4,6 +4,7 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
@@ -24,9 +25,10 @@ public class DriverMode extends OpMode {
     //defining the 4 motors
     private DcMotor motorLeft1;
     private DcMotor motorRight1;
-    private DcMotor motorLeft2;
-    private DcMotor motorRight2;
     private DcMotor motorBrush;
+    private DcMotor motorGun;
+    private DcMotor motorBelt;
+    private Servo servoBeaconPad;
     private boolean inBrushBtnPressed = false;
     private boolean outBrushBtnPressed = false;
     private int brushState = 0; //-1:Intake, 1:Sweep out, 0:Stopped
@@ -45,17 +47,35 @@ public class DriverMode extends OpMode {
         //"initializing" the motors
         motorLeft1 = hardwareMap.dcMotor.get("D1left");
         motorRight1 = hardwareMap.dcMotor.get("D1right");
-        motorLeft2 = hardwareMap.dcMotor.get("D2left");
-        motorRight2 = hardwareMap.dcMotor.get("D2right");
+        // run by power
+        motorLeft1.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        motorRight1.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        // float zero power
+        motorLeft1.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        motorRight1.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+
         motorBrush = hardwareMap.dcMotor.get("Brush");
+        motorBelt = hardwareMap.dcMotor.get("Belt");
+        motorGun = hardwareMap.dcMotor.get("Gun");
+        motorGun.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
         //setting the motors on the right side in reverse so both wheels spin the same way.
         motorLeft1.setDirection(DcMotor.Direction.REVERSE);
-        motorLeft2.setDirection(DcMotor.Direction.REVERSE);
 
         forward = true;
 
+        beltwas = 0;
+
+        changed = false;
     }
+
+    public void start() {
+        servoBeaconPad = hardwareMap.servo.get("BeaconPad");
+        servoBeaconPad.setPosition(15/255.0);
+    }
+
+    private boolean changed;
+    private int beltwas;
 
     @Override
     public void loop() {
@@ -91,7 +111,7 @@ public class DriverMode extends OpMode {
         double rightForward;
 
         int sign = forward ? 1 : -1;
-        if (!gamepad1.left_bumper && !gamepad1.right_bumper){
+        if (!gamepad1.y){
             //Arcade Drive
             rightForward = -(scaled(gamepad1.left_stick_y) + sign*scaled(gamepad1.left_stick_x));
             leftForward = -(scaled(gamepad1.left_stick_y) - sign*scaled(gamepad1.left_stick_x));
@@ -120,6 +140,43 @@ public class DriverMode extends OpMode {
                 rightForward = -sign*dpadSpeed;
             }
         }
+        //using the Belt
+        if(gamepad1.right_bumper){
+            motorBelt.setPower(1);
+            telemetry.addData("Belt", "Up");
+        }
+        else if(gamepad1.left_bumper){
+            motorBelt.setPower(-1);
+            telemetry.addData("Belt", "Down");
+            changed = true;
+            if (brushState != 1) {
+                beltwas = brushState;
+            }
+            brushState = 1;
+        }
+        else {
+            motorBelt.setPower(0);
+            telemetry.addData("Belt", "Off");
+            if (changed) {
+                brushState = beltwas;
+                changed = false;
+            }
+        }
+
+        //using the Gun
+        boolean triggered = false;
+        if (gamepad1.left_trigger > 0.7 || gamepad1.right_trigger > 0.7){
+            triggered = true;
+        }else if (gamepad1.left_trigger < 0.3 || gamepad1.right_trigger < 0.3){
+            triggered = false;
+        }
+        if (triggered){
+            motorGun.setPower(1);
+            telemetry.addData("Gun", "Triggered");
+        }else{
+            motorGun.setPower(0);
+            telemetry.addData("Gun", "Off");
+        }
 
 
         //driving backwards
@@ -144,7 +201,7 @@ public class DriverMode extends OpMode {
 
         //Changing direction from forward to backward and backward to forward
         //Gamepad back button does not work with motorola 3G
-        if (gamepad1.y) {
+        if (gamepad1.a) {
             backButtonPressed = true;
         } else if (backButtonPressed) {
             backButtonPressed = false;
@@ -166,9 +223,7 @@ public class DriverMode extends OpMode {
 
     private void powerMotors(double rightForward, double leftForward) {
         motorLeft1.setPower(leftForward);
-        motorLeft2.setPower(leftForward);
         motorRight1.setPower(rightForward);
-        motorRight2.setPower(rightForward);
     }
 
 
