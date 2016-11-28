@@ -52,7 +52,7 @@ public abstract class AutonomousMode extends LinearOpMode {
     private List<VuforiaTrackable> allTrackables;
 
     private ModernRoboticsI2cRangeSensor rangeSensor;
-    private ColorSensor colorSensorBottom;
+    //private ColorSensor colorSensorBottom;
     private ColorSensor colorSensor3c;
     private ColorSensor colorSensor3a;
     private OpticalDistanceSensor opticalSensor;
@@ -103,9 +103,9 @@ public abstract class AutonomousMode extends LinearOpMode {
         setZeroPowerMode(DcMotor.ZeroPowerBehavior.BRAKE);
 
         rangeSensor = hardwareMap.get(ModernRoboticsI2cRangeSensor.class, "Range Sensor");
-        colorSensorBottom = hardwareMap.colorSensor.get("Color Sensor 3e");
-        colorSensorBottom.setI2cAddress(I2cAddr.create8bit(0x3e));
-        colorSensorBottom.enableLed(true);
+//        colorSensorBottom = hardwareMap.colorSensor.get("Color Sensor 3e");
+//        colorSensorBottom.setI2cAddress(I2cAddr.create8bit(0x3e));
+//        colorSensorBottom.enableLed(true);
         colorSensor3a = hardwareMap.colorSensor.get("Color Sensor 3a");
         colorSensor3a.setI2cAddress(I2cAddr.create8bit(0x3a));
         colorSensor3a.enableLed(false);
@@ -125,7 +125,7 @@ public abstract class AutonomousMode extends LinearOpMode {
             telemetry.addData("optical light ", opticalSensor.getLightDetected());
             telemetry.addData("optical rawlight", opticalSensor.getRawLightDetected());
             telemetry.addData("optical max", opticalSensor.getRawLightDetectedMax());
-            telemetry.addData("bottom alpha", colorSensorBottom.alpha());
+            //telemetry.addData("bottom alpha", colorSensorBottom.alpha());
             telemetry.addData("raw ultrasonic", rangeSensor.rawUltrasonic());
             telemetry.addData("raw optical", rangeSensor.rawOptical());
             telemetry.addData("cm optical", "%.2f cm", rangeSensor.cmOptical());
@@ -157,7 +157,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         sleep(100);
 
         // go to white line
-        if (!driveUntilWhite(-0.3, angle)) {
+        if (!driveUntilWhite(-0.5, angle)) {
             // if line is not detected stop and
             // show telemetry while op mode is active
             powerMotors(0,0);
@@ -172,21 +172,18 @@ public abstract class AutonomousMode extends LinearOpMode {
         // blue: rotate 45 degrees CW from heading 45
         // red: rotate 45 degrees CCW from heading -45
         fromAngle = angle;
-        angle = isBlue? 40 : -40;
+        angle = isBlue? 30 : -30;
         rotate(angle, fromAngle);
 
-        sleep(5000);
+        followLine(-0.3, 0.5);
 
-        followLine(-0.3, 7);
-
-        sleep(5000);
 
         // detect color
         boolean colorDetected = detectColor();
 
         // if color is detected, move forward to hit the beacon
         if (colorDetected) {
-            sleep(500); //Give time for pad to get into position
+            sleep(500); //Give time for pad to get  into position
             driveUntilHit(5, -0.3);
         }
 
@@ -200,19 +197,15 @@ public abstract class AutonomousMode extends LinearOpMode {
         rotate(angle, fromAngle);
 
         // drive the distance between two white lines
-        moveByInches(-47.5, 0.5);
+        moveByInchesGyro(-0.5, 0, 47.5);
 
         // blue: rotate 90 degrees CW from heading 0
         // red: rotate 90 degrees CCW from heading 0
         fromAngle = 0;
-        angle = isBlue? 85 : -85;
+        angle = isBlue? 60 : -60;
         rotate(angle, fromAngle);
 
-        sleep(5000);
-
-        followLine(-0.3, 7);
-
-        sleep(5000);
+        followLine(-0.3, 0.5);
 
         // detect color
         colorDetected = detectColor();
@@ -282,8 +275,9 @@ public abstract class AutonomousMode extends LinearOpMode {
         telemetry.addData("Color 3a - R/G/B: ", "" + colorSensor3a.red() + "/" + colorSensor3a.green() + "/" +
                 colorSensor3a.blue() + "     Light reading: " + colorSensor3a.alpha() + "     " +
                 " at " + colorSensor3a.getI2cAddress() + " " + colorSensor3a.getConnectionInfo());
-        telemetry.addData("Color Bottom = R/G/B", colorSensorBottom.alpha() +
-                " at " + colorSensorBottom.getI2cAddress() + " " + colorSensorBottom.getConnectionInfo());
+        telemetry.addData("Optical Light: ", opticalSensor.getLightDetected());
+//        telemetry.addData("Color Bottom = R/G/B", colorSensorBottom.alpha() +
+//                " at " + colorSensorBottom.getI2cAddress() + " " + colorSensorBottom.getConnectionInfo());
         telemetry.addData(">", "Heading = %d", getGyroHeading());
         telemetry.addData(">", "Gyro Reading = %d", getGyroRawHeading());
         if (robotLocation != null && robotLocation.length == 3) {
@@ -475,18 +469,14 @@ public abstract class AutonomousMode extends LinearOpMode {
         powerMotors(0,0);
     }
 
-    /**
-     * Drive until white line, don't not stop
-     * @param drivingPower
-     * @return true, if line detected, false otherwise
-     * @throws InterruptedException
-     */
+
+    /*
     private boolean driveUntilWhiteUsingSpeed(double drivingPower) throws InterruptedException{
         powerMotors(drivingPower, drivingPower);
         //maintain the direction until robot "sees" the edge of white line/touches/close to some other object
         double alpha = colorSensorBottom.alpha();
         double distance = rangeSensor.getDistance(DistanceUnit.CM);
-        while (opModeIsActive() && alpha < MID_POINT_ALPHA_BACK && distance > 6){
+        while (opModeIsActive() && alpha < MID_POINT_LIGHT_BACK && distance > 6){
             // keep going
             idle();
             distance = rangeSensor.getDistance(DistanceUnit.CM);
@@ -494,35 +484,29 @@ public abstract class AutonomousMode extends LinearOpMode {
             telemetry.addData("Raw heading", getGyroRawHeading());
             telemetry.update();
         }
-        return alpha >= MID_POINT_ALPHA_BACK;
-    }
+        return alpha >= MID_POINT_LIGHT_BACK;
+    }*/
 
 
 
     private double DRIVING_POWER = 0.3;
-    private int MID_POINT_ALPHA_BACK = 5;
+    private double MID_POINT_LIGHT_BACK = 0.5;
     //private double MAX_COUNTS_TO_WHITE = 2.26 * ENCODER_COUNTS_PER_ROTATION; // 4.5 to reach white d
 
     /**
      * Drive until white line
      * @param drivingPower
-     * @return true if while line detected, false otherwise
+     * @param headingToBeaconZone
+     * @param maxInches
      * @throws InterruptedException
      */
-    private boolean driveUntilWhite(double drivingPower, int headingToBeaconZone) throws InterruptedException{
+    private void moveByInchesGyro(double drivingPower, int headingToBeaconZone, double maxInches) throws InterruptedException{
 
-        //Use by power mode
-        setRunMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-
+        int initialcount = motorLeft1.getCurrentPosition();
         double error, clockwiseSpeed;
         double kp = 0.03 ; //experimental coefficient for proportional correction of the direction
-        //alpha() is to measure the brightness.
-        //maintain the direction until robot "sees" the edge of white line/touches/close to some other object
-        double alpha = colorSensorBottom.alpha();
         double distance = rangeSensor.getDistance(DistanceUnit.CM);
-        //double leftcounts = motorLeft1.getCurrentPosition();
-        //double sign = drivingPower/Math.abs(drivingPower);
-        while (opModeIsActive() && alpha < MID_POINT_ALPHA_BACK && distance > 6){
+        while (opModeIsActive() && distance > 6 && Math.abs(motorLeft1.getCurrentPosition() - initialcount) < Math.abs(ENCODER_COUNTS_PER_ROTATION*maxInches/26.5)){
             // error CCW - negative, CW - positive
             error = getRawHeadingError(headingToBeaconZone);
             //don't do any correction
@@ -547,59 +531,38 @@ public abstract class AutonomousMode extends LinearOpMode {
 
             powerMotors(drivingPower - clockwiseSpeed, drivingPower + clockwiseSpeed);
             distance = rangeSensor.getDistance(DistanceUnit.CM);
-            alpha = colorSensorBottom.alpha();
         }
-        setRunMode(DcMotor.RunMode.RUN_USING_ENCODER);
         //motorBrush.setPower(0);
-        return alpha >= MID_POINT_ALPHA_BACK;
     }
 
-    private void followLine(double drivingPower, int targetWhiteValue) throws InterruptedException{
+    private boolean driveUntilWhite(double drivingPower, int headingToBeaconZone) throws InterruptedException {
+        return driveUntilWhite(drivingPower, headingToBeaconZone, Integer.MAX_VALUE);
+    }
 
-        //Use by power mode
-        setRunMode(DcMotor.RunMode.RUN_USING_ENCODER);
+    private boolean driveUntilWhite(double drivingPower, int headingToBeaconZone, double maxInches) throws InterruptedException{
 
+        int initialcount = motorLeft1.getCurrentPosition();
         double error, clockwiseSpeed;
         double kp = 0.03 ; //experimental coefficient for proportional correction of the direction
         //alpha() is to measure the brightness.
         //maintain the direction until robot "sees" the edge of white line/touches/close to some other object
-        double alpha = colorSensorBottom.alpha();
+        //double alpha = colorSensorBottom.alpha();
+        double light = opticalSensor.getLightDetected();
         double distance = rangeSensor.getDistance(DistanceUnit.CM);
         //double leftcounts = motorLeft1.getCurrentPosition();
         //double sign = drivingPower/Math.abs(drivingPower);
-
-        while (opModeIsActive() && alpha < targetWhiteValue) {
-            if (isBlue) {
-                powerMotors(0.15 , -0.15);
-            } else {
-                powerMotors(-0.15, 0.15);
-            }
-            alpha = colorSensorBottom.alpha();
-        }
-        powerMotors(0, 0);
-
-        sleep(5000);
-
-        distance = rangeSensor.getDistance(DistanceUnit.CM);
-
-        while (opModeIsActive() && distance > 11 ){
-
-            alpha = colorSensorBottom.alpha();
-
+        while (opModeIsActive() && light < MID_POINT_LIGHT_BACK && distance > 6 && Math.abs(motorLeft1.getCurrentPosition() - initialcount) < Math.abs(ENCODER_COUNTS_PER_ROTATION*maxInches/26.5)){
             // error CCW - negative, CW - positive
-            error = alpha - targetWhiteValue;
+            error = getRawHeadingError(headingToBeaconZone);
             //don't do any correction
             //if heading error < 1 degree
             if (Math.abs(error) < 1) {
                 clockwiseSpeed = 0;
+            } else if (Math.abs(error) >= 1 && Math.abs(error) <= 20) {
+                clockwiseSpeed = kp * error / 4;
             } else {
-                clockwiseSpeed = kp * error / 5;
+                clockwiseSpeed = kp * Math.abs(error) / error;
             }
-
-            if (!isBlue) {
-                clockwiseSpeed = -clockwiseSpeed;
-            }
-
             //clockwiseSpeed = Range.clip(clockwiseSpeed, -1.0, 1.0);
             telemetry.addData("Error", error);
             telemetry.update();
@@ -613,12 +576,56 @@ public abstract class AutonomousMode extends LinearOpMode {
 
             powerMotors(drivingPower - clockwiseSpeed, drivingPower + clockwiseSpeed);
             distance = rangeSensor.getDistance(DistanceUnit.CM);
+            light = opticalSensor.getLightDetected();
+        }
+        //motorBrush.setPower(0);
+        return light >= MID_POINT_LIGHT_BACK;
+    }
+
+    private void followLine(double drivingPower, double targetWhiteValue) throws InterruptedException{
+
+        double error, clockwiseSpeed;
+        double kp = 0.06 ; //experimental coefficient for proportional correction of the direction
+        double light = opticalSensor.getLightDetected();
+
+        while (opModeIsActive() && light < targetWhiteValue) {
+            if (isBlue) {
+                powerMotors(0.15 , -0.15);
+            } else {
+                powerMotors(-0.15, 0.15);
+            }
+            light = opticalSensor.getLightDetected();
+        }
+        powerMotors(0, 0);
+
+        double distance = rangeSensor.getDistance(DistanceUnit.CM);
+
+        while (opModeIsActive() && distance > 11 ){
+
+            light = opticalSensor.getLightDetected();
+            error = light - targetWhiteValue;
+            //don't do any correction
+            //if  error < 0.1
+            if (Math.abs(error) < 0.1) {
+                clockwiseSpeed = 0;
+            } else {
+                clockwiseSpeed = kp * error / 0.5;
+            }
+
+            if (!isBlue) {
+                clockwiseSpeed = -clockwiseSpeed;
+            }
+
+            //clockwiseSpeed = Range.clip(clockwiseSpeed, -1.0, 1.0);
+            telemetry.addData("Error", error);
+            telemetry.update();
+
+            powerMotors(drivingPower - clockwiseSpeed, drivingPower + clockwiseSpeed);
+            distance = rangeSensor.getDistance(DistanceUnit.CM);
         }
 
         powerMotors(0, 0);
 
-        setRunMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        //motorBrush.setPower(0);
     }
 
     private int getGyroHeading() {

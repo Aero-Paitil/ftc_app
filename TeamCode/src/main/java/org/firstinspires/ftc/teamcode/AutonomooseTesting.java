@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode;
 
 import android.content.SharedPreferences;
 
+import com.qualcomm.hardware.adafruit.BNO055IMU;
 import com.qualcomm.hardware.modernrobotics.ModernRoboticsI2cGyro;
 import com.qualcomm.hardware.modernrobotics.ModernRoboticsI2cRangeSensor;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
@@ -10,6 +11,7 @@ import com.qualcomm.robotcore.hardware.ColorSensor;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.I2cAddr;
+import com.qualcomm.robotcore.hardware.OpticalDistanceSensor;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.RobotLog;
@@ -53,6 +55,7 @@ public class AutonomooseTesting extends LinearOpMode {
     private List<VuforiaTrackable> allTrackables;
 
     private ModernRoboticsI2cRangeSensor rangeSensor;
+    private OpticalDistanceSensor opticalSensor;
     private ColorSensor colorSensorBottom;
     private ColorSensor colorSensor3c;
     private ColorSensor colorSensor3a;
@@ -105,6 +108,7 @@ public class AutonomooseTesting extends LinearOpMode {
         colorSensorBottom = hardwareMap.colorSensor.get("Color Sensor 3e");
         colorSensorBottom.setI2cAddress(I2cAddr.create8bit(0x3e));
         colorSensorBottom.enableLed(true);
+        opticalSensor = hardwareMap.opticalDistanceSensor.get("Optical");
         colorSensor3a = hardwareMap.colorSensor.get("Color Sensor 3a");
         colorSensor3a.setI2cAddress(I2cAddr.create8bit(0x3a));
         colorSensor3a.enableLed(false);
@@ -121,6 +125,7 @@ public class AutonomooseTesting extends LinearOpMode {
         while (!isStarted()) {
             telemetry.addData(">", "Robot Heading = %d", getGyroHeading());
             telemetry.addData(">", "Robot Raw Heading = %d",getGyroRawHeading());
+            telemetry.addData("optical light", opticalSensor.getLightDetected());
             telemetry.addData("bottom alpha", colorSensorBottom.alpha());
             telemetry.addData("raw ultrasonic", rangeSensor.rawUltrasonic());
             telemetry.addData("raw optical", rangeSensor.rawOptical());
@@ -137,16 +142,17 @@ public class AutonomooseTesting extends LinearOpMode {
         servoBeaconPad = hardwareMap.servo.get("BeaconPad");
         setPadPosition((128-15)/3*2+15); // to avoid pad covering camera
 
-        setRunMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        setZeroPowerMode(DcMotor.ZeroPowerBehavior.FLOAT);
+        setRunMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        setZeroPowerMode(DcMotor.ZeroPowerBehavior.BRAKE);
+
         for (int i = 0; i < 10; i++) {
-            blindDriveUntilWhite(-0.2);
+            moveByInches(-10, 0.4);
             sleep(3000);
-            blindDriveUntilWhite(0.2);
+            moveByInches(10, 0.4);
             sleep(3000);
         }
 
-        allImages.deactivate();
+        //allImages.deactivate();
     }
 
     private boolean detectColor() throws InterruptedException {
@@ -199,6 +205,7 @@ public class AutonomooseTesting extends LinearOpMode {
                 " at " + colorSensor3a.getI2cAddress() + " " + colorSensor3a.getConnectionInfo());
         telemetry.addData("Color Bottom = R/G/B", colorSensorBottom.alpha() +
                 " at " + colorSensorBottom.getI2cAddress() + " " + colorSensorBottom.getConnectionInfo());
+        telemetry.addData("Optical Light: ", opticalSensor.getLightDetected());
         telemetry.addData(">", "Heading = %d", getGyroHeading());
         telemetry.addData(">", "Gyro Reading = %d", getGyroRawHeading());
         if (robotLocation != null && robotLocation.length == 3) {
@@ -357,11 +364,42 @@ public class AutonomooseTesting extends LinearOpMode {
         int counts = motorRight1.getCurrentPosition();
         double sign = Math.round(inches/Math.abs(inches));
         powerMotors(sign*drivingPower, sign*drivingPower);
+        int counter = 0;
+        int iters = 0;
+        long ms = System.currentTimeMillis();
+        long cms;
+        long maxdiff = 0;
+        long sumdiff = 0;
+        long firsttime = -1;
+        long endtime = -1;
         while (opModeIsActive() && Math.abs(motorRight1.getCurrentPosition() - counts) < Math.abs(ENCODER_COUNTS_PER_ROTATION*inches/26.5)){
             idle();
-            telemetry.addData("Raw heading", getGyroRawHeading());
-            telemetry.update();
+            sleep(5);
+
+            cms = System.currentTimeMillis();
+            if (opticalSensor.getLightDetected() > MID_POINT_LIGHT_BACK){
+                counter++;
+                if (firsttime == -1){
+                    firsttime = System.currentTimeMillis();
+                }
+            }else{
+                if (firsttime != -1){
+                    endtime = System.currentTimeMillis();
+                }
+            }
+            //telemetry.addData("Raw heading", getGyroRawHeading());
+            //telemetry.update();
+            sumdiff += cms - ms;
+            if (cms - ms > maxdiff) maxdiff = cms - ms;
+            ms = cms;
+            iters++;
         }
+        telemetry.addData("WhiteTime: ", endtime - firsttime);
+        telemetry.addData("Maxdiff: ", maxdiff);
+        telemetry.addData("Avgdiff: ", (double)sumdiff / (iters));
+        telemetry.addData("Counter: ", counter);
+        telemetry.addData("Iterations: ", iters);
+        telemetry.update();
         powerMotors(0,0);
     }
 
@@ -411,26 +449,28 @@ public class AutonomooseTesting extends LinearOpMode {
         }
         return alpha >= MID_POINT_ALPHA_BACK;
     }
+
+    private double MID_POINT_LIGHT_BACK = 0.3;
     private boolean blindDriveUntilWhite(double drivingPower) throws InterruptedException{
         powerMotors(drivingPower, drivingPower);
         //maintain the direction until robot "sees" the edge of white line/touches/close to some other object
-        double alpha = colorSensorBottom.alpha();
+        double light = opticalSensor.getLightDetected();
 
-        double distance = rangeSensor.getDistance(DistanceUnit.CM);
-        while (opModeIsActive() && alpha < MID_POINT_ALPHA_BACK-1){
+        //double distance = rangeSensor.getDistance(DistanceUnit.CM);
+        while (opModeIsActive() && light < MID_POINT_LIGHT_BACK-1){
             // keep going
-            distance = rangeSensor.getDistance(DistanceUnit.CM);
-            alpha = colorSensorBottom.alpha();
+            //distance = rangeSensor.getDistance(DistanceUnit.CM);
+            light = opticalSensor.getLightDetected();
             //idle();
         }
         powerMotors(0,0);
         int counter = 0;
 
         ElapsedTime timer = new ElapsedTime();
-        while (opModeIsActive() && alpha >= MID_POINT_ALPHA_BACK-2 && distance > 50){
+        while (opModeIsActive() && light >= MID_POINT_LIGHT_BACK-2/* && distance > 50*/){
             // keep going
-            distance = rangeSensor.getDistance(DistanceUnit.CM);
-            alpha = colorSensorBottom.alpha();
+            //distance = rangeSensor.getDistance(DistanceUnit.CM);
+            light = opticalSensor.getLightDetected();
             counter++;
             //idle();
         }
@@ -439,7 +479,7 @@ public class AutonomooseTesting extends LinearOpMode {
         telemetry.addData("Millisecs", secs/counter);
         telemetry.addData("Counter", counter);
         telemetry.update();
-        return alpha >= MID_POINT_ALPHA_BACK;
+        return light >= MID_POINT_LIGHT_BACK;
     }
 
 
