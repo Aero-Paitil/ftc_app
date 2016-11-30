@@ -39,6 +39,8 @@ import java.util.List;
 
 public abstract class AutonomousMode extends LinearOpMode {
 
+    enum BeaconSide {left, right, none}
+
     private static final float FIELD_WIDTH = 2743.2f; //3580.0f; // millimeter
     private static final float IMAGE_HEIGHT_OVER_FLOOR = 146.05f; // millimeter
 
@@ -156,8 +158,11 @@ public abstract class AutonomousMode extends LinearOpMode {
         // make sure the robot has settled to get correct heading
         sleep(100);
 
+        // drive almost to the white line
+        moveByInchesGyro(-0.5, angle, 42);
+
         // go to white line
-        if (!driveUntilWhite(-0.5, angle)) {
+        if (!driveUntilWhite(-0.3, angle)) {
             // if line is not detected stop and
             // show telemetry while op mode is active
             powerMotors(0,0);
@@ -166,7 +171,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         }
 
         // go 9 inches past white line
-        double pastLineInches = isBlue? -6 : -8;
+        double pastLineInches = -8; // values without line follow isBlue? -6 : -8;
         moveByInches(pastLineInches);
 
         // blue: rotate 45 degrees CW from heading 45
@@ -179,13 +184,22 @@ public abstract class AutonomousMode extends LinearOpMode {
 
 
         // detect color
-        boolean colorDetected = detectColor();
+        BeaconSide beaconSide = detectColor();
+
+        if (beaconSide == BeaconSide.none) {
+            // if color is not detected stop and
+            // show telemetry while op mode is active
+            powerMotors(0,0);
+            showTelemetry();
+            return;
+        }
 
         // if color is detected, move forward to hit the beacon
-        if (colorDetected) {
-            sleep(500); //Give time for pad to get  into position
-            driveUntilHit(5, -0.3);
-        }
+        sleep(500); //Give time for pad to get  into position
+        driveUntilHit(5, -0.3);
+
+        // shimmy on the beacon side
+        shimmy(beaconSide);
 
         // move 8 inches back
         moveByInches(8);
@@ -197,24 +211,33 @@ public abstract class AutonomousMode extends LinearOpMode {
         rotate(angle, fromAngle);
 
         // drive the distance between two white lines
-        moveByInchesGyro(-0.5, 0, 47.5);
+        moveByInchesGyro(-0.5, 0, 46);
 
         // blue: rotate 90 degrees CW from heading 0
         // red: rotate 90 degrees CCW from heading 0
         fromAngle = 0;
-        angle = isBlue? 60 : -60;
+        angle = isBlue? 70 : -70;
         rotate(angle, fromAngle);
 
         followLine(-0.3, 0.5);
 
         // detect color
-        colorDetected = detectColor();
+        beaconSide = detectColor();
+
+        if (beaconSide == BeaconSide.none) {
+            // if color is not detected stop and
+            // show telemetry while op mode is active
+            powerMotors(0,0);
+            showTelemetry();
+            return;
+        }
 
         // if color is detected move to the beacon
-        if (colorDetected) {
-            sleep(500);
-            driveUntilHit(5, -0.3);
-        }
+        sleep(500);
+        driveUntilHit(5, -0.3);
+
+        // shimmy on the beacon side
+        shimmy(beaconSide);
 
         // move away from beacon
         moveByInches(12);
@@ -226,13 +249,24 @@ public abstract class AutonomousMode extends LinearOpMode {
 
     }
 
-    private boolean detectColor() throws InterruptedException {
-        int  padPosition;
+    private void shimmy(BeaconSide beaconSide) throws InterruptedException {
+        if (beaconSide == BeaconSide.left){
+            powerMotors(0.3, -0.3);
+        } else {
+            powerMotors(-0.3, 0.3);
+        }
+        sleep(150);
+        powerMotors(0,0);
+        sleep(150);
+    }
+
+    private BeaconSide detectColor() throws InterruptedException {
+        int  padPosition = 0;
         // detect color (red alliance
+        BeaconSide beaconSide = BeaconSide.none;
         boolean colorDetected = false;
         while (!colorDetected && opModeIsActive()) {
-            if (colorSensor3a.red() > 0 && colorSensor3c.blue() > 0
-                    ) {
+            if (colorSensor3a.red() > 0 && colorSensor3c.blue() > 0) {
                 colorDetected = true;
                 padPosition = isBlue? 240 : 15;
                 setPadPosition(padPosition);
@@ -244,7 +278,10 @@ public abstract class AutonomousMode extends LinearOpMode {
             telemetry();
             idle();
         }
-        return colorDetected;
+        if (colorDetected){
+            beaconSide = padPosition == 15 ? BeaconSide.left : BeaconSide.right;
+        }
+        return beaconSide;
     }
 
     private void driveUntilHit(int distincm, double drivingPower) throws InterruptedException {
@@ -253,7 +290,7 @@ public abstract class AutonomousMode extends LinearOpMode {
             idle();
         }
         powerMotors(0,0);
-        sleep(500);
+        sleep(600);
     }
 
     private void setPadPosition(int pos){
