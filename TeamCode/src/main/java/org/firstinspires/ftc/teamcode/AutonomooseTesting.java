@@ -1,8 +1,8 @@
 package org.firstinspires.ftc.teamcode;
 
 import android.content.SharedPreferences;
+import android.os.Environment;
 
-import com.qualcomm.hardware.adafruit.BNO055IMU;
 import com.qualcomm.hardware.modernrobotics.ModernRoboticsI2cGyro;
 import com.qualcomm.hardware.modernrobotics.ModernRoboticsI2cRangeSensor;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
@@ -13,7 +13,6 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.I2cAddr;
 import com.qualcomm.robotcore.hardware.OpticalDistanceSensor;
 import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.RobotLog;
 
 import org.firstinspires.ftc.robotcore.external.ClassFactory;
@@ -29,6 +28,9 @@ import org.firstinspires.ftc.robotcore.external.navigation.VuforiaTrackable;
 import org.firstinspires.ftc.robotcore.external.navigation.VuforiaTrackableDefaultListener;
 import org.firstinspires.ftc.robotcore.external.navigation.VuforiaTrackables;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStreamWriter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -42,12 +44,13 @@ import java.util.List;
 @Autonomous(name="TheMooseTest", group="nb")
 public class AutonomooseTesting extends LinearOpMode {
 
+    private double DRIVING_POWER = 0.3;
+    private double MID_POINT_LIGHT_BACK = 0.5;
+
     private static final float FIELD_WIDTH = 2743.2f; //3580.0f; // millimeter
     private static final float IMAGE_HEIGHT_OVER_FLOOR = 146.05f; // millimeter
 
     private final static int ENCODER_COUNTS_PER_ROTATION = 2 * 1140;
-
-    private boolean isBlue = false;
 
     private static final String TAG = "Autonomous Mode";
 
@@ -77,8 +80,6 @@ public class AutonomooseTesting extends LinearOpMode {
 
     @Override
     public void runOpMode() throws InterruptedException {
-
-        int angle, fromAngle;
 
         gyro = (ModernRoboticsI2cGyro)hardwareMap.gyroSensor.get("Gyro Sensor ");
         gyro.calibrate();
@@ -115,9 +116,6 @@ public class AutonomooseTesting extends LinearOpMode {
         colorSensor3c = hardwareMap.colorSensor.get("Color Sensor 3c");
         colorSensor3c.setI2cAddress(I2cAddr.create8bit(0x3c));
         colorSensor3c.enableLed(false);
-
-        //vuforiaInit();
-
         gyro.resetZAxisIntegrator(); //reset gyro heading to 0
 
         //waitForStart();
@@ -145,43 +143,15 @@ public class AutonomooseTesting extends LinearOpMode {
         setRunMode(DcMotor.RunMode.RUN_USING_ENCODER);
         setZeroPowerMode(DcMotor.ZeroPowerBehavior.BRAKE);
 
-        for (int i = 0; i < 10; i++) {
-            moveByInches(-10, 0.4);
-            sleep(3000);
-            moveByInches(10, 0.4);
-            sleep(3000);
-        }
+        testOpticalDistanceSensor();
 
-        //allImages.deactivate();
     }
 
-    private boolean detectColor() throws InterruptedException {
-        int  padPosition;
-        // detect color (red alliance
-        boolean colorDetected = false;
-        while (!colorDetected && opModeIsActive()) {
-            if (colorSensor3a.red() > 0 && colorSensor3c.blue() > 0
-                    ) {
-                colorDetected = true;
-                padPosition = isBlue? 240 : 15;
-                setPadPosition(padPosition);
-            } else if (colorSensor3c.red() > 0 && colorSensor3a.blue() > 0) {
-                colorDetected = true;
-                padPosition = isBlue? 15 : 240;
-                setPadPosition(padPosition);
-            }
-            telemetry();
-            idle();
+    private void testOpticalDistanceSensor() throws InterruptedException {
+        for (int i = 0; i < 20; i++) {
+            moveByInchesOverLine(-10, 0.4);
+            moveByInchesOverLine(10, 0.4);
         }
-        return colorDetected;
-    }
-
-    private void driveUntilHit(int distincm, double drivingPower) throws InterruptedException {
-        powerMotors(drivingPower, drivingPower);
-        while (rangeSensor.getDistance(DistanceUnit.CM) > distincm){
-            idle();
-        }
-        powerMotors(0,0);
     }
 
     private void setPadPosition(int pos){
@@ -355,52 +325,85 @@ public class AutonomooseTesting extends LinearOpMode {
         return hardwareMap.appContext.getSharedPreferences("autonomous", 0);
     }
 
-    private void moveByInches(double inches) throws InterruptedException {
-        moveByInches(inches, DRIVING_POWER);
-    }
+    private int idx =0;
+    private int missedIdx = -1;
 
-    private void moveByInches(double inches, double drivingPower) throws InterruptedException{ // moves 26.5 in one rotation
+    private void moveByInchesOverLine(double inches, double drivingPower) throws InterruptedException{ // moves 26.5 in one rotation
         telemetry();
         int counts = motorRight1.getCurrentPosition();
         double sign = Math.round(inches/Math.abs(inches));
         powerMotors(sign*drivingPower, sign*drivingPower);
         int counter = 0;
         int iters = 0;
-        long ms = System.currentTimeMillis();
+        long initialMs = System.currentTimeMillis();
+        long ms = initialMs;
         long cms;
         long maxdiff = 0;
         long sumdiff = 0;
         long firsttime = -1;
         long endtime = -1;
-        while (opModeIsActive() && Math.abs(motorRight1.getCurrentPosition() - counts) < Math.abs(ENCODER_COUNTS_PER_ROTATION*inches/26.5)){
-            idle();
-            sleep(5);
-
+        ArrayList<Integer> position = new ArrayList<>();
+        ArrayList<Double> detected = new ArrayList<>();
+        ArrayList<Long> currentTimeMs = new ArrayList<>();
+        double lightDetected;
+        int currPos = Math.abs(motorRight1.getCurrentPosition() - counts);
+        while (opModeIsActive() && currPos < Math.abs(ENCODER_COUNTS_PER_ROTATION*inches/26.5)){
+            position.add(currPos);
             cms = System.currentTimeMillis();
-            if (opticalSensor.getLightDetected() > MID_POINT_LIGHT_BACK){
+            currentTimeMs.add(cms-initialMs);
+            lightDetected = opticalSensor.getLightDetected();
+            detected.add(lightDetected);
+            if ( lightDetected > MID_POINT_LIGHT_BACK){
                 counter++;
                 if (firsttime == -1){
                     firsttime = System.currentTimeMillis();
                 }
-            }else{
+            } else {
                 if (firsttime != -1){
                     endtime = System.currentTimeMillis();
                 }
             }
-            //telemetry.addData("Raw heading", getGyroRawHeading());
-            //telemetry.update();
             sumdiff += cms - ms;
             if (cms - ms > maxdiff) maxdiff = cms - ms;
             ms = cms;
             iters++;
+            idle();
+            sleep(5);
+            currPos = Math.abs(motorRight1.getCurrentPosition() - counts);
         }
         telemetry.addData("WhiteTime: ", endtime - firsttime);
         telemetry.addData("Maxdiff: ", maxdiff);
         telemetry.addData("Avgdiff: ", (double)sumdiff / (iters));
         telemetry.addData("Counter: ", counter);
         telemetry.addData("Iterations: ", iters);
-        telemetry.update();
+
         powerMotors(0,0);
+
+        if (counter == 0) {
+            missedIdx = idx;
+        }
+
+        // write to file when missed line or first time moving in the same direction after missed line
+        if (idx == missedIdx || idx == missedIdx+2) {
+            try {
+                File file = new File(Environment.getExternalStorageDirectory().getPath() + (counter == 0 ? "/FIRST/missed" : "/FIRST/detected") + idx + ".txt");
+                telemetry.addData("File", file.getAbsolutePath());
+
+                OutputStreamWriter outputStreamWriter = new OutputStreamWriter(new FileOutputStream(file));
+                outputStreamWriter.write("cycleMs,posDiff,detectedLight\n");
+                for (int i = 0; i < position.size(); i++) {
+                    outputStreamWriter.write(currentTimeMs.get(i) + "," + position.get(i) + "," + detected.get(i) + "\n");
+                }
+                outputStreamWriter.close();
+
+            } catch (Exception e) {
+                telemetry.addData("Exception", "File write failed: " + e.toString());
+            }
+        }
+
+        telemetry.update();
+        idx++;
+        sleep(500);
     }
 
 
@@ -428,117 +431,6 @@ public class AutonomooseTesting extends LinearOpMode {
         powerMotors(0,0);
     }
 
-    /**
-     * Drive until white line, don't not stop
-     * @param drivingPower
-     * @return true, if line detected, false otherwise
-     * @throws InterruptedException
-     */
-    private boolean driveUntilWhiteUsingSpeed(double drivingPower) throws InterruptedException{
-        powerMotors(drivingPower, drivingPower);
-        //maintain the direction until robot "sees" the edge of white line/touches/close to some other object
-        double alpha = colorSensorBottom.alpha();
-        double distance = rangeSensor.getDistance(DistanceUnit.CM);
-        while (opModeIsActive() && alpha < MID_POINT_ALPHA_BACK && distance > 6){
-            // keep going
-            idle();
-            distance = rangeSensor.getDistance(DistanceUnit.CM);
-            alpha = colorSensorBottom.alpha();
-            telemetry.addData("Raw heading", getGyroRawHeading());
-            telemetry.update();
-        }
-        return alpha >= MID_POINT_ALPHA_BACK;
-    }
-
-    private double MID_POINT_LIGHT_BACK = 0.3;
-    private boolean blindDriveUntilWhite(double drivingPower) throws InterruptedException{
-        powerMotors(drivingPower, drivingPower);
-        //maintain the direction until robot "sees" the edge of white line/touches/close to some other object
-        double light = opticalSensor.getLightDetected();
-
-        //double distance = rangeSensor.getDistance(DistanceUnit.CM);
-        while (opModeIsActive() && light < MID_POINT_LIGHT_BACK-1){
-            // keep going
-            //distance = rangeSensor.getDistance(DistanceUnit.CM);
-            light = opticalSensor.getLightDetected();
-            //idle();
-        }
-        powerMotors(0,0);
-        int counter = 0;
-
-        ElapsedTime timer = new ElapsedTime();
-        while (opModeIsActive() && light >= MID_POINT_LIGHT_BACK-2/* && distance > 50*/){
-            // keep going
-            //distance = rangeSensor.getDistance(DistanceUnit.CM);
-            light = opticalSensor.getLightDetected();
-            counter++;
-            //idle();
-        }
-        double secs = timer.milliseconds();
-        powerMotors(0,0);
-        telemetry.addData("Millisecs", secs/counter);
-        telemetry.addData("Counter", counter);
-        telemetry.update();
-        return light >= MID_POINT_LIGHT_BACK;
-    }
-
-
-
-    private double DRIVING_POWER = 0.3;
-    private int MID_POINT_ALPHA_BACK = 5;
-    //private double MAX_COUNTS_TO_WHITE = 2.26 * ENCODER_COUNTS_PER_ROTATION; // 4.5 to reach white d
-
-    /**
-     * Drive until white line
-     * @param drivingPower
-     * @return true if while line detected, false otherwise
-     * @throws InterruptedException
-     */
-    private boolean driveUntilWhite(double drivingPower, int headingToBeaconZone) throws InterruptedException{
-
-        //Use by power mode
-        setRunMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-
-        double error, clockwiseSpeed;
-        double kp = 0.03 ; //experimental coefficient for proportional correction of the direction
-        //alpha() is to measure the brightness.
-        //maintain the direction until robot "sees" the edge of white line/touches/close to some other object
-        double alpha = colorSensorBottom.alpha();
-        double distance = rangeSensor.getDistance(DistanceUnit.CM);
-        //double leftcounts = motorLeft1.getCurrentPosition();
-        //double sign = drivingPower/Math.abs(drivingPower);
-        while (opModeIsActive() && alpha < MID_POINT_ALPHA_BACK && distance > 6){
-            // error CCW - negative, CW - positive
-            error = getRawHeadingError(headingToBeaconZone);
-            //don't do any correction
-            //if heading error < 1 degree
-            if (Math.abs(error) < 1) {
-                clockwiseSpeed = 0;
-            } else if (Math.abs(error) >= 1 && Math.abs(error) <= 4) {
-                clockwiseSpeed = kp * error / 4;
-            } else {
-                clockwiseSpeed = kp * Math.abs(error) / error;
-            }
-            //clockwiseSpeed = Range.clip(clockwiseSpeed, -1.0, 1.0);
-            telemetry.addData("Error", error);
-            telemetry.update();
-//            telemetry.addData("Error", error);
-//            telemetry.addData("Distance", distance);
-//
-//            telemetry.addData("LeftCounts", motorLeft1.getCurrentPosition());
-//            telemetry.addData("RightCounts", motorRight1.getCurrentPosition());
-//            telemetry.update();
-            //DbgLog.msg(i + " clockwise speed "+clockwiseSpeed);
-
-            powerMotors(drivingPower - clockwiseSpeed, drivingPower + clockwiseSpeed);
-            distance = rangeSensor.getDistance(DistanceUnit.CM);
-            alpha = colorSensorBottom.alpha();
-        }
-
-        setRunMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        //motorBrush.setPower(0);
-        return alpha >= MID_POINT_ALPHA_BACK;
-    }
 
     private int getGyroHeading() {
         return gyro.getHeading();
@@ -554,81 +446,6 @@ public class AutonomooseTesting extends LinearOpMode {
     //cc error is positive, ccw error is negative
     private double getRawHeadingError(double requiredRawHeading) {
         return getGyroRawHeading() - requiredRawHeading;
-    }
-
-    // gyro heading is from 0 to 359
-    private void rotateToHeading(double requiredHeading) throws InterruptedException {
-
-        double MIN_ROTATE_POWER = 0.15;
-
-        // make sure requiredHeading is positive and less than 360
-        while (requiredHeading >= 360) {
-            requiredHeading -= 360;
-        }
-        while (requiredHeading < 0) {
-            requiredHeading += 360;
-        }
-
-        double power;
-        // choose rotation direction
-        double currentHeading = getGyroHeading();
-        if (requiredHeading > currentHeading) {
-            if (requiredHeading - currentHeading < 180) {
-                power = MIN_ROTATE_POWER;
-            } else {
-                power = -MIN_ROTATE_POWER;
-            }
-        } else {
-            if (requiredHeading + 360 - currentHeading < 180) {
-                power = MIN_ROTATE_POWER;
-            } else {
-                power = -MIN_ROTATE_POWER;
-            }
-        }
-
-        // start rotation fast, then slow down as you approach the required heading
-        //rotateToTolerance(60, requiredHeading, power * 1);
-        //rotateToTolerance(40, requiredHeading, power * 0.7);
-        rotateToTolerance(20, requiredHeading, power);
-        powerMotors(0, 0);
-        idle();
-    }
-
-    // we want the delta to be less than 180 degrees
-    // for example, the delta between 350 and 10 should be 20
-    private double getHeadingDelta(double requiredHeading) {
-        double headingDelta = Math.abs(requiredHeading - getGyroHeading());
-        if (headingDelta > 180) {
-            headingDelta = 360 - headingDelta;
-        }
-        return headingDelta;
-    }
-
-
-
-    // remember to zero the power after this method call if you want to stop rotation
-    private void rotateToTolerance(double tolerance, double requiredHeading, double power) throws InterruptedException {
-        double headingDelta = getHeadingDelta(requiredHeading);
-        double lastHeadingDelta = headingDelta;
-
-        if (headingDelta > tolerance) {
-            // power motors
-            powerMotors(power, -power);
-            idle();
-            // if current gyro heading is not close enough to the required heading
-            // wait and check again
-            ElapsedTime timer = new ElapsedTime();
-            timer.reset();
-            while (headingDelta > tolerance && headingDelta <= lastHeadingDelta + 1 && opModeIsActive()) {
-                //checkTimeout(timer, 10);
-                idle();
-                lastHeadingDelta = headingDelta;
-                headingDelta = getHeadingDelta(requiredHeading);
-                telemetry.addData("delta", headingDelta);
-                telemetry.addData(">", "Rotating = %d", getGyroHeading());
-                telemetry.update();
-            }
-        }
     }
 
 }
