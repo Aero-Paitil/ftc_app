@@ -59,7 +59,6 @@ public class AutonomooseTesting extends LinearOpMode {
 
     private ModernRoboticsI2cRangeSensor rangeSensor;
     private OpticalDistanceSensor opticalSensor;
-    private ColorSensor colorSensorBottom;
     private ColorSensor colorSensor3c;
     private ColorSensor colorSensor3a;
 
@@ -106,9 +105,6 @@ public class AutonomooseTesting extends LinearOpMode {
         setZeroPowerMode(DcMotor.ZeroPowerBehavior.BRAKE);
 
         rangeSensor = hardwareMap.get(ModernRoboticsI2cRangeSensor.class, "Range Sensor");
-        colorSensorBottom = hardwareMap.colorSensor.get("Color Sensor 3e");
-        colorSensorBottom.setI2cAddress(I2cAddr.create8bit(0x3e));
-        colorSensorBottom.enableLed(true);
         opticalSensor = hardwareMap.opticalDistanceSensor.get("Optical");
         colorSensor3a = hardwareMap.colorSensor.get("Color Sensor 3a");
         colorSensor3a.setI2cAddress(I2cAddr.create8bit(0x3a));
@@ -124,7 +120,6 @@ public class AutonomooseTesting extends LinearOpMode {
             telemetry.addData(">", "Robot Heading = %d", getGyroHeading());
             telemetry.addData(">", "Robot Raw Heading = %d",getGyroRawHeading());
             telemetry.addData("optical light", opticalSensor.getLightDetected());
-            telemetry.addData("bottom alpha", colorSensorBottom.alpha());
             telemetry.addData("raw ultrasonic", rangeSensor.rawUltrasonic());
             telemetry.addData("raw optical", rangeSensor.rawOptical());
             telemetry.addData("cm optical", "%.2f cm", rangeSensor.cmOptical());
@@ -143,16 +138,234 @@ public class AutonomooseTesting extends LinearOpMode {
         setRunMode(DcMotor.RunMode.RUN_USING_ENCODER);
         setZeroPowerMode(DcMotor.ZeroPowerBehavior.BRAKE);
 
-        testOpticalDistanceSensor();
+        followLine(-0.3, 0.5 );
 
     }
 
     private void testOpticalDistanceSensor() throws InterruptedException {
+        int delayMs = 500;
         for (int i = 0; i < 20; i++) {
-            moveByInchesOverLine(-10, 0.4);
-            moveByInchesOverLine(10, 0.4);
+            rotateOverLine(10, 0.2);
+            sleep(delayMs);
+            rotateOverLine(-10, 0.2);
+            sleep(delayMs);
         }
     }
+
+
+    private void followLine(double drivingPower, double targetWhiteValue) throws InterruptedException{
+        boolean isBlue = true;
+        double error, clockwiseSpeed;
+        double kp = 0.06 ; //experimental coefficient for proportional correction of the direction
+        double light = opticalSensor.getLightDetected();
+
+        while (opModeIsActive() && light < targetWhiteValue) {
+            if (isBlue) {
+                powerMotors(0.15 , -0.15);
+            } else {
+                powerMotors(-0.15, 0.15);
+            }
+            light = opticalSensor.getLightDetected();
+        }
+        powerMotors(0, 0);
+
+        if (light < targetWhiteValue) {
+            if (isBlue) {
+                powerMotors(-0.15 , +0.15);
+            } else {
+                powerMotors(+0.15, -0.15);
+            }
+            sleep(50);
+            powerMotors(0,0);
+        }
+
+        double distance = rangeSensor.getDistance(DistanceUnit.CM);
+
+        while (opModeIsActive() && distance > 11 ){
+
+            light = opticalSensor.getLightDetected();
+            error = light - targetWhiteValue;
+            //don't do any correction
+            //if  error < 0.1
+            if (Math.abs(error) < 0.1) {
+                clockwiseSpeed = 0;
+            } else {
+                clockwiseSpeed = kp * error / 0.5;
+            }
+
+            if (!isBlue) {
+                clockwiseSpeed = -clockwiseSpeed;
+            }
+
+            //clockwiseSpeed = Range.clip(clockwiseSpeed, -1.0, 1.0);
+            telemetry.addData("Error", error);
+            telemetry.update();
+
+            powerMotors(drivingPower - clockwiseSpeed, drivingPower + clockwiseSpeed);
+            distance = rangeSensor.getDistance(DistanceUnit.CM);
+        }
+
+        powerMotors(0, 0);
+
+    }
+
+    private int idx =0;
+    private int missedIdx = -1;
+
+    private void moveByInchesOverLine(double inches, double drivingPower) throws InterruptedException{ // moves 26.5 in one rotation
+        telemetry();
+        int counts = motorRight1.getCurrentPosition();
+        double sign = Math.round(inches/Math.abs(inches));
+        powerMotors(sign*drivingPower, sign*drivingPower);
+        int counter = 0;
+        int iters = 0;
+        long initialMs = System.currentTimeMillis();
+        long ms = initialMs;
+        long cms;
+        long maxdiff = 0;
+        long sumdiff = 0;
+        long firsttime = -1;
+        long endtime = -1;
+        ArrayList<Integer> position = new ArrayList<>();
+        ArrayList<Double> detected = new ArrayList<>();
+        ArrayList<Long> currentTimeMs = new ArrayList<>();
+        double lightDetected;
+        int currPos = Math.abs(motorRight1.getCurrentPosition() - counts);
+        while (opModeIsActive() && currPos < Math.abs(ENCODER_COUNTS_PER_ROTATION*inches/26.5)){
+            position.add(currPos);
+            cms = System.currentTimeMillis();
+            currentTimeMs.add(cms-initialMs);
+            lightDetected = opticalSensor.getLightDetected();
+            detected.add(lightDetected);
+            if ( lightDetected > MID_POINT_LIGHT_BACK){
+                counter++;
+                if (firsttime == -1){
+                    firsttime = System.currentTimeMillis();
+                }
+            } else {
+                if (firsttime != -1){
+                    endtime = System.currentTimeMillis();
+                }
+            }
+            sumdiff += cms - ms;
+            if (cms - ms > maxdiff) maxdiff = cms - ms;
+            ms = cms;
+            iters++;
+            idle();
+            sleep(5);
+            currPos = Math.abs(motorRight1.getCurrentPosition() - counts);
+        }
+        telemetry.addData("WhiteTime: ", endtime - firsttime);
+        telemetry.addData("Maxdiff: ", maxdiff);
+        telemetry.addData("Avgdiff: ", (double)sumdiff / (iters));
+        telemetry.addData("Counter: ", counter);
+        telemetry.addData("Iterations: ", iters);
+
+        powerMotors(0,0);
+
+        if (counter == 0) {
+            missedIdx = idx;
+        }
+
+        // write to file when missed line or first time moving in the same direction after missed line
+        if (idx == missedIdx || idx == missedIdx+2) {
+            try {
+                File file = new File(Environment.getExternalStorageDirectory().getPath() + (counter == 0 ? "/FIRST/missed" : "/FIRST/detected") + idx + ".txt");
+                telemetry.addData("File", file.getAbsolutePath());
+
+                OutputStreamWriter outputStreamWriter = new OutputStreamWriter(new FileOutputStream(file));
+                outputStreamWriter.write("cycleMs,posDiff,detectedLight\n");
+                for (int i = 0; i < position.size(); i++) {
+                    outputStreamWriter.write(currentTimeMs.get(i) + "," + position.get(i) + "," + detected.get(i) + "\n");
+                }
+                outputStreamWriter.close();
+
+            } catch (Exception e) {
+                telemetry.addData("Exception", "File write failed: " + e.toString());
+            }
+        }
+
+        telemetry.update();
+        idx++;
+    }
+
+    private void rotateOverLine(double inches, double drivingPower) throws InterruptedException{ // moves 26.5 in one rotation
+        telemetry();
+        int counts = motorRight1.getCurrentPosition();
+        double sign = Math.round(inches/Math.abs(inches));
+        powerMotors(sign*drivingPower, -sign*drivingPower);
+        int counter = 0;
+        int iters = 0;
+        long cms;
+        long maxdiff = 0;
+        long sumdiff = 0;
+        long firsttime = -1;
+        long endtime = -1;
+        ArrayList<Integer> position = new ArrayList<>();
+        ArrayList<Double> detected = new ArrayList<>();
+        ArrayList<Long> currentTimeMs = new ArrayList<>();
+        double lightDetected;
+        int currPos = Math.abs(motorRight1.getCurrentPosition() - counts);
+        long initialMs = System.currentTimeMillis();
+        long ms = initialMs;
+        while (opModeIsActive() && currPos < Math.abs(ENCODER_COUNTS_PER_ROTATION*inches/26.5)){
+            position.add(currPos);
+            cms = System.currentTimeMillis();
+            currentTimeMs.add(cms-initialMs);
+            lightDetected = opticalSensor.getLightDetected();
+            detected.add(lightDetected);
+            if ( lightDetected > MID_POINT_LIGHT_BACK){
+                counter++;
+                if (firsttime == -1){
+                    firsttime = System.currentTimeMillis();
+                }
+            } else {
+                if (firsttime != -1){
+                    endtime = System.currentTimeMillis();
+                }
+            }
+            sumdiff += cms - ms;
+            if (cms - ms > maxdiff) maxdiff = cms - ms;
+            ms = cms;
+            iters++;
+            idle();
+            sleep(5);
+            currPos = Math.abs(motorRight1.getCurrentPosition() - counts);
+        }
+        telemetry.addData("WhiteTime: ", endtime - firsttime);
+        telemetry.addData("Maxdiff: ", maxdiff);
+        telemetry.addData("Avgdiff: ", (double)sumdiff / (iters));
+        telemetry.addData("Counter: ", counter);
+        telemetry.addData("Iterations: ", iters);
+
+        powerMotors(0,0);
+
+        if (counter == 0) {
+            missedIdx = idx;
+        }
+
+        // write to file when missed line or first time moving in the same direction after missed line
+        if (idx == missedIdx || idx == missedIdx+2) {
+            try {
+                File file = new File(Environment.getExternalStorageDirectory().getPath() + (counter == 0 ? "/FIRST/missed" : "/FIRST/detected") + idx + ".txt");
+                telemetry.addData("File", file.getAbsolutePath());
+
+                OutputStreamWriter outputStreamWriter = new OutputStreamWriter(new FileOutputStream(file));
+                outputStreamWriter.write("cycleMs,posDiff,detectedLight\n");
+                for (int i = 0; i < position.size(); i++) {
+                    outputStreamWriter.write(currentTimeMs.get(i) + "," + position.get(i) + "," + detected.get(i) + "\n");
+                }
+                outputStreamWriter.close();
+
+            } catch (Exception e) {
+                telemetry.addData("Exception", "File write failed: " + e.toString());
+            }
+        }
+
+        telemetry.update();
+        idx++;
+    }
+
 
     private void setPadPosition(int pos){
         servoBeaconPad.setPosition(pos/255.0);
@@ -173,8 +386,6 @@ public class AutonomooseTesting extends LinearOpMode {
         telemetry.addData("Color 3a - R/G/B: ", "" + colorSensor3a.red() + "/" + colorSensor3a.green() + "/" +
                 colorSensor3a.blue() + "     Light reading: " + colorSensor3a.alpha() + "     " +
                 " at " + colorSensor3a.getI2cAddress() + " " + colorSensor3a.getConnectionInfo());
-        telemetry.addData("Color Bottom = R/G/B", colorSensorBottom.alpha() +
-                " at " + colorSensorBottom.getI2cAddress() + " " + colorSensorBottom.getConnectionInfo());
         telemetry.addData("Optical Light: ", opticalSensor.getLightDetected());
         telemetry.addData(">", "Heading = %d", getGyroHeading());
         telemetry.addData(">", "Gyro Reading = %d", getGyroRawHeading());
@@ -323,87 +534,6 @@ public class AutonomooseTesting extends LinearOpMode {
 
     private static SharedPreferences getSharedPrefs(HardwareMap hardwareMap) {
         return hardwareMap.appContext.getSharedPreferences("autonomous", 0);
-    }
-
-    private int idx =0;
-    private int missedIdx = -1;
-
-    private void moveByInchesOverLine(double inches, double drivingPower) throws InterruptedException{ // moves 26.5 in one rotation
-        telemetry();
-        int counts = motorRight1.getCurrentPosition();
-        double sign = Math.round(inches/Math.abs(inches));
-        powerMotors(sign*drivingPower, sign*drivingPower);
-        int counter = 0;
-        int iters = 0;
-        long initialMs = System.currentTimeMillis();
-        long ms = initialMs;
-        long cms;
-        long maxdiff = 0;
-        long sumdiff = 0;
-        long firsttime = -1;
-        long endtime = -1;
-        ArrayList<Integer> position = new ArrayList<>();
-        ArrayList<Double> detected = new ArrayList<>();
-        ArrayList<Long> currentTimeMs = new ArrayList<>();
-        double lightDetected;
-        int currPos = Math.abs(motorRight1.getCurrentPosition() - counts);
-        while (opModeIsActive() && currPos < Math.abs(ENCODER_COUNTS_PER_ROTATION*inches/26.5)){
-            position.add(currPos);
-            cms = System.currentTimeMillis();
-            currentTimeMs.add(cms-initialMs);
-            lightDetected = opticalSensor.getLightDetected();
-            detected.add(lightDetected);
-            if ( lightDetected > MID_POINT_LIGHT_BACK){
-                counter++;
-                if (firsttime == -1){
-                    firsttime = System.currentTimeMillis();
-                }
-            } else {
-                if (firsttime != -1){
-                    endtime = System.currentTimeMillis();
-                }
-            }
-            sumdiff += cms - ms;
-            if (cms - ms > maxdiff) maxdiff = cms - ms;
-            ms = cms;
-            iters++;
-            idle();
-            sleep(5);
-            currPos = Math.abs(motorRight1.getCurrentPosition() - counts);
-        }
-        telemetry.addData("WhiteTime: ", endtime - firsttime);
-        telemetry.addData("Maxdiff: ", maxdiff);
-        telemetry.addData("Avgdiff: ", (double)sumdiff / (iters));
-        telemetry.addData("Counter: ", counter);
-        telemetry.addData("Iterations: ", iters);
-
-        powerMotors(0,0);
-
-        if (counter == 0) {
-            missedIdx = idx;
-        }
-
-        // write to file when missed line or first time moving in the same direction after missed line
-        if (idx == missedIdx || idx == missedIdx+2) {
-            try {
-                File file = new File(Environment.getExternalStorageDirectory().getPath() + (counter == 0 ? "/FIRST/missed" : "/FIRST/detected") + idx + ".txt");
-                telemetry.addData("File", file.getAbsolutePath());
-
-                OutputStreamWriter outputStreamWriter = new OutputStreamWriter(new FileOutputStream(file));
-                outputStreamWriter.write("cycleMs,posDiff,detectedLight\n");
-                for (int i = 0; i < position.size(); i++) {
-                    outputStreamWriter.write(currentTimeMs.get(i) + "," + position.get(i) + "," + detected.get(i) + "\n");
-                }
-                outputStreamWriter.close();
-
-            } catch (Exception e) {
-                telemetry.addData("Exception", "File write failed: " + e.toString());
-            }
-        }
-
-        telemetry.update();
-        idx++;
-        sleep(500);
     }
 
 

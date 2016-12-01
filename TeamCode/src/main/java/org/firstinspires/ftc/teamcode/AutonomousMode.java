@@ -141,8 +141,7 @@ public abstract class AutonomousMode extends LinearOpMode {
 
         //motorBelt.setPower(0.5); // the box is too small at the moment
         servoBeaconPad = hardwareMap.servo.get("BeaconPad");
-        setPadPosition((128-15)/3*2+15); // to avoid pad covering camera
-
+        setPadPosition(15); // to avoid pad covering camera
 
         // starting with robot at the wall on the edge of 3rd and 4th tile
         // robot facing backward
@@ -159,7 +158,13 @@ public abstract class AutonomousMode extends LinearOpMode {
         sleep(100);
 
         // drive almost to the white line
-        moveByInchesGyro(-0.5, angle, 42);
+        if  (!moveByInchesGyro(-0.6, angle, 42)){
+            // if we didn't travel the correct distance,
+            // we probably hit something
+            powerMotors(0,0);
+            showTelemetry();
+            return;
+        }
 
         // go to white line
         if (!driveUntilWhite(-0.3, angle)) {
@@ -211,7 +216,13 @@ public abstract class AutonomousMode extends LinearOpMode {
         rotate(angle, fromAngle);
 
         // drive the distance between two white lines
-        moveByInchesGyro(-0.5, 0, 46);
+        if  (!moveByInchesGyro(-0.5, 0, 46)){
+            // if we didn't travel the correct distance,
+            // we probably hit something
+            powerMotors(0,0);
+            showTelemetry();
+            return;
+        }
 
         // blue: rotate 90 degrees CW from heading 0
         // red: rotate 90 degrees CCW from heading 0
@@ -535,15 +546,16 @@ public abstract class AutonomousMode extends LinearOpMode {
      * @param drivingPower
      * @param headingToBeaconZone
      * @param maxInches
+     * @return true if traveled distance, otherwise false
      * @throws InterruptedException
      */
-    private void moveByInchesGyro(double drivingPower, int headingToBeaconZone, double maxInches) throws InterruptedException{
+    private boolean moveByInchesGyro(double drivingPower, int headingToBeaconZone, double maxInches) throws InterruptedException{
 
         int initialcount = motorLeft1.getCurrentPosition();
         double error, clockwiseSpeed;
         double kp = 0.03 ; //experimental coefficient for proportional correction of the direction
         double distance = rangeSensor.getDistance(DistanceUnit.CM);
-        while (opModeIsActive() && distance > 6 && Math.abs(motorLeft1.getCurrentPosition() - initialcount) < Math.abs(ENCODER_COUNTS_PER_ROTATION*maxInches/26.5)){
+        while (opModeIsActive() && distance > 12 && Math.abs(motorLeft1.getCurrentPosition() - initialcount) < Math.abs(ENCODER_COUNTS_PER_ROTATION*maxInches/26.5)){
             // error CCW - negative, CW - positive
             error = getRawHeadingError(headingToBeaconZone);
             //don't do any correction
@@ -557,19 +569,16 @@ public abstract class AutonomousMode extends LinearOpMode {
             }
             //clockwiseSpeed = Range.clip(clockwiseSpeed, -1.0, 1.0);
             telemetry.addData("Error", error);
+            telemetry.addData("Distance", distance);
             telemetry.update();
-//            telemetry.addData("Error", error);
-//            telemetry.addData("Distance", distance);
-//
-//            telemetry.addData("LeftCounts", motorLeft1.getCurrentPosition());
-//            telemetry.addData("RightCounts", motorRight1.getCurrentPosition());
-//            telemetry.update();
+
             //DbgLog.msg(i + " clockwise speed "+clockwiseSpeed);
 
             powerMotors(drivingPower - clockwiseSpeed, drivingPower + clockwiseSpeed);
             distance = rangeSensor.getDistance(DistanceUnit.CM);
         }
         //motorBrush.setPower(0);
+        return opModeIsActive() && distance > 12;
     }
 
     private boolean driveUntilWhite(double drivingPower, int headingToBeaconZone) throws InterruptedException {
@@ -634,6 +643,16 @@ public abstract class AutonomousMode extends LinearOpMode {
             light = opticalSensor.getLightDetected();
         }
         powerMotors(0, 0);
+
+        if (light < targetWhiteValue) {
+            if (isBlue) {
+                powerMotors(-0.15 , +0.15);
+            } else {
+                powerMotors(+0.15, -0.15);
+            }
+            sleep(50);
+            powerMotors(0,0);
+        }
 
         double distance = rangeSensor.getDistance(DistanceUnit.CM);
 
