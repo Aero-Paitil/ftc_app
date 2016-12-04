@@ -11,7 +11,6 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.I2cAddr;
 import com.qualcomm.robotcore.hardware.OpticalDistanceSensor;
 import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.RobotLog;
 
 import org.firstinspires.ftc.robotcore.external.ClassFactory;
@@ -39,9 +38,13 @@ import java.util.List;
 
 public abstract class AutonomousMode extends LinearOpMode {
 
-    enum BeaconSide {left, right, none}
+    private enum BeaconSide {left, right, none}
 
-    enum ShootPosition {left, right}
+    private enum ShootPosition {left, right}
+
+    private double DRIVING_POWER = 0.3;
+    private double MID_POINT_LIGHT_BACK = 0.25;
+    //private double MAX_COUNTS_TO_WHITE = 2.26 * ENCODER_COUNTS_PER_ROTATION;
 
     private static final float FIELD_WIDTH = 2743.2f; //3580.0f; // millimeter
     private static final float IMAGE_HEIGHT_OVER_FLOOR = 146.05f; // millimeter
@@ -145,6 +148,11 @@ public abstract class AutonomousMode extends LinearOpMode {
             idle();
         }
 
+        // if we hit stop after init, nothing else should happen
+        if (!opModeIsActive() ){
+            return;
+        }
+
         gyro.resetZAxisIntegrator(); //reset gyro heading to 0
         sleep(50);
 
@@ -202,7 +210,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         angle = isBlue ? 30 : -30;
         rotate(angle, fromAngle);
 
-        followLine(-0.3, 0.25);
+        followLine(-0.3, MID_POINT_LIGHT_BACK);
 
 
         // detect color
@@ -247,7 +255,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         angle = isBlue ? 70 : -70;
         rotate(angle, fromAngle);
 
-        followLine(-0.3, 0.25);
+        followLine(-0.3, MID_POINT_LIGHT_BACK);
 
         // detect color
         beaconSide = detectColor();
@@ -294,11 +302,13 @@ public abstract class AutonomousMode extends LinearOpMode {
         BeaconSide beaconSide = BeaconSide.none;
         boolean colorDetected = false;
         while (!colorDetected && opModeIsActive()) {
-            if (colorSensor3a.red() > 0 && colorSensor3c.blue() > 0) {
+            if (colorSensor3a.red() > colorSensor3a.blue() && colorSensor3c.blue() > colorSensor3c.red()) {
+                // 3a is more red, 3c is more blue
                 colorDetected = true;
                 padPosition = isBlue? 240 : 15;
                 setPadPosition(padPosition);
-            } else if (colorSensor3c.red() > 0 && colorSensor3a.blue() > 0) {
+            } else if (colorSensor3c.red() > colorSensor3c.blue() && colorSensor3a.blue() > colorSensor3a.red()) {
+                // 3c is more red, 3a is more blue
                 colorDetected = true;
                 padPosition = isBlue? 15 : 240;
                 setPadPosition(padPosition);
@@ -334,17 +344,13 @@ public abstract class AutonomousMode extends LinearOpMode {
 
     public void telemetry() {
         //telemetry.addData("Count: ", motorRight1.getCurrentPosition());
-        telemetry.addData("Color 3c - R/G/B: ", "" + colorSensor3c.red() + "/" + colorSensor3c.green() + "/" +
-                colorSensor3c.blue() + "     Light reading: " + colorSensor3c.alpha() + "    " +
-                " at " + colorSensor3c.getI2cAddress() + " " + colorSensor3c.getConnectionInfo());
-        telemetry.addData("Color 3a - R/G/B: ", "" + colorSensor3a.red() + "/" + colorSensor3a.green() + "/" +
-                colorSensor3a.blue() + "     Light reading: " + colorSensor3a.alpha() + "     " +
-                " at " + colorSensor3a.getI2cAddress() + " " + colorSensor3a.getConnectionInfo());
-        telemetry.addData("Optical Light: ", opticalSensor.getLightDetected());
-//        telemetry.addData("Color Bottom = R/G/B", colorSensorBottom.alpha() +
-//                " at " + colorSensorBottom.getI2cAddress() + " " + colorSensorBottom.getConnectionInfo());
-//        telemetry.addData(">", "Heading = %d", getGyroHeading());
-        telemetry.addData(">", "Gyro Reading = %d", getGyroRawHeading());
+        telemetry.addData("Color 3c - R/G/B ", colorSensor3c.red() + "/" + colorSensor3c.green() + "/" +
+                colorSensor3c.blue());
+        telemetry.addData("Color 3a - R/G/B ", colorSensor3a.red() + "/" + colorSensor3a.green() + "/" +
+                colorSensor3a.blue());
+        telemetry.addData("Optical Light ",  "%.4f", opticalSensor.getLightDetected());
+        telemetry.addData("Gyro Reading " , getGyroRawHeading());
+        telemetry.addData("Distance ", "%.2f cm", rangeSensor.getDistance(DistanceUnit.CM));
         if (robotLocation != null && robotLocation.length == 3) {
             telemetry.addData("Location", "x = %.0f, y = %.0f, z = %.0f", robotLocation[0], robotLocation[1], robotLocation[2]);
         }
@@ -374,7 +380,7 @@ public abstract class AutonomousMode extends LinearOpMode {
             SharedPreferences prefs = getSharedPrefs(hardwareMap);
 
             parameters.vuforiaLicenseKey = prefs.getString("vuforiaLicenseKey", null);
-            parameters.cameraDirection = VuforiaLocalizer.CameraDirection.BACK;
+            parameters.cameraDirection = VuforiaLocalizer.CameraDirection.FRONT;
             VuforiaLocalizer vuforia = ClassFactory.createVuforiaLocalizer(parameters);
 
             allImages = vuforia.loadTrackablesFromAsset("FTC_2016-17");
@@ -424,8 +430,8 @@ public abstract class AutonomousMode extends LinearOpMode {
             OpenGLMatrix phoneLocationOnRobot = OpenGLMatrix.translation(0, 0, 0);
 //                        .translation(209.55f, 177.8f, 266.7f) // these are all in mm
 //                        .multiplied(Orientation.getRotationMatrix(
-//                                AxesReference.EXTRINSIC, AxesOrder.XZX,
-//                                AngleUnit.DEGREES, 90, 0, 0));
+//                                AxesReference.EXTRINSIC, AxesOrder.YZY,
+//                                AngleUnit.DEGREES, 90, -90, 0));
             RobotLog.ii(TAG, "phone=%s", format(phoneLocationOnRobot));
 
 
@@ -552,17 +558,11 @@ public abstract class AutonomousMode extends LinearOpMode {
         return alpha >= MID_POINT_LIGHT_BACK;
     }*/
 
-
-    private double DRIVING_POWER = 0.3;
-    private double MID_POINT_LIGHT_BACK = 0.5;
-    //private double MAX_COUNTS_TO_WHITE = 2.26 * ENCODER_COUNTS_PER_ROTATION; // 4.5 to reach white d
-
     /**
      * Drive until white line
-     *
-     * @param drivingPower
-     * @param headingToBeaconZone
-     * @param maxInches
+     * @param drivingPower power (positive - forward, negative - backward)
+     * @param headingToBeaconZone raw gyro heading
+     * @param maxInches - maximum inches to travel
      * @return true if traveled distance, otherwise false
      * @throws InterruptedException
      */
@@ -602,6 +602,14 @@ public abstract class AutonomousMode extends LinearOpMode {
         return driveUntilWhite(drivingPower, headingToBeaconZone, Integer.MAX_VALUE);
     }
 
+    /**
+     * Drives until white line, does not stop
+     * @param drivingPower driving power
+     * @param headingToBeaconZone raw gyro heading
+     * @param maxInches maximum distance
+     * @return true is white is detected, false otherwise
+     * @throws InterruptedException
+     */
     private boolean driveUntilWhite(double drivingPower, int headingToBeaconZone, double maxInches) throws InterruptedException {
 
         int initialcount = motorLeft1.getCurrentPosition();
@@ -629,12 +637,6 @@ public abstract class AutonomousMode extends LinearOpMode {
             //clockwiseSpeed = Range.clip(clockwiseSpeed, -1.0, 1.0);
             telemetry.addData("Error", error);
             telemetry.update();
-//            telemetry.addData("Error", error);
-//            telemetry.addData("Distance", distance);
-//
-//            telemetry.addData("LeftCounts", motorLeft1.getCurrentPosition());
-//            telemetry.addData("RightCounts", motorRight1.getCurrentPosition());
-//            telemetry.update();
             //DbgLog.msg(i + " clockwise speed "+clockwiseSpeed);
 
             powerMotors(drivingPower - clockwiseSpeed, drivingPower + clockwiseSpeed);
@@ -701,94 +703,16 @@ public abstract class AutonomousMode extends LinearOpMode {
 
     }
 
-    private int getGyroHeading() {
-        return gyro.getHeading();
-    }
-
     //getIntegratedZValue is positive when moving ccw. We want it to behave the same way as getGyroHeading, so we changed the sign.
     private int getGyroRawHeading() {
         int heading = -gyro.getIntegratedZValue();
-        telemetry.addData("Raw heading", heading);
+        //telemetry.addData("Raw heading", heading);
         return heading;
     }
 
     //cc error is positive, ccw error is negative
     private double getRawHeadingError(double requiredRawHeading) {
         return getGyroRawHeading() - requiredRawHeading;
-    }
-
-    // gyro heading is from 0 to 359
-    private void rotateToHeading(double requiredHeading) throws InterruptedException {
-
-        double MIN_ROTATE_POWER = 0.15;
-
-        // make sure requiredHeading is positive and less than 360
-        while (requiredHeading >= 360) {
-            requiredHeading -= 360;
-        }
-        while (requiredHeading < 0) {
-            requiredHeading += 360;
-        }
-
-        double power;
-        // choose rotation direction
-        double currentHeading = getGyroHeading();
-        if (requiredHeading > currentHeading) {
-            if (requiredHeading - currentHeading < 180) {
-                power = MIN_ROTATE_POWER;
-            } else {
-                power = -MIN_ROTATE_POWER;
-            }
-        } else {
-            if (requiredHeading + 360 - currentHeading < 180) {
-                power = MIN_ROTATE_POWER;
-            } else {
-                power = -MIN_ROTATE_POWER;
-            }
-        }
-
-        // start rotation fast, then slow down as you approach the required heading
-        //rotateToTolerance(60, requiredHeading, power * 1);
-        //rotateToTolerance(40, requiredHeading, power * 0.7);
-        rotateToTolerance(20, requiredHeading, power);
-        powerMotors(0, 0);
-        idle();
-    }
-
-    // we want the delta to be less than 180 degrees
-    // for example, the delta between 350 and 10 should be 20
-    private double getHeadingDelta(double requiredHeading) {
-        double headingDelta = Math.abs(requiredHeading - getGyroHeading());
-        if (headingDelta > 180) {
-            headingDelta = 360 - headingDelta;
-        }
-        return headingDelta;
-    }
-
-
-    // remember to zero the power after this method call if you want to stop rotation
-    private void rotateToTolerance(double tolerance, double requiredHeading, double power) throws InterruptedException {
-        double headingDelta = getHeadingDelta(requiredHeading);
-        double lastHeadingDelta = headingDelta;
-
-        if (headingDelta > tolerance) {
-            // power motors
-            powerMotors(power, -power);
-            idle();
-            // if current gyro heading is not close enough to the required heading
-            // wait and check again
-            ElapsedTime timer = new ElapsedTime();
-            timer.reset();
-            while (headingDelta > tolerance && headingDelta <= lastHeadingDelta + 1 && opModeIsActive()) {
-                //checkTimeout(timer, 10);
-                idle();
-                lastHeadingDelta = headingDelta;
-                headingDelta = getHeadingDelta(requiredHeading);
-                telemetry.addData("delta", headingDelta);
-                telemetry.addData(">", "Rotating = %d", getGyroHeading());
-                telemetry.update();
-            }
-        }
     }
 
     private void moveOnShooting(int sign) {
@@ -819,104 +743,5 @@ public abstract class AutonomousMode extends LinearOpMode {
             e.printStackTrace();
         }
     }
-// constants from sample code for using gyro turn/drive
-//    // These constants define the desired driving/control characteristics
-//    // The can/should be tweaked to suite the specific robot drive train.
-//    static final double     DRIVE_SPEED             = 0.4;     // Nominal speed for better accuracy.
-//    static final double     TURN_SPEED              = 0.4;     // Nominal half speed for better accuracy.
-//
-//    static final double     HEADING_THRESHOLD       = 3 ;      // As tight as we can make it with an integer gyro
-//    static final double     P_TURN_COEFF            = 0.05;     // Larger is more responsive, but also less stable
-//    static final double     P_DRIVE_COEFF           = 0.15;     // Larger is more responsive, but also less stable
-//
-// sample code - the error is too big - will try our own routines
-//    /**
-//     * getError determines the error between the target angle and the robot's current heading
-//     * @param   targetAngle  Desired angle (relative to global reference established at last Gyro Reset).
-//     * @return  error angle: Degrees in the range +/- 180. Centered on the robot's frame of reference
-//     *          +ve error means the robot should turn LEFT (CCW) to reduce error.
-//     */
-//    public double getError(double targetAngle) {
-//
-//        double robotError;
-//
-//        // calculate error in -179 to +180 range  (
-//        robotError = targetAngle - gyro.getIntegratedZValue();
-//        while (robotError > 180)  robotError -= 360;
-//        while (robotError <= -180) robotError += 360;
-//        return robotError;
-//    }
-//
-//    /**
-//     * returns desired steering force.  +/- 1 range.  +ve = steer left
-//     * @param error   Error angle in robot relative degrees
-//     * @param PCoeff  Proportional Gain Coefficient
-//     * @return
-//     */
-//    public double getSteer(double error, double PCoeff) {
-//        return Range.clip(error * PCoeff, -1, 1);
-//    }
-//
-//    /**
-//     * Perform one cycle of closed loop heading control.
-//     *
-//     * @param speed     Desired speed of turn.
-//     * @param angle
-//    boolean onHeading(double speed, double angle, double PCoeff) {
-//        double   error ;
-//        double   steer ;
-//        boolean  onTarget = false ;
-//        double leftSpeed;
-//        double rightSpeed;
-//
-//        // determine turn power based on +/- error
-//        error = getError(angle);
-//
-//        if (Math.abs(error) <= HEADING_THRESHOLD) {
-//            steer = 0.0;
-//            leftSpeed  = 0.0;
-//            rightSpeed = 0.0;
-//            onTarget = true;
-//        }
-//        else {
-//            steer = getSteer(error, PCoeff);
-//            rightSpeed  = speed * steer;
-//            leftSpeed   = -rightSpeed;
-//        }
-//
-//        // Send desired speeds to motors.
-//        powerMotors(leftSpeed, rightSpeed);
-//
-//        // Display it for the driver.
-//        telemetry.addData("Target", "%5.0f", angle);
-//        telemetry.addData("Err/St", "%5.2f/%5.2f", error, steer);
-//        telemetry.addData("Speed.", "%5.2f:%5.2f", leftSpeed, rightSpeed);
-//
-//        return onTarget;
-//    }
-//
-//    /**
-//     *  Method to spin on central axis to point in a new direction.
-//     *  Move will stop if either of these conditions occur:
-//     *  1) Move gets to the heading (angle)
-//     *  2) Driver stops the opmode running.
-//     *
-//     * @param speed Desired speed of turn.
-//     * @param angle      Absolute Angle (in Degrees) relative to last gyro reset.
-//     *                   0 = fwd. +ve is CCW from fwd. -ve is CW from forward.
-//     *                   If a relative angle is required, add/subtract from current heading.
-//     * @throws InterruptedException
-//     */
-//    public void gyroTurn (  double speed, double angle)
-//            throws InterruptedException {
-//
-//        // keep looping while we are still active, and not on heading.
-//        while (opModeIsActive() && !onHeading(speed, angle, P_TURN_COEFF)) {
-//            // Update telemetry & Allow time for other processes to run.
-//            telemetry.update();
-//            idle();
-//        }
-//    }
-
 
 }
