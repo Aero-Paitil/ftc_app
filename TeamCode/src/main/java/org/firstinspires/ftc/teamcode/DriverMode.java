@@ -85,6 +85,7 @@ public class DriverMode extends OpMode {
             inBrushBtnPressed = true;
         } else if (gamepad1.b){
             outBrushBtnPressed = true;
+
         }else{
             if (inBrushBtnPressed){
                 inBrushBtnPressed = false;
@@ -102,6 +103,8 @@ public class DriverMode extends OpMode {
         else if (brushState == 1){
             motorBrush.setPower(-1);
             telemetry.addData("Brush", "Sweep Out");
+            motorBelt.setPower(-1);
+            telemetry.addData("Belt", "down");
         } else{
             motorBrush.setPower(0);
             telemetry.addData("Brush", "Stopped");
@@ -141,11 +144,11 @@ public class DriverMode extends OpMode {
             }
         }
         //using the Belt
-        if(gamepad1.right_bumper){
+        if(gamepad1.right_bumper || gamepad1.left_bumper){
             motorBelt.setPower(1);
             telemetry.addData("Belt", "Up");
         }
-        else if(gamepad1.left_bumper){
+        /*else if(gamepad1.left_bumper){
             motorBelt.setPower(-1);
             telemetry.addData("Belt", "Down");
             changed = true;
@@ -153,14 +156,17 @@ public class DriverMode extends OpMode {
                 beltwas = brushState;
             }
             brushState = 1;
-        }
+        }*/
         else {
-            motorBelt.setPower(0);
-            telemetry.addData("Belt", "Off");
-            if (changed) {
+            if(brushState!=1){
+                motorBelt.setPower(0);
+                telemetry.addData("Belt", "Off");
+            }
+
+            /*if (changed) {
                 brushState = beltwas;
                 changed = false;
-            }
+            }*/
         }
 
         //using the Gun

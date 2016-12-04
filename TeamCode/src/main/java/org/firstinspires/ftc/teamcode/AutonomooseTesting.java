@@ -52,6 +52,9 @@ public class AutonomooseTesting extends LinearOpMode {
 
     private final static int ENCODER_COUNTS_PER_ROTATION = 2 * 1140;
 
+    private static final int RED_SHOOT_DISTANCE1 = 21;
+    private static final int RED_SHOOT_DISTANCE2 = 21;
+
     private static final String TAG = "Autonomous Mode";
 
     private VuforiaTrackables allImages;
@@ -71,6 +74,8 @@ public class AutonomooseTesting extends LinearOpMode {
     //private DcMotor motorRight2;
     private DcMotor motorBrush;
     private DcMotor motorBelt;
+    //private DcMotor motorFlywheelLeft;
+    private DcMotor motorFlywheel;
     private Servo servoBeaconPad;
     private ModernRoboticsI2cGyro gyro    = null;
 
@@ -96,6 +101,9 @@ public class AutonomooseTesting extends LinearOpMode {
         //motorRight2 = hardwareMap.dcMotor.get("D2right");
         motorBrush = hardwareMap.dcMotor.get("Brush");
         motorBelt = hardwareMap.dcMotor.get("Belt");
+        motorFlywheel = hardwareMap.dcMotor.get("Gun");
+       // motorFlywheelRight = hardwareMap.dcMotor.get("Flywheel2");
+
 
         // reset encoders
         setRunMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
@@ -117,14 +125,7 @@ public class AutonomooseTesting extends LinearOpMode {
         //waitForStart();
         // Wait for the game to start (Display Gyro value), and reset gyro before we move..
         while (!isStarted()) {
-            telemetry.addData(">", "Robot Heading = %d", getGyroHeading());
-            telemetry.addData(">", "Robot Raw Heading = %d",getGyroRawHeading());
-            telemetry.addData("optical light", opticalSensor.getLightDetected());
-            telemetry.addData("raw ultrasonic", rangeSensor.rawUltrasonic());
-            telemetry.addData("raw optical", rangeSensor.rawOptical());
-            telemetry.addData("cm optical", "%.2f cm", rangeSensor.cmOptical());
-            telemetry.addData("cm", "%.2f cm", rangeSensor.getDistance(DistanceUnit.CM));
-            telemetry.update();
+            telemetry();
             idle();
         }
 
@@ -138,15 +139,49 @@ public class AutonomooseTesting extends LinearOpMode {
         setRunMode(DcMotor.RunMode.RUN_USING_ENCODER);
         setZeroPowerMode(DcMotor.ZeroPowerBehavior.BRAKE);
 
-        followLine(-0.3, 0.5 );
+        testOpticalDistanceSensor();
 
+        //followLine(-0.3, 0.5 );
+        //testOpticalDistanceSensor();
+        //rotate(-10,-90);
+        /*motorBelt.setPower(0.8);
+        powerFlywheelMotors(0.8);
+        motorBrush.setPower(0.5);
+        sleep(10000);
+        motorBelt.setPower(0);
+        powerFlywheelMotors(0);
+        powerFlywheelMotors(0);*/
+
+
+    }
+
+    private void testFlywheels() throws InterruptedException {
+        this.powerMotors(-DRIVING_POWER,-DRIVING_POWER);
+        int currentPosition =0;
+        int startPosition = motorLeft1.getCurrentPosition();
+
+        while((currentPosition - startPosition)< ENCODER_COUNTS_PER_ROTATION*RED_SHOOT_DISTANCE1/26.5){
+            currentPosition = motorLeft1.getCurrentPosition();
+            idle();
+        }
+        powerMotors(0,0);
+
+        motorBelt.setPower(0.8);
+        powerFlywheelMotors(0.8);
+        sleep(5000);
+        motorBelt.setPower(0);
+        motorFlywheel.setPower(0);
     }
 
     private void testOpticalDistanceSensor() throws InterruptedException {
         int delayMs = 500;
-        for (int i = 0; i < 20; i++) {
+
+        for (int i = 0; i < 3; i++) {
+            gyro.resetZAxisIntegrator();
             rotateOverLine(10, 0.2);
             sleep(delayMs);
+            gyro.resetZAxisIntegrator(); //reset gyro heading to 0
+            sleep(2000);
             rotateOverLine(-10, 0.2);
             sleep(delayMs);
         }
@@ -210,87 +245,9 @@ public class AutonomooseTesting extends LinearOpMode {
     }
 
     private int idx =0;
-    private int missedIdx = -1;
-
-    private void moveByInchesOverLine(double inches, double drivingPower) throws InterruptedException{ // moves 26.5 in one rotation
-        telemetry();
-        int counts = motorRight1.getCurrentPosition();
-        double sign = Math.round(inches/Math.abs(inches));
-        powerMotors(sign*drivingPower, sign*drivingPower);
-        int counter = 0;
-        int iters = 0;
-        long initialMs = System.currentTimeMillis();
-        long ms = initialMs;
-        long cms;
-        long maxdiff = 0;
-        long sumdiff = 0;
-        long firsttime = -1;
-        long endtime = -1;
-        ArrayList<Integer> position = new ArrayList<>();
-        ArrayList<Double> detected = new ArrayList<>();
-        ArrayList<Long> currentTimeMs = new ArrayList<>();
-        double lightDetected;
-        int currPos = Math.abs(motorRight1.getCurrentPosition() - counts);
-        while (opModeIsActive() && currPos < Math.abs(ENCODER_COUNTS_PER_ROTATION*inches/26.5)){
-            position.add(currPos);
-            cms = System.currentTimeMillis();
-            currentTimeMs.add(cms-initialMs);
-            lightDetected = opticalSensor.getLightDetected();
-            detected.add(lightDetected);
-            if ( lightDetected > MID_POINT_LIGHT_BACK){
-                counter++;
-                if (firsttime == -1){
-                    firsttime = System.currentTimeMillis();
-                }
-            } else {
-                if (firsttime != -1){
-                    endtime = System.currentTimeMillis();
-                }
-            }
-            sumdiff += cms - ms;
-            if (cms - ms > maxdiff) maxdiff = cms - ms;
-            ms = cms;
-            iters++;
-            idle();
-            sleep(5);
-            currPos = Math.abs(motorRight1.getCurrentPosition() - counts);
-        }
-        telemetry.addData("WhiteTime: ", endtime - firsttime);
-        telemetry.addData("Maxdiff: ", maxdiff);
-        telemetry.addData("Avgdiff: ", (double)sumdiff / (iters));
-        telemetry.addData("Counter: ", counter);
-        telemetry.addData("Iterations: ", iters);
-
-        powerMotors(0,0);
-
-        if (counter == 0) {
-            missedIdx = idx;
-        }
-
-        // write to file when missed line or first time moving in the same direction after missed line
-        if (idx == missedIdx || idx == missedIdx+2) {
-            try {
-                File file = new File(Environment.getExternalStorageDirectory().getPath() + (counter == 0 ? "/FIRST/missed" : "/FIRST/detected") + idx + ".txt");
-                telemetry.addData("File", file.getAbsolutePath());
-
-                OutputStreamWriter outputStreamWriter = new OutputStreamWriter(new FileOutputStream(file));
-                outputStreamWriter.write("cycleMs,posDiff,detectedLight\n");
-                for (int i = 0; i < position.size(); i++) {
-                    outputStreamWriter.write(currentTimeMs.get(i) + "," + position.get(i) + "," + detected.get(i) + "\n");
-                }
-                outputStreamWriter.close();
-
-            } catch (Exception e) {
-                telemetry.addData("Exception", "File write failed: " + e.toString());
-            }
-        }
-
-        telemetry.update();
-        idx++;
-    }
 
     private void rotateOverLine(double inches, double drivingPower) throws InterruptedException{ // moves 26.5 in one rotation
-        telemetry();
+
         int counts = motorRight1.getCurrentPosition();
         double sign = Math.round(inches/Math.abs(inches));
         powerMotors(sign*drivingPower, -sign*drivingPower);
@@ -302,37 +259,42 @@ public class AutonomooseTesting extends LinearOpMode {
         long firsttime = -1;
         long endtime = -1;
         ArrayList<Integer> position = new ArrayList<>();
+        ArrayList<Integer> heading = new ArrayList<>();
         ArrayList<Double> detected = new ArrayList<>();
         ArrayList<Long> currentTimeMs = new ArrayList<>();
         double lightDetected;
         int currPos = Math.abs(motorRight1.getCurrentPosition() - counts);
         long initialMs = System.currentTimeMillis();
         long ms = initialMs;
+        long whitetime=0;
         while (opModeIsActive() && currPos < Math.abs(ENCODER_COUNTS_PER_ROTATION*inches/26.5)){
             position.add(currPos);
             cms = System.currentTimeMillis();
             currentTimeMs.add(cms-initialMs);
             lightDetected = opticalSensor.getLightDetected();
             detected.add(lightDetected);
+            heading.add(0);
             if ( lightDetected > MID_POINT_LIGHT_BACK){
                 counter++;
                 if (firsttime == -1){
                     firsttime = System.currentTimeMillis();
                 }
             } else {
-                if (firsttime != -1){
+                if (whitetime == 0 && firsttime > 0){
                     endtime = System.currentTimeMillis();
+                    whitetime = endtime-firsttime;
                 }
             }
             sumdiff += cms - ms;
             if (cms - ms > maxdiff) maxdiff = cms - ms;
             ms = cms;
             iters++;
+            //waitOneFullHardwareCycle();
             idle();
             sleep(5);
             currPos = Math.abs(motorRight1.getCurrentPosition() - counts);
         }
-        telemetry.addData("WhiteTime: ", endtime - firsttime);
+        telemetry.addData("WhiteTime: ", whitetime);
         telemetry.addData("Maxdiff: ", maxdiff);
         telemetry.addData("Avgdiff: ", (double)sumdiff / (iters));
         telemetry.addData("Counter: ", counter);
@@ -340,26 +302,21 @@ public class AutonomooseTesting extends LinearOpMode {
 
         powerMotors(0,0);
 
-        if (counter == 0) {
-            missedIdx = idx;
-        }
-
         // write to file when missed line or first time moving in the same direction after missed line
-        if (idx == missedIdx || idx == missedIdx+2) {
-            try {
-                File file = new File(Environment.getExternalStorageDirectory().getPath() + (counter == 0 ? "/FIRST/missed" : "/FIRST/detected") + idx + ".txt");
-                telemetry.addData("File", file.getAbsolutePath());
 
-                OutputStreamWriter outputStreamWriter = new OutputStreamWriter(new FileOutputStream(file));
-                outputStreamWriter.write("cycleMs,posDiff,detectedLight\n");
-                for (int i = 0; i < position.size(); i++) {
-                    outputStreamWriter.write(currentTimeMs.get(i) + "," + position.get(i) + "," + detected.get(i) + "\n");
-                }
-                outputStreamWriter.close();
+        try {
+            File file = new File(Environment.getExternalStorageDirectory().getPath() + (counter == 0 ? "/FIRST/missed" : "/FIRST/detected") + idx + ".txt");
+            telemetry.addData("File", file.getAbsolutePath());
 
-            } catch (Exception e) {
-                telemetry.addData("Exception", "File write failed: " + e.toString());
+            OutputStreamWriter outputStreamWriter = new OutputStreamWriter(new FileOutputStream(file));
+            // outputStreamWriter.write("cycleMs,posDiff,gyro,detectedLight\n");
+            for (int i = 0; i < position.size(); i++) {
+                outputStreamWriter.write(currentTimeMs.get(i) + "," + position.get(i) + "," + heading.get(i) +","+ detected.get(i) + "\n");
             }
+            outputStreamWriter.close();
+
+        } catch (Exception e) {
+            telemetry.addData("Exception", "File write failed: " + e.toString());
         }
 
         telemetry.update();
@@ -379,7 +336,6 @@ public class AutonomooseTesting extends LinearOpMode {
     }
 
     public void telemetry() {
-        //telemetry.addData("Count: ", motorRight1.getCurrentPosition());
         telemetry.addData("Color 3c - R/G/B: ", "" + colorSensor3c.red() + "/" + colorSensor3c.green() + "/" +
                 colorSensor3c.blue() + "     Light reading: " + colorSensor3c.alpha() + "    " +
                 " at " + colorSensor3c.getI2cAddress() + " " + colorSensor3c.getConnectionInfo());
@@ -387,11 +343,10 @@ public class AutonomooseTesting extends LinearOpMode {
                 colorSensor3a.blue() + "     Light reading: " + colorSensor3a.alpha() + "     " +
                 " at " + colorSensor3a.getI2cAddress() + " " + colorSensor3a.getConnectionInfo());
         telemetry.addData("Optical Light: ", opticalSensor.getLightDetected());
-        telemetry.addData(">", "Heading = %d", getGyroHeading());
-        telemetry.addData(">", "Gyro Reading = %d", getGyroRawHeading());
-        if (robotLocation != null && robotLocation.length == 3) {
-            telemetry.addData("Location", "x = %.0f, y = %.0f, z = %.0f", robotLocation[0], robotLocation[1], robotLocation[2]);
-        }
+        telemetry.addData("Gyro", getGyroRawHeading());
+//        if (robotLocation != null && robotLocation.length == 3) {
+//            telemetry.addData("Location", "x = %.0f, y = %.0f, z = %.0f", robotLocation[0], robotLocation[1], robotLocation[2]);
+//        }
         telemetry.update();
     }
 
@@ -401,6 +356,12 @@ public class AutonomooseTesting extends LinearOpMode {
         motorRight1.setPower(rightForward);
         idle();
     }
+
+    private void powerFlywheelMotors(double motorFlywheelLeftPower) {
+        motorFlywheel.setPower(motorFlywheelLeftPower);
+    }
+
+
 
     private void setRunMode(DcMotor.RunMode runMode) {
         motorLeft1.setMode(runMode);
@@ -541,24 +502,67 @@ public class AutonomooseTesting extends LinearOpMode {
     private void rotate(int angle, int fromRawHeading) throws InterruptedException {
         sleep(100); // to make sure robot stopped moving
 
+        ArrayList<Long> ms = new ArrayList<Long>();
+        ArrayList<Integer> gyroDiffs= new ArrayList<Integer>();
+        ArrayList<Double> pcicles = new ArrayList<Double>();
+        ArrayList<Integer> gyroReadings = new ArrayList<Integer>();
+        ArrayList<Integer> encoderCounts = new ArrayList<Integer>();
+
+        gyro.resetZAxisIntegrator();
         int counts = motorRight1.getCurrentPosition();
 
         // make an adjustment for the error in current gyro heading
         double pcircleError = getRawHeadingError(fromRawHeading)/360.0;
         double pcircle = angle / 360.0;
         pcircle = pcircle-pcircleError;
-        telemetry.addData("pcircle", pcircle*360);
-        telemetry.update();
+
+        Long startTime = System.currentTimeMillis();
+        int startGyro = getGyroRawHeading();
+        int curPos = 0;
+
 
         double sign = Math.round(pcircle/Math.abs(pcircle));
         powerMotors(sign*DRIVING_POWER, -sign*DRIVING_POWER);
+
         // assuming 16 inches between wheels, 8 inches radius - 50.24 in
         // assuming 15 inches between wheels, 7.5 inches radius - 46.24 in
         // assuming 15.5 inches between wheels, 7.75 inches radius - 48.67 in
-        while (Math.abs(motorRight1.getCurrentPosition() - counts) < Math.abs(pcircle*ENCODER_COUNTS_PER_ROTATION*48.67/26.5)){
+        while (Math.abs(curPos - counts) < Math.abs(pcircle*ENCODER_COUNTS_PER_ROTATION*48.67/26.5)){
+            ms.add(System.currentTimeMillis() - startTime);
+            gyroReadings.add(new Integer(getGyroRawHeading()));
+            int gyroDiff = getGyroRawHeading() - startGyro;
+            gyroDiffs.add(new Integer(gyroDiff));
+            double curPcircle = angle/360- gyroDiff/360;
+            pcicles.add(new Double(curPcircle));
+            encoderCounts.add(curPos - counts );
+            curPos = motorRight1.getCurrentPosition();
+
             idle();
         }
         powerMotors(0,0);
+
+        //test, get overshoot final degree, compare with the original target degree and find the adjustment for next movement
+        int finalGyroRawHeading = getGyroRawHeading();
+        int targetHeadingError = finalGyroRawHeading - (fromRawHeading + angle);
+
+
+        // write to file when missed line or first time moving in the same direction after missed line
+            try {
+                File file = new File(Environment.getExternalStorageDirectory().getPath() +  "/FIRST/detected.txt");
+                telemetry.addData("File", file.getAbsolutePath());
+                telemetry.update();
+
+                OutputStreamWriter outputStreamWriter = new OutputStreamWriter(new FileOutputStream(file));
+                outputStreamWriter.write("TimeMs\t gyroReading\t gyroDiffs\t pCicle\t, encoderCounts\n");
+                for (int i = 0; i < gyroReadings.size(); i++) {
+                    outputStreamWriter.write(ms.get(i) + "\t" + gyroReadings.get(i) + "\t" + gyroDiffs.get(i) +"\t"+ pcicles.get(i) +"\t"+encoderCounts.get(i) + "\n");
+                }
+                outputStreamWriter.write( "Final targetHeadingError = finalGyroRawHeading - (fromRawHeading + angle )" + targetHeadingError);
+                outputStreamWriter.close();
+
+            } catch (Exception e) {
+                telemetry.addData("Exception", "File write failed: " + e.toString());
+            }
     }
 
 
@@ -568,9 +572,7 @@ public class AutonomooseTesting extends LinearOpMode {
 
     //getIntegratedZValue is positive when moving ccw. We want it to behave the same way as getGyroHeading, so we changed the sign.
     private int getGyroRawHeading() {
-        int heading = -gyro.getIntegratedZValue();
-        telemetry.addData("Raw heading", heading);
-        return heading;
+        return -gyro.getIntegratedZValue();
     }
 
     //cc error is positive, ccw error is negative

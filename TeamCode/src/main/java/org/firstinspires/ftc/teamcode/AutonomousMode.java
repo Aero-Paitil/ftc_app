@@ -41,10 +41,14 @@ public abstract class AutonomousMode extends LinearOpMode {
 
     enum BeaconSide {left, right, none}
 
+    enum ShootPosition {left, right}
+
     private static final float FIELD_WIDTH = 2743.2f; //3580.0f; // millimeter
     private static final float IMAGE_HEIGHT_OVER_FLOOR = 146.05f; // millimeter
 
     private final static int ENCODER_COUNTS_PER_ROTATION = 2 * 1140;
+    private final static int SHOOT_DISTANCE1 = 21; //Drive 21 inches straight towards center before shoot
+    private final static int SHOOT_STARTBELT_DISTANCE = 15;
 
     private boolean isBlue = isBlueAlliance();
 
@@ -69,9 +73,10 @@ public abstract class AutonomousMode extends LinearOpMode {
     private DcMotor motorBrush;
     private DcMotor motorBelt;
     private Servo servoBeaconPad;
-    private ModernRoboticsI2cGyro gyro    = null;
+    private ModernRoboticsI2cGyro gyro = null;
+    private DcMotor motorFlywheel;
 
-    private double [] robotLocation = null;
+    private double[] robotLocation = null;
 
     abstract boolean isBlueAlliance();
 
@@ -80,11 +85,11 @@ public abstract class AutonomousMode extends LinearOpMode {
 
         int angle, fromAngle;
 
-        gyro = (ModernRoboticsI2cGyro)hardwareMap.gyroSensor.get("Gyro Sensor ");
+        gyro = (ModernRoboticsI2cGyro) hardwareMap.gyroSensor.get("Gyro Sensor ");
         gyro.calibrate();
 
         // make sure the gyro is calibrated before continuing
-        while (gyro.isCalibrating())  {
+        while (gyro.isCalibrating()) {
             Thread.sleep(50);
             idle();
         }
@@ -96,6 +101,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         //motorRight2 = hardwareMap.dcMotor.get("D2right");
         motorBrush = hardwareMap.dcMotor.get("Brush");
         motorBelt = hardwareMap.dcMotor.get("Belt");
+        motorFlywheel = hardwareMap.dcMotor.get("Gun");
 
         // reset encoders
         setRunMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
@@ -123,7 +129,9 @@ public abstract class AutonomousMode extends LinearOpMode {
         //waitForStart();
         // Wait for the game to start (Display Gyro value), and reset gyro before we move..
         while (!isStarted()) {
-            telemetry.addData(">", "Robot Raw Heading = %d",getGyroRawHeading());
+            telemetry();
+            /*
+            telemetry.addData(">", "Robot Raw Heading = %d", getGyroRawHeading());
             telemetry.addData("optical light ", opticalSensor.getLightDetected());
             telemetry.addData("optical rawlight", opticalSensor.getRawLightDetected());
             telemetry.addData("optical max", opticalSensor.getRawLightDetectedMax());
@@ -132,6 +140,7 @@ public abstract class AutonomousMode extends LinearOpMode {
             telemetry.addData("raw optical", rangeSensor.rawOptical());
             telemetry.addData("cm optical", "%.2f cm", rangeSensor.cmOptical());
             telemetry.addData("cm", "%.2f cm", rangeSensor.getDistance(DistanceUnit.CM));
+            */
             telemetry.update();
             idle();
         }
@@ -143,25 +152,33 @@ public abstract class AutonomousMode extends LinearOpMode {
         servoBeaconPad = hardwareMap.servo.get("BeaconPad");
         setPadPosition(15); // to avoid pad covering camera
 
+        //start shooting at the position1 (3rd tile from the corner)
+        moveOnShooting(-1);  //forward, -1 is a sign
+
+        sleep(3000);
+        motorBelt.setPower(0);
+
+        moveOnShooting(1);  //backward, 1 is sign.  Backward to original place and start the beacon heading
+
         // starting with robot at the wall on the edge of 3rd and 4th tile
         // robot facing backward
 
-        // move forward
-        moveByInches(-12);
+        // move back 9 inches
+        moveByInches(9);
 
         // blue: rotate 45 from heading 0
         // red: rotate -45 from heading 0
-        angle = isBlue? 45 : -45;
+        angle = isBlue ? 45 : -45;
         rotate(angle, 0);
 
         // make sure the robot has settled to get correct heading
         sleep(100);
 
         // drive almost to the white line
-        if  (!moveByInchesGyro(-0.6, angle, 42)){
+        if (!moveByInchesGyro(-0.8, angle, 42)) {
             // if we didn't travel the correct distance,
             // we probably hit something
-            powerMotors(0,0);
+            powerMotors(0, 0);
             showTelemetry();
             return;
         }
@@ -170,7 +187,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         if (!driveUntilWhite(-0.3, angle)) {
             // if line is not detected stop and
             // show telemetry while op mode is active
-            powerMotors(0,0);
+            powerMotors(0, 0);
             showTelemetry();
             return;
         }
@@ -182,10 +199,10 @@ public abstract class AutonomousMode extends LinearOpMode {
         // blue: rotate 45 degrees CW from heading 45
         // red: rotate 45 degrees CCW from heading -45
         fromAngle = angle;
-        angle = isBlue? 30 : -30;
+        angle = isBlue ? 30 : -30;
         rotate(angle, fromAngle);
 
-        followLine(-0.3, 0.5);
+        followLine(-0.3, 0.25);
 
 
         // detect color
@@ -194,7 +211,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         if (beaconSide == BeaconSide.none) {
             // if color is not detected stop and
             // show telemetry while op mode is active
-            powerMotors(0,0);
+            powerMotors(0, 0);
             showTelemetry();
             return;
         }
@@ -211,15 +228,15 @@ public abstract class AutonomousMode extends LinearOpMode {
 
         // blue: rotate -90 degrees from heading 90
         // red: rotate 90 degrees from heading -90
-        fromAngle = isBlue? 90 :  -90;
-        angle = isBlue? -90 : 90;
+        fromAngle = isBlue ? 90 : -90;
+        angle = isBlue ? -90 : 90;
         rotate(angle, fromAngle);
 
         // drive the distance between two white lines
-        if  (!moveByInchesGyro(-0.5, 0, 46)){
+        if (!moveByInchesGyro(-0.8, 0, 45)) {
             // if we didn't travel the correct distance,
             // we probably hit something
-            powerMotors(0,0);
+            powerMotors(0, 0);
             showTelemetry();
             return;
         }
@@ -227,10 +244,10 @@ public abstract class AutonomousMode extends LinearOpMode {
         // blue: rotate 90 degrees CW from heading 0
         // red: rotate 90 degrees CCW from heading 0
         fromAngle = 0;
-        angle = isBlue? 70 : -70;
+        angle = isBlue ? 70 : -70;
         rotate(angle, fromAngle);
 
-        followLine(-0.3, 0.5);
+        followLine(-0.3, 0.25);
 
         // detect color
         beaconSide = detectColor();
@@ -238,7 +255,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         if (beaconSide == BeaconSide.none) {
             // if color is not detected stop and
             // show telemetry while op mode is active
-            powerMotors(0,0);
+            powerMotors(0, 0);
             showTelemetry();
             return;
         }
@@ -253,7 +270,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         // move away from beacon
         moveByInches(12);
 
-        powerMotors(0,0);
+        powerMotors(0, 0);
 
         //stop tracking images
         //allImages.deactivate();
@@ -261,18 +278,18 @@ public abstract class AutonomousMode extends LinearOpMode {
     }
 
     private void shimmy(BeaconSide beaconSide) throws InterruptedException {
-        if (beaconSide == BeaconSide.left){
+        if (beaconSide == BeaconSide.left) {
             powerMotors(0.3, -0.3);
         } else {
             powerMotors(-0.3, 0.3);
         }
         sleep(150);
-        powerMotors(0,0);
+        powerMotors(0, 0);
         sleep(150);
     }
 
     private BeaconSide detectColor() throws InterruptedException {
-        int  padPosition = 0;
+        int padPosition = 0;
         // detect color (red alliance
         BeaconSide beaconSide = BeaconSide.none;
         boolean colorDetected = false;
@@ -297,15 +314,15 @@ public abstract class AutonomousMode extends LinearOpMode {
 
     private void driveUntilHit(int distincm, double drivingPower) throws InterruptedException {
         powerMotors(drivingPower, drivingPower);
-        while (rangeSensor.getDistance(DistanceUnit.CM) > distincm){
+        while (rangeSensor.getDistance(DistanceUnit.CM) > distincm) {
             idle();
         }
-        powerMotors(0,0);
+        powerMotors(0, 0);
         sleep(600);
     }
 
-    private void setPadPosition(int pos){
-        servoBeaconPad.setPosition(pos/255.0);
+    private void setPadPosition(int pos) {
+        servoBeaconPad.setPosition(pos / 255.0);
     } // from 0 to 255
 
     private void showTelemetry() throws InterruptedException {
@@ -326,7 +343,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         telemetry.addData("Optical Light: ", opticalSensor.getLightDetected());
 //        telemetry.addData("Color Bottom = R/G/B", colorSensorBottom.alpha() +
 //                " at " + colorSensorBottom.getI2cAddress() + " " + colorSensorBottom.getConnectionInfo());
-        telemetry.addData(">", "Heading = %d", getGyroHeading());
+//        telemetry.addData(">", "Heading = %d", getGyroHeading());
         telemetry.addData(">", "Gyro Reading = %d", getGyroRawHeading());
         if (robotLocation != null && robotLocation.length == 3) {
             telemetry.addData("Location", "x = %.0f, y = %.0f, z = %.0f", robotLocation[0], robotLocation[1], robotLocation[2]);
@@ -351,8 +368,8 @@ public abstract class AutonomousMode extends LinearOpMode {
         motorRight1.setZeroPowerBehavior(behavior);
     }
 
-    private void vuforiaInit(){
-        try{
+    private void vuforiaInit() {
+        try {
             VuforiaLocalizer.Parameters parameters = new VuforiaLocalizer.Parameters(com.qualcomm.ftcrobotcontroller.R.id.cameraMonitorViewId);
             SharedPreferences prefs = getSharedPrefs(hardwareMap);
 
@@ -373,7 +390,7 @@ public abstract class AutonomousMode extends LinearOpMode {
             gearsTarget.setName("GearsTarget");
 
             OpenGLMatrix wheelTargetLocationOnField = OpenGLMatrix
-                    .translation(FIELD_WIDTH /12, FIELD_WIDTH /2, IMAGE_HEIGHT_OVER_FLOOR)
+                    .translation(FIELD_WIDTH / 12, FIELD_WIDTH / 2, IMAGE_HEIGHT_OVER_FLOOR)
                     .multiplied(Orientation.getRotationMatrix(
                             AxesReference.EXTRINSIC, AxesOrder.XZX,
                             AngleUnit.DEGREES, 90, 0, 0));
@@ -381,7 +398,7 @@ public abstract class AutonomousMode extends LinearOpMode {
             RobotLog.ii(TAG, "Target=%s %s", format(wheelTargetLocationOnField), wheelTarget.getName());
 
             OpenGLMatrix legosTargetLocationOnField = OpenGLMatrix
-                    .translation(-FIELD_WIDTH /4, FIELD_WIDTH /2, IMAGE_HEIGHT_OVER_FLOOR) // 146.05 is the height of the center of the image over the tile surface.
+                    .translation(-FIELD_WIDTH / 4, FIELD_WIDTH / 2, IMAGE_HEIGHT_OVER_FLOOR) // 146.05 is the height of the center of the image over the tile surface.
                     .multiplied(Orientation.getRotationMatrix(
                             AxesReference.EXTRINSIC, AxesOrder.XZX,
                             AngleUnit.DEGREES, 90, 0, 0));
@@ -389,7 +406,7 @@ public abstract class AutonomousMode extends LinearOpMode {
             RobotLog.ii(TAG, "Target=%s %s", format(legosTargetLocationOnField), legosTarget.getName());
 
             OpenGLMatrix toolsTargetLocationOnField = OpenGLMatrix
-                    .translation(-FIELD_WIDTH /2, FIELD_WIDTH /4, IMAGE_HEIGHT_OVER_FLOOR) // 146.05 is the height of the center of the image over the tile surface.
+                    .translation(-FIELD_WIDTH / 2, FIELD_WIDTH / 4, IMAGE_HEIGHT_OVER_FLOOR) // 146.05 is the height of the center of the image over the tile surface.
                     .multiplied(Orientation.getRotationMatrix(
                             AxesReference.EXTRINSIC, AxesOrder.XZX,
                             AngleUnit.DEGREES, 90, 90, 0));
@@ -397,14 +414,14 @@ public abstract class AutonomousMode extends LinearOpMode {
             RobotLog.ii(TAG, "Target=%s %s", format(toolsTargetLocationOnField), toolsTarget.getName());
 
             OpenGLMatrix gearsTargetLocationOnField = OpenGLMatrix
-                    .translation(-FIELD_WIDTH /2, -FIELD_WIDTH /12, IMAGE_HEIGHT_OVER_FLOOR) // 146.05 is the height of the center of the image over the tile surface.
+                    .translation(-FIELD_WIDTH / 2, -FIELD_WIDTH / 12, IMAGE_HEIGHT_OVER_FLOOR) // 146.05 is the height of the center of the image over the tile surface.
                     .multiplied(Orientation.getRotationMatrix(
                             AxesReference.EXTRINSIC, AxesOrder.XZX,
                             AngleUnit.DEGREES, 90, 90, 0));
             gearsTarget.setLocation(gearsTargetLocationOnField);
             RobotLog.ii(TAG, "Target=%s %s", format(gearsTargetLocationOnField), gearsTarget.getName());
 
-            OpenGLMatrix phoneLocationOnRobot =  OpenGLMatrix.translation(0,0,0);
+            OpenGLMatrix phoneLocationOnRobot = OpenGLMatrix.translation(0, 0, 0);
 //                        .translation(209.55f, 177.8f, 266.7f) // these are all in mm
 //                        .multiplied(Orientation.getRotationMatrix(
 //                                AxesReference.EXTRINSIC, AxesOrder.XZX,
@@ -429,7 +446,7 @@ public abstract class AutonomousMode extends LinearOpMode {
     /**
      * returns three numbers: x, y, and z (angle) as an array or null if the location of the robot is unknown.
      */
-    private void updateRobotLocation(){
+    private void updateRobotLocation() {
         boolean isVisible;
         VuforiaTrackableDefaultListener listener;
         try {
@@ -454,11 +471,11 @@ public abstract class AutonomousMode extends LinearOpMode {
                     Orientation ori = Orientation.getOrientation(lastLocation, AxesReference.EXTRINSIC, AxesOrder.XYZ, AngleUnit.DEGREES);
                     double zAngle = ori.thirdAngle;
 
-                    robotLocation = new double[] {x, y, zAngle};
+                    robotLocation = new double[]{x, y, zAngle};
                 }
             }
             //telemetry.update();
-        } catch (Exception e){
+        } catch (Exception e) {
             telemetry.addData("Error", e.getMessage());
             telemetry.update();
             System.out.println(e.getMessage());
@@ -479,17 +496,17 @@ public abstract class AutonomousMode extends LinearOpMode {
         moveByInches(inches, DRIVING_POWER);
     }
 
-    private void moveByInches(double inches, double drivingPower) throws InterruptedException{ // moves 26.5 in one rotation
+    private void moveByInches(double inches, double drivingPower) throws InterruptedException { // moves 26.5 in one rotation
         telemetry();
         int counts = motorRight1.getCurrentPosition();
-        double sign = Math.round(inches/Math.abs(inches));
-        powerMotors(sign*drivingPower, sign*drivingPower);
-        while (opModeIsActive() && Math.abs(motorRight1.getCurrentPosition() - counts) < Math.abs(ENCODER_COUNTS_PER_ROTATION*inches/26.5)){
+        double sign = Math.round(inches / Math.abs(inches));
+        powerMotors(sign * drivingPower, sign * drivingPower);
+        while (opModeIsActive() && Math.abs(motorRight1.getCurrentPosition() - counts) < Math.abs(ENCODER_COUNTS_PER_ROTATION * inches / 26.5)) {
             idle();
             telemetry.addData("Raw heading", getGyroRawHeading());
             telemetry.update();
         }
-        powerMotors(0,0);
+        powerMotors(0, 0);
     }
 
 
@@ -500,21 +517,21 @@ public abstract class AutonomousMode extends LinearOpMode {
         int counts = motorRight1.getCurrentPosition();
 
         // make an adjustment for the error in current gyro heading
-        double pcircleError = getRawHeadingError(fromRawHeading)/360.0;
+        double pcircleError = getRawHeadingError(fromRawHeading) / 360.0;
         double pcircle = angle / 360.0;
-        pcircle = pcircle-pcircleError;
-        telemetry.addData("pcircle", pcircle*360);
+        pcircle = pcircle - pcircleError;
+        telemetry.addData("pcircle", pcircle * 360);
         telemetry.update();
 
-        double sign = Math.round(pcircle/Math.abs(pcircle));
-        powerMotors(sign*DRIVING_POWER, -sign*DRIVING_POWER);
+        double sign = Math.round(pcircle / Math.abs(pcircle));
+        powerMotors(sign * DRIVING_POWER, -sign * DRIVING_POWER);
         // assuming 16 inches between wheels, 8 inches radius - 50.24 in
         // assuming 15 inches between wheels, 7.5 inches radius - 46.24 in
         // assuming 15.5 inches between wheels, 7.75 inches radius - 48.67 in
-        while (Math.abs(motorRight1.getCurrentPosition() - counts) < Math.abs(pcircle*ENCODER_COUNTS_PER_ROTATION*48.67/26.5)){
+        while (Math.abs(motorRight1.getCurrentPosition() - counts) < Math.abs(pcircle * ENCODER_COUNTS_PER_ROTATION * 48.67 / 26.5)) {
             idle();
         }
-        powerMotors(0,0);
+        powerMotors(0, 0);
     }
 
 
@@ -536,26 +553,26 @@ public abstract class AutonomousMode extends LinearOpMode {
     }*/
 
 
-
     private double DRIVING_POWER = 0.3;
     private double MID_POINT_LIGHT_BACK = 0.5;
     //private double MAX_COUNTS_TO_WHITE = 2.26 * ENCODER_COUNTS_PER_ROTATION; // 4.5 to reach white d
 
     /**
      * Drive until white line
+     *
      * @param drivingPower
      * @param headingToBeaconZone
      * @param maxInches
      * @return true if traveled distance, otherwise false
      * @throws InterruptedException
      */
-    private boolean moveByInchesGyro(double drivingPower, int headingToBeaconZone, double maxInches) throws InterruptedException{
+    private boolean moveByInchesGyro(double drivingPower, int headingToBeaconZone, double maxInches) throws InterruptedException {
 
         int initialcount = motorLeft1.getCurrentPosition();
         double error, clockwiseSpeed;
-        double kp = 0.03 ; //experimental coefficient for proportional correction of the direction
+        double kp = 0.03; //experimental coefficient for proportional correction of the direction
         double distance = rangeSensor.getDistance(DistanceUnit.CM);
-        while (opModeIsActive() && distance > 12 && Math.abs(motorLeft1.getCurrentPosition() - initialcount) < Math.abs(ENCODER_COUNTS_PER_ROTATION*maxInches/26.5)){
+        while (opModeIsActive() && distance > 12 && Math.abs(motorLeft1.getCurrentPosition() - initialcount) < Math.abs(ENCODER_COUNTS_PER_ROTATION * maxInches / 26.5)) {
             // error CCW - negative, CW - positive
             error = getRawHeadingError(headingToBeaconZone);
             //don't do any correction
@@ -585,11 +602,11 @@ public abstract class AutonomousMode extends LinearOpMode {
         return driveUntilWhite(drivingPower, headingToBeaconZone, Integer.MAX_VALUE);
     }
 
-    private boolean driveUntilWhite(double drivingPower, int headingToBeaconZone, double maxInches) throws InterruptedException{
+    private boolean driveUntilWhite(double drivingPower, int headingToBeaconZone, double maxInches) throws InterruptedException {
 
         int initialcount = motorLeft1.getCurrentPosition();
         double error, clockwiseSpeed;
-        double kp = 0.03 ; //experimental coefficient for proportional correction of the direction
+        double kp = 0.03; //experimental coefficient for proportional correction of the direction
         //alpha() is to measure the brightness.
         //maintain the direction until robot "sees" the edge of white line/touches/close to some other object
         //double alpha = colorSensorBottom.alpha();
@@ -597,7 +614,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         double distance = rangeSensor.getDistance(DistanceUnit.CM);
         //double leftcounts = motorLeft1.getCurrentPosition();
         //double sign = drivingPower/Math.abs(drivingPower);
-        while (opModeIsActive() && light < MID_POINT_LIGHT_BACK && distance > 6 && Math.abs(motorLeft1.getCurrentPosition() - initialcount) < Math.abs(ENCODER_COUNTS_PER_ROTATION*maxInches/26.5)){
+        while (opModeIsActive() && light < MID_POINT_LIGHT_BACK && distance > 6 && Math.abs(motorLeft1.getCurrentPosition() - initialcount) < Math.abs(ENCODER_COUNTS_PER_ROTATION * maxInches / 26.5)) {
             // error CCW - negative, CW - positive
             error = getRawHeadingError(headingToBeaconZone);
             //don't do any correction
@@ -628,15 +645,15 @@ public abstract class AutonomousMode extends LinearOpMode {
         return light >= MID_POINT_LIGHT_BACK;
     }
 
-    private void followLine(double drivingPower, double targetWhiteValue) throws InterruptedException{
+    private void followLine(double drivingPower, double targetWhiteValue) throws InterruptedException {
 
         double error, clockwiseSpeed;
-        double kp = 0.06 ; //experimental coefficient for proportional correction of the direction
+        double kp = 0.06; //experimental coefficient for proportional correction of the direction
         double light = opticalSensor.getLightDetected();
 
         while (opModeIsActive() && light < targetWhiteValue) {
             if (isBlue) {
-                powerMotors(0.15 , -0.15);
+                powerMotors(0.15, -0.15);
             } else {
                 powerMotors(-0.15, 0.15);
             }
@@ -646,17 +663,17 @@ public abstract class AutonomousMode extends LinearOpMode {
 
         if (light < targetWhiteValue) {
             if (isBlue) {
-                powerMotors(-0.15 , +0.15);
+                powerMotors(-0.15, +0.15);
             } else {
                 powerMotors(+0.15, -0.15);
             }
             sleep(50);
-            powerMotors(0,0);
+            powerMotors(0, 0);
         }
 
         double distance = rangeSensor.getDistance(DistanceUnit.CM);
 
-        while (opModeIsActive() && distance > 11 ){
+        while (opModeIsActive() && distance > 11) {
 
             light = opticalSensor.getLightDetected();
             error = light - targetWhiteValue;
@@ -749,7 +766,6 @@ public abstract class AutonomousMode extends LinearOpMode {
     }
 
 
-
     // remember to zero the power after this method call if you want to stop rotation
     private void rotateToTolerance(double tolerance, double requiredHeading, double power) throws InterruptedException {
         double headingDelta = getHeadingDelta(requiredHeading);
@@ -775,7 +791,34 @@ public abstract class AutonomousMode extends LinearOpMode {
         }
     }
 
+    private void moveOnShooting(int sign) {
 
+        try {
+            this.powerMotors(sign * DRIVING_POWER, sign * DRIVING_POWER);
+            int currentPosition;
+            int startPosition = (currentPosition = motorLeft1.getCurrentPosition());
+            //start belt turning at 15 inch
+            double beltCount = ENCODER_COUNTS_PER_ROTATION*SHOOT_STARTBELT_DISTANCE/26.5;
+
+            if(sign == -1){   //forward
+                motorFlywheel.setPower(1);
+            }else{
+                motorFlywheel.setPower(0);
+            }
+            if (sign == -1) {
+                while ((Math.abs(currentPosition - startPosition)) < ENCODER_COUNTS_PER_ROTATION * (SHOOT_DISTANCE1) / 26.5) {
+                    if (Math.abs(currentPosition - startPosition) > beltCount &&  sign == -1) {
+                        motorBelt.setPower(1);
+                    }
+                    currentPosition = motorLeft1.getCurrentPosition();
+                    idle();
+                }
+            }
+            powerMotors(0,0);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
 // constants from sample code for using gyro turn/drive
 //    // These constants define the desired driving/control characteristics
 //    // The can/should be tweaked to suite the specific robot drive train.
