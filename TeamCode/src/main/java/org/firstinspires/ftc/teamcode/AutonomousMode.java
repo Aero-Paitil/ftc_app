@@ -12,6 +12,7 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.I2cAddr;
 import com.qualcomm.robotcore.hardware.OpticalDistanceSensor;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.RobotLog;
 
 import org.firstinspires.ftc.robotcore.external.ClassFactory;
@@ -42,12 +43,12 @@ import java.util.List;
 
 public abstract class AutonomousMode extends LinearOpMode {
 
-    private enum BeaconSide {left, right, none}
+    public enum BeaconSide {left, right, none}
 
-    private enum ShootPosition {left, right}
+    public enum ShootPosition {left, right}
 
     private double DRIVING_POWER = 0.3;
-    private double MID_POINT_LIGHT_BACK = 0.25;
+    private double MID_POINT_LIGHT_BACK = 0.3;
     //private double MAX_COUNTS_TO_WHITE = 2.26 * ENCODER_COUNTS_PER_ROTATION;
 
     private static final float FIELD_WIDTH = 2743.2f; //3580.0f; // millimeter
@@ -115,6 +116,8 @@ public abstract class AutonomousMode extends LinearOpMode {
         // run flywheels by speed
         motorFlywheelRight.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         motorFlywheelLeft.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        motorFlywheelRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        motorFlywheelLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
         // reset encoders
         setRunMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
@@ -221,8 +224,8 @@ public abstract class AutonomousMode extends LinearOpMode {
                 return;
             }
 
-            // go 9 inches past white line
-            double pastLineInches = -8; // values without line follow isBlue? -6 : -8;
+            // go 8 inches past white line
+            double pastLineInches = -8; //
             moveByInches(pastLineInches);
 
             telemetryout("Passed " + pastLineInches + " inches after white line");
@@ -233,9 +236,9 @@ public abstract class AutonomousMode extends LinearOpMode {
             angle = isBlue ? 30 : -30;
             rotate(angle, fromAngle);
 
-            telemetryout("Rotated along white line");
+            telemetryout("Rotated to white line");
 
-            followLine(-0.3, MID_POINT_LIGHT_BACK);
+            BeaconSide beaconSideFar = followLine(-0.3, MID_POINT_LIGHT_BACK);
 
             telemetryout("After followed line");
 
@@ -244,7 +247,7 @@ public abstract class AutonomousMode extends LinearOpMode {
 
             telemetryout("Color detected: " + beaconSide);
 
-            if (beaconSide == BeaconSide.none) {
+            if (beaconSide == BeaconSide.none && beaconSideFar == BeaconSide.none) {
                 // if color is not detected stop and
                 // show telemetry while op mode is active
                 powerMotors(0, 0);
@@ -277,8 +280,8 @@ public abstract class AutonomousMode extends LinearOpMode {
             telemetryout("Rotated along the wall");
 
             // drive the distance between two white lines
-            movedRequiredDistance = moveByInchesGyro(-0.8, 0, 45);
-            telemetryout("Moved required distance: " + movedRequiredDistance);
+            movedRequiredDistance = moveByInchesGyro(-0.8, 0, 37);
+            telemetryout("Moved required distance 2: " + movedRequiredDistance);
             if (!movedRequiredDistance) {
                 // if we didn't travel the correct distance,
                 // we probably hit something
@@ -287,15 +290,32 @@ public abstract class AutonomousMode extends LinearOpMode {
                 return;
             }
 
+            // go to white line
+            foundWhiteLine = driveUntilWhite(-0.3, 0);
+            telemetryout("Found white line 2: " + foundWhiteLine);
+            if (!foundWhiteLine) {
+                // if line is not detected stop and
+                // show telemetry while op mode is active
+                powerMotors(0, 0);
+                showTelemetry();
+                return;
+            }
+
+            // go 8 inches past white line
+            pastLineInches = -8; //
+            moveByInches(pastLineInches);
+
+            telemetryout("Passed " + pastLineInches + " inches after white line 2");
+
             // blue: rotate 90 degrees CW from heading 0
             // red: rotate 90 degrees CCW from heading 0
             fromAngle = 0;
-            angle = isBlue ? 70 : -70;
+            angle = isBlue ? 65 : -65;
             rotate(angle, fromAngle);
 
-            telemetryout("Rotated along white line 2");
+            telemetryout("Rotated to white line 2");
 
-            followLine(-0.3, MID_POINT_LIGHT_BACK);
+            beaconSideFar = followLine(-0.3, MID_POINT_LIGHT_BACK);
 
             telemetryout("Followed line 2");
 
@@ -304,7 +324,7 @@ public abstract class AutonomousMode extends LinearOpMode {
 
             telemetryout("Detected color 2 at: " + beaconSide);
 
-            if (beaconSide == BeaconSide.none) {
+            if (beaconSide == BeaconSide.none && beaconSideFar == BeaconSide.none) {
                 // if color is not detected stop and
                 // show telemetry while op mode is active
                 powerMotors(0, 0);
@@ -363,7 +383,9 @@ public abstract class AutonomousMode extends LinearOpMode {
         // detect color (red alliance
         BeaconSide beaconSide = BeaconSide.none;
         boolean colorDetected = false;
-        while (!colorDetected && opModeIsActive()) {
+        ElapsedTime t = new ElapsedTime();
+        t.reset();
+        while (!colorDetected && opModeIsActive() && t.milliseconds() < 100) {
             if (colorSensor3a.red() > colorSensor3a.blue() && colorSensor3c.blue() > colorSensor3c.red()) {
                 // 3a is more red, 3c is more blue
                 colorDetected = true;
@@ -716,30 +738,47 @@ public abstract class AutonomousMode extends LinearOpMode {
         return light >= MID_POINT_LIGHT_BACK;
     }
 
-    private void followLine(double drivingPower, double targetWhiteValue) throws InterruptedException {
+    /*
+     * Returns beacon side at which the alliance color was detected (before line follow)
+     */
+    private BeaconSide followLine(double drivingPower, double targetWhiteValue) throws InterruptedException {
 
         double error, clockwiseSpeed;
-        double kp = 0.06; //experimental coefficient for proportional correction of the direction
+        double kp = 0.065; //experimental coefficient for proportional correction of the direction
         double light = opticalSensor.getLightDetected();
 
-        while (opModeIsActive() && light < targetWhiteValue) {
+        if (opModeIsActive() && light < targetWhiteValue) {
             if (isBlue) {
                 powerMotors(0.15, -0.15);
             } else {
                 powerMotors(-0.15, 0.15);
             }
             light = opticalSensor.getLightDetected();
-        }
-        powerMotors(0, 0);
-
-        if (light < targetWhiteValue) {
-            if (isBlue) {
-                powerMotors(-0.15, +0.15);
-            } else {
-                powerMotors(+0.15, -0.15);
+            while (opModeIsActive() && light < targetWhiteValue) {
+                idle();
+                light = opticalSensor.getLightDetected();
             }
-            sleep(50);
             powerMotors(0, 0);
+        }
+
+        telemetryout("Stopped at line");
+        BeaconSide beaconSide = detectColor();
+
+        // move back to the edge
+        if (opModeIsActive()) {
+            if (isBlue) {
+                powerMotors(-0.12, 0.12);
+            } else {
+                powerMotors(0.12, -0.12);
+            }
+            sleep(25); // let it move a bit back
+            light = opticalSensor.getLightDetected();
+            while (opModeIsActive() && light < targetWhiteValue) {
+                idle();
+                light = opticalSensor.getLightDetected();
+            }
+            powerMotors(0, 0);
+            telemetryout("Moved back a bit");
         }
 
         double distance = rangeSensor.getDistance(DistanceUnit.CM);
@@ -747,6 +786,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         while (opModeIsActive() && distance > 11) {
 
             light = opticalSensor.getLightDetected();
+
             error = light - targetWhiteValue;
             //don't do any correction
             //if  error < 0.1
@@ -759,17 +799,18 @@ public abstract class AutonomousMode extends LinearOpMode {
             if (!isBlue) {
                 clockwiseSpeed = -clockwiseSpeed;
             }
+            out.append(light+","+error+"\n");
 
             //clockwiseSpeed = Range.clip(clockwiseSpeed, -1.0, 1.0);
             telemetry.addData("Error", error);
             telemetry.update();
 
             powerMotors(drivingPower - clockwiseSpeed, drivingPower + clockwiseSpeed);
+            sleep(5);
             distance = rangeSensor.getDistance(DistanceUnit.CM);
         }
-
         powerMotors(0, 0);
-
+        return beaconSide;
     }
 
     //getIntegratedZValue is positive when moving ccw. We want it to behave the same way as getGyroHeading, so we changed the sign.

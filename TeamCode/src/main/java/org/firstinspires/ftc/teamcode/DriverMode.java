@@ -4,8 +4,7 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.util.ElapsedTime;
+import com.qualcomm.robotcore.hardware.Servo;;
 import com.qualcomm.robotcore.util.Range;
 
 @TeleOp(name="DriverMode", group="nb")
@@ -25,10 +24,14 @@ public class DriverMode extends OpMode {
     //defining the 4 motors
     private DcMotor motorLeft1;
     private DcMotor motorRight1;
-    private DcMotor motorBrush;
-    private DcMotor motorGun;
+
+    private DcMotor motorFlywheelRight;
+    private DcMotor motorFlywheelLeft;
+
     private DcMotor motorBelt;
+    private DcMotor motorBrush;
     private Servo servoBeaconPad;
+
     private boolean inBrushBtnPressed = false;
     private boolean outBrushBtnPressed = false;
     private int brushState = 0; //-1:Intake, 1:Sweep out, 0:Stopped
@@ -56,17 +59,18 @@ public class DriverMode extends OpMode {
 
         motorBrush = hardwareMap.dcMotor.get("Brush");
         motorBelt = hardwareMap.dcMotor.get("Belt");
-        motorGun = hardwareMap.dcMotor.get("Gun");
-        motorGun.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        motorFlywheelRight = hardwareMap.dcMotor.get("GunRight");
+        motorFlywheelLeft = hardwareMap.dcMotor.get("GunLeft");
+        // run flywheels by speed
+        motorFlywheelRight.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        motorFlywheelLeft.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        motorFlywheelRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        motorFlywheelLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
         //setting the motors on the right side in reverse so both wheels spin the same way.
         motorLeft1.setDirection(DcMotor.Direction.REVERSE);
 
         forward = true;
-
-        beltwas = 0;
-
-        changed = false;
     }
 
     public void start() {
@@ -74,8 +78,6 @@ public class DriverMode extends OpMode {
         servoBeaconPad.setPosition(15/255.0);
     }
 
-    private boolean changed;
-    private int beltwas;
 
     @Override
     public void loop() {
@@ -148,25 +150,11 @@ public class DriverMode extends OpMode {
             motorBelt.setPower(1);
             telemetry.addData("Belt", "Up");
         }
-        /*else if(gamepad1.left_bumper){
-            motorBelt.setPower(-1);
-            telemetry.addData("Belt", "Down");
-            changed = true;
-            if (brushState != 1) {
-                beltwas = brushState;
-            }
-            brushState = 1;
-        }*/
         else {
             if(brushState!=1){
                 motorBelt.setPower(0);
                 telemetry.addData("Belt", "Off");
             }
-
-            /*if (changed) {
-                brushState = beltwas;
-                changed = false;
-            }*/
         }
 
         //using the Gun
@@ -177,13 +165,12 @@ public class DriverMode extends OpMode {
             triggered = false;
         }
         if (triggered){
-            motorGun.setPower(1);
+            powerFlywheels(true);
             telemetry.addData("Gun", "Triggered");
         }else{
-            motorGun.setPower(0);
+            powerFlywheels(false);
             telemetry.addData("Gun", "Off");
         }
-
 
         //driving backwards
         if (!forward){
@@ -232,5 +219,14 @@ public class DriverMode extends OpMode {
         motorRight1.setPower(rightForward);
     }
 
-
+    private void powerFlywheels(boolean doPower) {
+        // theflywheels should move out in the opposite direction
+        if (doPower) {
+            motorFlywheelLeft.setPower(1);
+            motorFlywheelRight.setPower(-1);
+        } else {
+            motorFlywheelLeft.setPower(0);
+            motorFlywheelRight.setPower(0);
+        }
+    }
 }

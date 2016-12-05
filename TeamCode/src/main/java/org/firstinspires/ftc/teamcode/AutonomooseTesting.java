@@ -45,7 +45,7 @@ import java.util.List;
 public class AutonomooseTesting extends LinearOpMode {
 
     private double DRIVING_POWER = 0.3;
-    private double MID_POINT_LIGHT_BACK = 0.5;
+    private double MID_POINT_LIGHT_BACK = 0.3;
 
     private static final float FIELD_WIDTH = 2743.2f; //3580.0f; // millimeter
     private static final float IMAGE_HEIGHT_OVER_FLOOR = 146.05f; // millimeter
@@ -75,9 +75,12 @@ public class AutonomooseTesting extends LinearOpMode {
     private DcMotor motorBrush;
     private DcMotor motorBelt;
     //private DcMotor motorFlywheelLeft;
-    private DcMotor motorFlywheel;
+    private DcMotor motorFlywheelRight;
+    private DcMotor motorFlywheelLeft;
     private Servo servoBeaconPad;
     private ModernRoboticsI2cGyro gyro    = null;
+
+    StringBuffer out = new StringBuffer();
 
     private double [] robotLocation = null;
 
@@ -101,8 +104,13 @@ public class AutonomooseTesting extends LinearOpMode {
         //motorRight2 = hardwareMap.dcMotor.get("D2right");
         motorBrush = hardwareMap.dcMotor.get("Brush");
         motorBelt = hardwareMap.dcMotor.get("Belt");
-        motorFlywheel = hardwareMap.dcMotor.get("Gun");
-       // motorFlywheelRight = hardwareMap.dcMotor.get("Flywheel2");
+        motorFlywheelRight = hardwareMap.dcMotor.get("GunRight");
+        motorFlywheelLeft = hardwareMap.dcMotor.get("GunLeft");
+        // run flywheels by speed
+        motorFlywheelRight.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        motorFlywheelLeft.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        motorFlywheelRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        motorFlywheelLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
 
         // reset encoders
@@ -129,6 +137,11 @@ public class AutonomooseTesting extends LinearOpMode {
             idle();
         }
 
+        // if we hit stop after init, nothing else should happen
+        if (!opModeIsActive() ){
+            return;
+        }
+
         gyro.resetZAxisIntegrator(); //reset gyro heading to 0
         sleep(50);
 
@@ -139,19 +152,10 @@ public class AutonomooseTesting extends LinearOpMode {
         setRunMode(DcMotor.RunMode.RUN_USING_ENCODER);
         setZeroPowerMode(DcMotor.ZeroPowerBehavior.BRAKE);
 
-        testOpticalDistanceSensor();
 
-        //followLine(-0.3, 0.5 );
         //testOpticalDistanceSensor();
-        //rotate(-10,-90);
-        /*motorBelt.setPower(0.8);
-        powerFlywheelMotors(0.8);
-        motorBrush.setPower(0.5);
-        sleep(10000);
-        motorBelt.setPower(0);
-        powerFlywheelMotors(0);
-        powerFlywheelMotors(0);*/
 
+        followLine(-0.3, 0.35 );
 
     }
 
@@ -167,10 +171,22 @@ public class AutonomooseTesting extends LinearOpMode {
         powerMotors(0,0);
 
         motorBelt.setPower(0.8);
-        powerFlywheelMotors(0.8);
+        powerFlywheels(true);
         sleep(5000);
         motorBelt.setPower(0);
-        motorFlywheel.setPower(0);
+        powerFlywheels(false);
+    }
+
+    private void powerFlywheels(boolean doPower) throws InterruptedException {
+        // theflywheels should move out in the opposite direction
+        if (doPower) {
+            motorFlywheelLeft.setPower(1);
+            motorFlywheelRight.setPower(-1);
+        } else {
+            motorFlywheelLeft.setPower(0);
+            motorFlywheelRight.setPower(0);
+        }
+        idle();
     }
 
     private void testOpticalDistanceSensor() throws InterruptedException {
@@ -188,37 +204,52 @@ public class AutonomooseTesting extends LinearOpMode {
     }
 
 
-    private void followLine(double drivingPower, double targetWhiteValue) throws InterruptedException{
-        boolean isBlue = true;
+    /*
+     * Returns beacon side at which the alliance color was detected (before line follow)
+     */
+    private AutonomousMode.BeaconSide followLine(double drivingPower, double targetWhiteValue) throws InterruptedException {
+        boolean isBlue = false;
         double error, clockwiseSpeed;
-        double kp = 0.06 ; //experimental coefficient for proportional correction of the direction
+        double kp = 0.065; //experimental coefficient for proportional correction of the direction
         double light = opticalSensor.getLightDetected();
 
-        while (opModeIsActive() && light < targetWhiteValue) {
+        if (opModeIsActive() && light < targetWhiteValue) {
             if (isBlue) {
-                powerMotors(0.15 , -0.15);
+                powerMotors(0.15, -0.15);
             } else {
                 powerMotors(-0.15, 0.15);
             }
             light = opticalSensor.getLightDetected();
-        }
-        powerMotors(0, 0);
-
-        if (light < targetWhiteValue) {
-            if (isBlue) {
-                powerMotors(-0.15 , +0.15);
-            } else {
-                powerMotors(+0.15, -0.15);
+            while (opModeIsActive() && light < targetWhiteValue) {
+                idle();
+                light = opticalSensor.getLightDetected();
             }
-            sleep(50);
-            powerMotors(0,0);
+            powerMotors(0, 0);
+        }
+
+        // move back to the edge
+        if (opModeIsActive()) {
+            if (isBlue) {
+                powerMotors(-0.12, 0.12);
+            } else {
+                powerMotors(0.12, -0.12);
+            }
+            sleep(25); // let it move a bit back
+            light = opticalSensor.getLightDetected();
+            while (opModeIsActive() && light < targetWhiteValue) {
+                idle();
+                light = opticalSensor.getLightDetected();
+            }
+            powerMotors(0, 0);
+            out.append("Moved back a bit");
         }
 
         double distance = rangeSensor.getDistance(DistanceUnit.CM);
 
-        while (opModeIsActive() && distance > 11 ){
+        while (opModeIsActive() && distance > 11) {
 
             light = opticalSensor.getLightDetected();
+
             error = light - targetWhiteValue;
             //don't do any correction
             //if  error < 0.1
@@ -228,21 +259,22 @@ public class AutonomooseTesting extends LinearOpMode {
                 clockwiseSpeed = kp * error / 0.5;
             }
 
-            if (!isBlue) {
-                clockwiseSpeed = -clockwiseSpeed;
-            }
+            clockwiseSpeed = -clockwiseSpeed;
+
+            out.append(light+","+error+"\n");
 
             //clockwiseSpeed = Range.clip(clockwiseSpeed, -1.0, 1.0);
             telemetry.addData("Error", error);
             telemetry.update();
 
             powerMotors(drivingPower - clockwiseSpeed, drivingPower + clockwiseSpeed);
+            sleep(5);
             distance = rangeSensor.getDistance(DistanceUnit.CM);
         }
-
         powerMotors(0, 0);
-
+        return AutonomousMode.BeaconSide.none;
     }
+
 
     private int idx =0;
 
@@ -355,10 +387,6 @@ public class AutonomooseTesting extends LinearOpMode {
         motorLeft1.setPower(-leftForward);
         motorRight1.setPower(rightForward);
         idle();
-    }
-
-    private void powerFlywheelMotors(double motorFlywheelLeftPower) {
-        motorFlywheel.setPower(motorFlywheelLeftPower);
     }
 
 
