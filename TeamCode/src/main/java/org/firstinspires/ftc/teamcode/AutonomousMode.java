@@ -47,6 +47,8 @@ public abstract class AutonomousMode extends LinearOpMode {
 
     public enum ShootPosition {left, right}
 
+    private double TILE_LENGTH = 23.5;
+    private double HALF_WIDTH = 8.5;
     private double DRIVING_POWER = 0.3;
     private double MID_POINT_LIGHT_BACK = 0.3;
     //private double MAX_COUNTS_TO_WHITE = 2.26 * ENCODER_COUNTS_PER_ROTATION;
@@ -92,8 +94,6 @@ public abstract class AutonomousMode extends LinearOpMode {
 
     @Override
     public void runOpMode() throws InterruptedException {
-
-        int angle, fromAngle;
 
         gyro = (ModernRoboticsI2cGyro) hardwareMap.gyroSensor.get("Gyro Sensor ");
         gyro.calibrate();
@@ -173,182 +173,8 @@ public abstract class AutonomousMode extends LinearOpMode {
 
             telemetryout("Initial");
 
-            //start shooting at the position1 (3rd tile from the corner)
-            moveOnShooting(-1);  //forward, -1 is a sign
-
-            sleep(3000);
-            motorBelt.setPower(0);
-
-            moveOnShooting(1);  //backward, 1 is sign.  Backward to original place and start the beacon heading
-
-            telemetryout("After shooting");
-
-            // starting with robot at the wall in the middle of the third tile
-            // robot facing backward
-
-            // move back 9 inches
-            moveByInches(9);
-
-            telemetryout("After moved forward nine inches");
-
-            // blue: rotate 45 from heading 0
-            // red: rotate -45 from heading 0
-            angle = isBlue ? 45 : -45;
-            rotate(angle, 0);
-
-            telemetryout("After rotated 45 degrees");
-
-            // make sure the robot has settled to get correct heading
-            sleep(100);
-
-            // drive almost to the white line
-            boolean movedRequiredDistance = moveByInchesGyro(-0.8, angle, 42);
-            telemetryout("Moved 42 inches " + movedRequiredDistance);
-            if (!movedRequiredDistance) {
-                // if we didn't travel the correct distance,
-                // we probably hit something
-                powerMotors(0, 0);
-                showTelemetry();
-                return;
-            }
-
-
-            // go to white line
-            boolean foundWhiteLine = driveUntilWhite(-0.3, angle);
-            telemetryout("Found white line: " + foundWhiteLine);
-            if (!foundWhiteLine) {
-                // if line is not detected stop and
-                // show telemetry while op mode is active
-                powerMotors(0, 0);
-                showTelemetry();
-                return;
-            }
-
-            // go 8 inches past white line
-            double pastLineInches = -8; //
-            moveByInches(pastLineInches);
-
-            telemetryout("Passed " + pastLineInches + " inches after white line");
-
-            // blue: rotate 45 degrees CW from heading 45
-            // red: rotate 45 degrees CCW from heading -45
-            fromAngle = angle;
-            angle = isBlue ? 30 : -30;
-            rotate(angle, fromAngle);
-
-            telemetryout("Rotated to white line");
-
-            BeaconSide beaconSideFar = followLine(-0.3, MID_POINT_LIGHT_BACK);
-
-            telemetryout("After followed line");
-
-            // detect color
-            BeaconSide beaconSide = detectColor();
-
-            telemetryout("Color detected: " + beaconSide);
-
-            if (beaconSide == BeaconSide.none && beaconSideFar == BeaconSide.none) {
-                // if color is not detected stop and
-                // show telemetry while op mode is active
-                powerMotors(0, 0);
-                showTelemetry();
-                return;
-            }
-
-            // if color is detected, move forward to hit the beacon
-            sleep(500); //Give time for pad to get  into position
-            driveUntilHit(5, -0.3);
-
-            telemetryout("At the wall");
-
-            // shimmy on the beacon side
-            shimmy(beaconSide);
-
-            telemetryout("After shimmy");
-
-            // move 8 inches back
-            moveByInches(8);
-
-            telemetryout("Moved back 8 inches");
-
-            // blue: rotate -90 degrees from heading 90
-            // red: rotate 90 degrees from heading -90
-            fromAngle = isBlue ? 90 : -90;
-            angle = isBlue ? -90 : 90;
-            rotate(angle, fromAngle);
-
-            telemetryout("Rotated along the wall");
-
-            // drive the distance between two white lines
-            movedRequiredDistance = moveByInchesGyro(-0.8, 0, 37);
-            telemetryout("Moved required distance 2: " + movedRequiredDistance);
-            if (!movedRequiredDistance) {
-                // if we didn't travel the correct distance,
-                // we probably hit something
-                powerMotors(0, 0);
-                showTelemetry();
-                return;
-            }
-
-            // go to white line
-            foundWhiteLine = driveUntilWhite(-0.3, 0);
-            telemetryout("Found white line 2: " + foundWhiteLine);
-            if (!foundWhiteLine) {
-                // if line is not detected stop and
-                // show telemetry while op mode is active
-                powerMotors(0, 0);
-                showTelemetry();
-                return;
-            }
-
-            // go 8 inches past white line
-            pastLineInches = -8; //
-            moveByInches(pastLineInches);
-
-            telemetryout("Passed " + pastLineInches + " inches after white line 2");
-
-            // blue: rotate 90 degrees CW from heading 0
-            // red: rotate 90 degrees CCW from heading 0
-            fromAngle = 0;
-            angle = isBlue ? 65 : -65;
-            rotate(angle, fromAngle);
-
-            telemetryout("Rotated to white line 2");
-
-            beaconSideFar = followLine(-0.3, MID_POINT_LIGHT_BACK);
-
-            telemetryout("Followed line 2");
-
-            // detect color
-            beaconSide = detectColor();
-
-            telemetryout("Detected color 2 at: " + beaconSide);
-
-            if (beaconSide == BeaconSide.none && beaconSideFar == BeaconSide.none) {
-                // if color is not detected stop and
-                // show telemetry while op mode is active
-                powerMotors(0, 0);
-                showTelemetry();
-                return;
-            }
-
-            // if color is detected move to the beacon
-            sleep(500);
-            driveUntilHit(5, -0.3);
-
-            telemetryout("At wall 2");
-
-            // shimmy on the beacon side
-            shimmy(beaconSide);
-
-            telemetryout("After shimmy 2");
-
-            // move away from beacon
-            moveByInches(12);
-
-            telemetryout("Moved back 12 inches");
-
-            powerMotors(0, 0);
+            //sequenceFromStart1();
+            sequenceFromStart2();
 
             //stop tracking images
             //allImages.deactivate();
@@ -367,7 +193,292 @@ public abstract class AutonomousMode extends LinearOpMode {
         }
     }
 
-    private void shimmy(BeaconSide beaconSide) throws InterruptedException {
+    /**
+     * This is autonomous command sequence from the 3rd tile
+     * from the corner of the Vortex.
+     * @throws InterruptedException
+     */
+    private void sequenceFromStart1() throws InterruptedException {
+
+        int angle, fromAngle;
+
+        //start shooting at the position1 (3rd tile from the corner)
+        moveOnShooting(-1);  //forward, -1 is a sign
+
+        sleep(3000);
+        motorBelt.setPower(0);
+
+        moveOnShooting(1);  //backward, 1 is sign.  Backward to original place and start the beacon heading
+
+        telemetryout("After shooting");
+
+        // starting with robot at the wall in the middle of the third tile
+        // robot facing backward
+
+        // move back 9 inches
+        moveByInches(9);
+
+        telemetryout("After moved forward nine inches");
+
+        // blue: rotate 45 from heading 0
+        // red: rotate -45 from heading 0
+        angle = isBlue ? 45 : -45;
+        rotate(angle, 0);
+
+        telemetryout("After rotated 45 degrees");
+
+        // make sure the robot has settled to get correct heading
+        sleep(100);
+
+        // drive almost to the white line
+        boolean movedRequiredDistance = moveByInchesGyro(-0.8, angle, 42);
+        telemetryout("Moved 42 inches " + movedRequiredDistance);
+        if (!movedRequiredDistance) {
+            // if we didn't travel the correct distance,
+            // we probably hit something
+            powerMotors(0, 0);
+            showTelemetry();
+            return;
+        }
+
+
+        // go to white line
+        boolean foundWhiteLine = driveUntilWhite(-0.3, angle);
+        telemetryout("Found white line: " + foundWhiteLine);
+        if (!foundWhiteLine) {
+            // if line is not detected stop and
+            // show telemetry while op mode is active
+            powerMotors(0, 0);
+            showTelemetry();
+            return;
+        }
+
+        // go 8 inches past white line
+        double pastLineInches = -8; //
+        moveByInches(pastLineInches);
+
+        telemetryout("Passed " + pastLineInches + " inches after white line");
+
+        // blue: rotate 45 degrees CW from heading 45
+        // red: rotate 45 degrees CCW from heading -45
+        fromAngle = angle;
+        angle = isBlue ? 30 : -30;
+        rotate(angle, fromAngle);
+
+        telemetryout("Rotated to white line");
+
+        BeaconSide beaconSideFar = followLine(-0.3, MID_POINT_LIGHT_BACK);
+
+        telemetryout("After followed line");
+
+        // detect color
+        BeaconSide beaconSide = detectColor();
+
+        telemetryout("Color detected: " + beaconSide);
+
+        if (beaconSide == BeaconSide.none && beaconSideFar == BeaconSide.none) {
+            // if color is not detected stop and
+            // show telemetry while op mode is active
+            powerMotors(0, 0);
+            showTelemetry();
+            return;
+        }
+
+        // if color is detected, move forward to hit the beacon
+        sleep(500); //Give time for pad to get  into position
+        driveUntilHit(5, -0.3);
+
+        telemetryout("At the wall");
+
+        // shimmy on the beacon side
+        shimmy(beaconSide);
+
+        telemetryout("After shimmy");
+
+        // move 8 inches back
+        moveByInches(8);
+
+        telemetryout("Moved back 8 inches");
+
+        // blue: rotate -90 degrees from heading 90
+        // red: rotate 90 degrees from heading -90
+        fromAngle = isBlue ? 90 : -90;
+        angle = isBlue ? -90 : 90;
+        rotate(angle, fromAngle);
+
+        telemetryout("Rotated along the wall");
+
+        // drive the distance between two white lines
+        movedRequiredDistance = moveByInchesGyro(-0.8, 0, 37);
+        telemetryout("Moved required distance 2: " + movedRequiredDistance);
+        if (!movedRequiredDistance) {
+            // if we didn't travel the correct distance,
+            // we probably hit something
+            powerMotors(0, 0);
+            showTelemetry();
+            return;
+        }
+
+        // go to white line
+        foundWhiteLine = driveUntilWhite(-0.3, 0);
+        telemetryout("Found white line 2: " + foundWhiteLine);
+        if (!foundWhiteLine) {
+            // if line is not detected stop and
+            // show telemetry while op mode is active
+            powerMotors(0, 0);
+            showTelemetry();
+            return;
+        }
+
+        // go 8 inches past white line
+        pastLineInches = -8; //
+        moveByInches(pastLineInches);
+
+        telemetryout("Passed " + pastLineInches + " inches after white line 2");
+
+        // blue: rotate 90 degrees CW from heading 0
+        // red: rotate 90 degrees CCW from heading 0
+        fromAngle = 0;
+        angle = isBlue ? 65 : -65;
+        rotate(angle, fromAngle);
+
+        telemetryout("Rotated to white line 2");
+
+        beaconSideFar = followLine(-0.3, MID_POINT_LIGHT_BACK);
+
+        telemetryout("Followed line 2");
+
+        // detect color
+        beaconSide = detectColor();
+
+        telemetryout("Detected color 2 at: " + beaconSide);
+
+        if (beaconSide == BeaconSide.none && beaconSideFar == BeaconSide.none) {
+            // if color is not detected stop and
+            // show telemetry while op mode is active
+            powerMotors(0, 0);
+            showTelemetry();
+            return;
+        }
+
+        // if color is detected move to the beacon
+        sleep(500);
+        driveUntilHit(5, -0.3);
+
+        telemetryout("At wall 2");
+
+        // shimmy on the beacon side
+        shimmy(beaconSide);
+
+        telemetryout("After shimmy 2");
+
+        // move away from beacon
+        moveByInches(12);
+
+        telemetryout("Moved back 12 inches");
+
+        powerMotors(0, 0);
+    }
+
+
+    /**
+     * This is autonomous command sequence from the 4th tile
+     * from the corner of the Vortex.
+     * @throws InterruptedException
+     */
+    private void sequenceFromStart2() throws InterruptedException {
+        int angle, fromAngle;
+
+        // Move 24 inches backwards
+        moveByInches(-TILE_LENGTH - (TILE_LENGTH-18)/2);
+
+        // blue: rotate 90 degrees CW from heading 0
+        // red: rotate -90 degrees CCW from heading 0
+        angle = isBlue ? 90 : -90;
+        rotate(angle, 0);
+
+        // Go backwards a quarter of a circle
+        // Outer (right) wheel will travel 2*pi(2*TILE_LENGTH + HALF_WIDTH)/4
+        double inches = 2 * Math.PI * (2 * TILE_LENGTH + HALF_WIDTH) / 4;
+        double powerRatio = (2 * TILE_LENGTH + HALF_WIDTH) / (2 * TILE_LENGTH - HALF_WIDTH);
+        int counts = motorRight1.getCurrentPosition();
+        double leftPower = -0.4;
+        double rightPower = powerRatio * leftPower;
+        powerMotors(leftPower, rightPower);
+        while (opModeIsActive() && Math.abs(motorRight1.getCurrentPosition() - counts) < Math.abs(ENCODER_COUNTS_PER_ROTATION * inches / 26.5)) {
+            idle();
+            telemetry.addData("Raw heading", getGyroRawHeading());
+            telemetry.update();
+        }
+        powerMotors(0, 0);
+
+        // blue: rotate 30 degrees CW from heading 0
+        // red: rotate -30 degrees CCW from heading 0
+        angle = isBlue ? 30 : -30;
+        rotate(angle, 0);
+
+        // go to white line
+        boolean foundWhiteLine = driveUntilWhite(-0.3, angle);
+        telemetryout("Found white line: " + foundWhiteLine);
+        if (!foundWhiteLine) {
+            // if line is not detected stop and
+            // show telemetry while op mode is active
+            powerMotors(0, 0);
+            showTelemetry();
+            return;
+        }
+
+        // go 8 inches past white line
+        double pastLineInches = -8; //
+        moveByInches(pastLineInches);
+
+        telemetryout("Passed " + pastLineInches + " inches after white line");
+
+        // blue: rotate 45 degrees CW from heading 45
+        // red: rotate 45 degrees CCW from heading -45
+        fromAngle = angle;
+        angle = isBlue ? 30 : -30;
+        rotate(angle, fromAngle);
+
+        telemetryout("Rotated to white line");
+
+        BeaconSide beaconSideFar = followLine(-0.3, MID_POINT_LIGHT_BACK);
+
+        telemetryout("After followed line");
+
+        // detect color
+        BeaconSide beaconSide = detectColor();
+
+        telemetryout("Color detected: " + beaconSide);
+
+        if (beaconSide == BeaconSide.none && beaconSideFar == BeaconSide.none) {
+            // if color is not detected stop and
+            // show telemetry while op mode is active
+            powerMotors(0, 0);
+            showTelemetry();
+            return;
+        }
+
+        // if color is detected, move forward to hit the beacon
+        sleep(500); //Give time for pad to get  into position
+        driveUntilHit(5, -0.3);
+
+        telemetryout("At the wall");
+
+        // shimmy on the beacon side
+        shimmy(beaconSide);
+
+        telemetryout("After shimmy");
+
+        // move 8 inches back
+        moveByInches(8);
+
+        telemetryout("Moved back 8 inches");
+
+
+    }
+
+        private void shimmy(BeaconSide beaconSide) throws InterruptedException {
         if (beaconSide == BeaconSide.left) {
             powerMotors(0.3, -0.3);
         } else {
