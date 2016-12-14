@@ -27,6 +27,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.VuforiaLocalizer;
 import org.firstinspires.ftc.robotcore.external.navigation.VuforiaTrackable;
 import org.firstinspires.ftc.robotcore.external.navigation.VuforiaTrackableDefaultListener;
 import org.firstinspires.ftc.robotcore.external.navigation.VuforiaTrackables;
+import org.firstinspires.ftc.teamcode.newtonbusters.AutonomousOptions;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -92,8 +93,27 @@ public abstract class AutonomousMode extends LinearOpMode {
 
     StringBuffer out = new StringBuffer();
 
+    int delay;
+    boolean stopAfterShooting;
+
     @Override
     public void runOpMode() throws InterruptedException {
+        //retrieve preferences from AutonomousOptions
+        SharedPreferences prefs = AutonomousOptions.getSharedPrefs(hardwareMap);
+
+        String delayString = prefs.getString(AutonomousOptions.DELAY_PREF, "1 second");
+        try {
+            delay = Integer.parseInt(delayString.split(" ")[0]);
+        } catch (Exception e){
+            delay = 0;
+        }
+        String startTile = prefs.getString(AutonomousOptions.START_TILE_PREF, null);
+        String stopAfterShootingString = prefs.getString(AutonomousOptions.STOP_AFTER_SHOOTING_PREF, "false");
+        try {
+            stopAfterShooting = Boolean.parseBoolean(stopAfterShootingString);
+        } catch (Exception e){
+            stopAfterShooting = false;
+        }
 
         gyro = (ModernRoboticsI2cGyro) hardwareMap.gyroSensor.get("Gyro Sensor ");
         gyro.calibrate();
@@ -173,8 +193,17 @@ public abstract class AutonomousMode extends LinearOpMode {
 
             telemetryout("Initial");
 
-            //sequenceFromStart1();
-            sequenceFromStart2();
+            if (delay > 0) {
+                sleep(1000 * delay);
+            }
+
+
+            if (startTile.startsWith("3rd")) {
+                sequenceFromStart1();
+            } else {
+                sequenceFromStart2();
+            };
+
 
             //stop tracking images
             //allImages.deactivate();
@@ -211,6 +240,13 @@ public abstract class AutonomousMode extends LinearOpMode {
         moveOnShooting(1);  //backward, 1 is sign.  Backward to original place and start the beacon heading
 
         telemetryout("After shooting");
+
+        if (stopAfterShooting){
+            moveByInches(20);
+            powerMotors(0, 0);
+            showTelemetry();
+            return;
+        }
 
         // starting with robot at the wall in the middle of the third tile
         // robot facing backward
@@ -402,7 +438,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         double inches = 2 * Math.PI * (2 * TILE_LENGTH + HALF_WIDTH) / 4;
         double powerRatio = (2 * TILE_LENGTH + HALF_WIDTH) / (2 * TILE_LENGTH - HALF_WIDTH);
         int counts = motorRight1.getCurrentPosition();
-        double leftPower = -0.4;
+        double leftPower = -0.6;
         double rightPower = powerRatio * leftPower;
         powerMotors(leftPower, rightPower);
         while (opModeIsActive() && Math.abs(motorRight1.getCurrentPosition() - counts) < Math.abs(ENCODER_COUNTS_PER_ROTATION * inches / 26.5)) {
@@ -416,6 +452,9 @@ public abstract class AutonomousMode extends LinearOpMode {
         // red: rotate -30 degrees CCW from heading 0
         angle = isBlue ? 30 : -30;
         rotate(angle, 0);
+
+        //Move 20 inches
+        moveByInches(20, -0.5);
 
         // go to white line
         boolean foundWhiteLine = driveUntilWhite(-0.3, angle);

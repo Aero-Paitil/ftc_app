@@ -6,7 +6,6 @@ import com.qualcomm.ftccommon.DbgLog;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.ColorSensor;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorController;
 import com.qualcomm.robotcore.hardware.I2cAddr;
 import com.qualcomm.robotcore.hardware.UltrasonicSensor;
 import com.qualcomm.robotcore.util.ElapsedTime;
@@ -351,7 +350,7 @@ public abstract class AutonomousOpMode extends LinearOpMode {
         }
 
         boolean parkInBeacon = false;
-        String parkingString = prefs.getString(AutonomousOptions.END_POS_PREF, null);
+        String parkingString = prefs.getString(AutonomousOptions.START_TILE_PREF, null);
         if (parkingString != null){
             if (parkingString.contains("beacon")){
                 parkInBeacon = true;

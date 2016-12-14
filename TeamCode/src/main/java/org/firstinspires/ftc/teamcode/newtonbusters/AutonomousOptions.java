@@ -24,32 +24,35 @@ public class AutonomousOptions extends OpMode {
     //enum State  {DisplayAll, DisplayDelay, DisplayEndPos}
     enum State  {DisplayAll, DisplaySingle}
 
-    State menuState = State.DisplayAll;
+    private State menuState = State.DisplayAll;
 
-    SharedPreferences prefs;
-    SharedPreferences.Editor editor;
+    private SharedPreferences prefs;
+    private SharedPreferences.Editor editor;
 
     //private static final Map<String, String[]> OPTIONS = createMap();
     //Iterator<Map.Entry<String, String[]>> it  = OPTIONS.entrySet().iterator();;
 
-    int selectionIdx = 0;
+    private int selectionIdx = 0;
 
-    static final String DELAY_PREF = "delay";
-    static final String END_POS_PREF = "endPos";
-    static final String NONE = "none";
+    public static final String DELAY_PREF = "delay";
+    public static final String START_TILE_PREF = "startTile";
+    public static final String STOP_AFTER_SHOOTING_PREF = "stopAfterShooting";
+    private static final String NONE = "none";
 
-    static final String[] DELAYS = {"0 sec", "3 sec", "5 sec", "7 sec"};
-    static final String[] END_POS = {"floor goal", "beacon zone"};
+    private static final String[] DELAYS = {"0 sec", "3 sec", "5 sec", "7 sec"};
+    private static final String[] START_POS = {"3rd tile from corner", "4th tile from corner"};
+    private static final String[] STOP_AFTER_SHOOTING = {"true", "false"};
 
     public static SharedPreferences getSharedPrefs(HardwareMap hardwareMap) {
         return hardwareMap.appContext.getSharedPreferences("autonomous", 0);
     }
 
 
-    private static Map<String, String[]> prefMap = new HashMap<String, String[]>();
+    private static Map<String, String[]> prefMap = new HashMap<>();
     static {
         prefMap.put(DELAY_PREF, DELAYS);
-        prefMap.put(END_POS_PREF, END_POS);
+        prefMap.put(START_TILE_PREF, START_POS);
+        prefMap.put(STOP_AFTER_SHOOTING_PREF, STOP_AFTER_SHOOTING);
     }
     private static String[] prefKeys = prefMap.keySet().toArray(new String[prefMap.keySet().size()]);
     static {
@@ -58,7 +61,7 @@ public class AutonomousOptions extends OpMode {
     private static int keyIdx = 0;
 
 
-    public int getIndex(String val, String[] array) {
+    private int getIndex(String val, String[] array) {
         if(array!=null){
             for (int i = 0; i < array.length; i++) {
                 if (array[i].equals(val)) {
@@ -85,7 +88,7 @@ public class AutonomousOptions extends OpMode {
         switch (menuState) {
             case DisplayAll:
                 telemetry.addData(DELAY_PREF, prefs.getString(DELAY_PREF, NONE));
-                telemetry.addData(END_POS_PREF,prefs.getString(END_POS_PREF,NONE));
+                telemetry.addData(START_TILE_PREF,prefs.getString(START_TILE_PREF,NONE));
                 displayAll();
                 break;
             case DisplaySingle:
@@ -94,7 +97,7 @@ public class AutonomousOptions extends OpMode {
         }
     }
 
-    void displayAll () {
+    private void displayAll () {
 
         telemetry.clear();
         telemetry.addData("Choose", "X - accept Y - change");
@@ -108,7 +111,7 @@ public class AutonomousOptions extends OpMode {
         }
     }
 
-    void displaySingle () {
+    private void displaySingle () {
 
         telemetry.clear();
         telemetry.addData("Choose", "X - accept Y - change");
