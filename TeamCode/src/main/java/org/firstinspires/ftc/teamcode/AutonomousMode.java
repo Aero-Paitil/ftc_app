@@ -32,7 +32,9 @@ import org.firstinspires.ftc.teamcode.newtonbusters.AutonomousOptions;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -58,8 +60,8 @@ public abstract class AutonomousMode extends LinearOpMode {
     private static final float IMAGE_HEIGHT_OVER_FLOOR = 146.05f; // millimeter
 
     private final static int ENCODER_COUNTS_PER_ROTATION = 2 * 1140;
-    private final static int SHOOT_DISTANCE1 = 21; //Drive 21 inches straight towards center before shoot
-    private final static int SHOOT_STARTBELT_DISTANCE = 15;
+    private final static int SHOOT_DISTANCE1 = 14; //Drive 14 inches straight towards center before shoot
+    private final static int SHOOT_STARTBELT_DISTANCE = 8;
 
     private boolean isBlue = isBlueAlliance();
 
@@ -84,8 +86,7 @@ public abstract class AutonomousMode extends LinearOpMode {
     private DcMotor motorBelt;
     private Servo servoBeaconPad;
     private ModernRoboticsI2cGyro gyro = null;
-    private DcMotor motorFlywheelRight;
-    private DcMotor motorFlywheelLeft;
+    private DcMotor motorFlywheel;
 
     private double[] robotLocation = null;
 
@@ -131,13 +132,10 @@ public abstract class AutonomousMode extends LinearOpMode {
         //motorRight2 = hardwareMap.dcMotor.get("D2right");
         motorBrush = hardwareMap.dcMotor.get("Brush");
         motorBelt = hardwareMap.dcMotor.get("Belt");
-        motorFlywheelRight = hardwareMap.dcMotor.get("GunRight");
-        motorFlywheelLeft = hardwareMap.dcMotor.get("GunLeft");
+        motorFlywheel = hardwareMap.dcMotor.get("GunRight");
         // run flywheels by speed
-        motorFlywheelRight.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        motorFlywheelLeft.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        motorFlywheelRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        motorFlywheelLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        motorFlywheel.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        motorFlywheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
         // reset encoders
         setRunMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
@@ -163,17 +161,6 @@ public abstract class AutonomousMode extends LinearOpMode {
         // Wait for the game to start (Display Gyro value), and reset gyro before we move..
         while (!isStarted()) {
             telemetry();
-            /*
-            telemetry.addData(">", "Robot Raw Heading = %d", getGyroRawHeading());
-            telemetry.addData("optical light ", opticalSensor.getLightDetected());
-            telemetry.addData("optical rawlight", opticalSensor.getRawLightDetected());
-            telemetry.addData("optical max", opticalSensor.getRawLightDetectedMax());
-            //telemetry.addData("bottom alpha", colorSensorBottom.alpha());
-            telemetry.addData("raw ultrasonic", rangeSensor.rawUltrasonic());
-            telemetry.addData("raw optical", rangeSensor.rawOptical());
-            telemetry.addData("cm optical", "%.2f cm", rangeSensor.cmOptical());
-            telemetry.addData("cm", "%.2f cm", rangeSensor.getDistance(DistanceUnit.CM));
-            */
             telemetry.update();
             idle();
         }
@@ -191,7 +178,7 @@ public abstract class AutonomousMode extends LinearOpMode {
             servoBeaconPad = hardwareMap.servo.get("BeaconPad");
             setPadPosition(15); // to avoid pad covering camera
 
-            telemetryout("Initial");
+            telemetryout("Initial " + (isBlue ? "blue" : "red"));
 
             if (delay > 0) {
                 sleep(1000 * delay);
@@ -215,6 +202,15 @@ public abstract class AutonomousMode extends LinearOpMode {
                 OutputStreamWriter outputStreamWriter = new OutputStreamWriter(new FileOutputStream(file));
                 outputStreamWriter.write(out.toString());
                 outputStreamWriter.close();
+
+                String timestamp = new SimpleDateFormat("MMMdd_HHmm").format(new Date());
+                file = new File(Environment.getExternalStorageDirectory().getPath() + "/FIRST/lastrun.txt"+timestamp);
+                telemetry.addData("File", file.getAbsolutePath());
+
+                outputStreamWriter = new OutputStreamWriter(new FileOutputStream(file));
+                outputStreamWriter.write(out.toString());
+                outputStreamWriter.close();
+
             } catch (Exception e) {
                 telemetry.addData("Exception", "File write failed: " + e.toString());
             }
@@ -232,17 +228,16 @@ public abstract class AutonomousMode extends LinearOpMode {
         int angle, fromAngle;
 
         //start shooting at the position1 (3rd tile from the corner)
-        moveOnShooting(-1);  //forward, -1 is a sign
+        moveOnShooting();
 
         sleep(3000);
         motorBelt.setPower(0);
-
-        moveOnShooting(1);  //backward, 1 is sign.  Backward to original place and start the beacon heading
+        powerFlywheels(false);
 
         telemetryout("After shooting");
 
         if (stopAfterShooting){
-            moveByInches(20);
+            moveByInches(13);
             powerMotors(0, 0);
             showTelemetry();
             return;
@@ -251,8 +246,8 @@ public abstract class AutonomousMode extends LinearOpMode {
         // starting with robot at the wall in the middle of the third tile
         // robot facing backward
 
-        // move back 9 inches
-        moveByInches(9);
+        // move back 2 inches
+        moveByInches(2);
 
         telemetryout("After moved forward nine inches");
 
@@ -310,8 +305,6 @@ public abstract class AutonomousMode extends LinearOpMode {
         // detect color
         BeaconSide beaconSide = detectColor();
 
-        telemetryout("Color detected: " + beaconSide);
-
         if (beaconSide == BeaconSide.none && beaconSideFar == BeaconSide.none) {
             // if color is not detected stop and
             // show telemetry while op mode is active
@@ -328,6 +321,7 @@ public abstract class AutonomousMode extends LinearOpMode {
 
         // shimmy on the beacon side
         shimmy(beaconSide);
+        moreShimmyIfNeeded();
 
         telemetryout("After shimmy");
 
@@ -387,8 +381,6 @@ public abstract class AutonomousMode extends LinearOpMode {
         // detect color
         beaconSide = detectColor();
 
-        telemetryout("Detected color 2 at: " + beaconSide);
-
         if (beaconSide == BeaconSide.none && beaconSideFar == BeaconSide.none) {
             // if color is not detected stop and
             // show telemetry while op mode is active
@@ -405,6 +397,7 @@ public abstract class AutonomousMode extends LinearOpMode {
 
         // shimmy on the beacon side
         shimmy(beaconSide);
+        moreShimmyIfNeeded();
 
         telemetryout("After shimmy 2");
 
@@ -428,18 +421,46 @@ public abstract class AutonomousMode extends LinearOpMode {
         // Move 24 inches backwards
         moveByInches(-TILE_LENGTH - (TILE_LENGTH-18)/2);
 
-        // blue: rotate 90 degrees CW from heading 0
-        // red: rotate -90 degrees CCW from heading 0
-        angle = isBlue ? 90 : -90;
-        rotate(angle, 0);
+        // to make a rotation of 45 degrees to shoot the ball from heading zero.
+        // blue: rotate 45 degrees CW from heading 0
+        // red: rotate -45 degrees CCW from heading 0
+        angle = isBlue ? 45 : -45;
+        rotate (angle, 0);
+
+        // shooting the ball(s)
+        powerFlywheels(true);
+        sleep(1000);
+        motorBelt.setPower(1);
+        sleep(5000);
+        powerFlywheels(false);
+        motorBelt.setPower(0);
+
+        // blue: rotate 90 degrees CW from heading 45
+        // red: rotate -90 degrees CCW from heading -45
+        fromAngle = angle;
+        angle = isBlue ? 43 : -43;
+        rotate(angle, fromAngle);
+
+        if (stopAfterShooting) {
+            return;
+        }
 
         // Go backwards a quarter of a circle
         // Outer (right) wheel will travel 2*pi(2*TILE_LENGTH + HALF_WIDTH)/4
-        double inches = 2 * Math.PI * (2 * TILE_LENGTH + HALF_WIDTH) / 4;
+        double inches = isBlue?
+                (2 * Math.PI * (2 * TILE_LENGTH - HALF_WIDTH) / 4) :
+                (2 * Math.PI * (2 * TILE_LENGTH + HALF_WIDTH) / 4);
         double powerRatio = (2 * TILE_LENGTH + HALF_WIDTH) / (2 * TILE_LENGTH - HALF_WIDTH);
         int counts = motorRight1.getCurrentPosition();
-        double leftPower = -0.6;
-        double rightPower = powerRatio * leftPower;
+        double leftPower;
+        double rightPower;
+        if (isBlue){
+            rightPower = -0.6;
+            leftPower = powerRatio * rightPower;
+        } else {
+            leftPower = -0.6;
+            rightPower = powerRatio * leftPower;
+        }
         powerMotors(leftPower, rightPower);
         while (opModeIsActive() && Math.abs(motorRight1.getCurrentPosition() - counts) < Math.abs(ENCODER_COUNTS_PER_ROTATION * inches / 26.5)) {
             idle();
@@ -476,7 +497,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         // blue: rotate 45 degrees CW from heading 45
         // red: rotate 45 degrees CCW from heading -45
         fromAngle = angle;
-        angle = isBlue ? 30 : -30;
+        angle = isBlue ? 35 : -35;
         rotate(angle, fromAngle);
 
         telemetryout("Rotated to white line");
@@ -506,18 +527,21 @@ public abstract class AutonomousMode extends LinearOpMode {
 
         // shimmy on the beacon side
         shimmy(beaconSide);
+        moreShimmyIfNeeded();
 
         telemetryout("After shimmy");
 
-        // move 8 inches back
+        // move away from beacon
         moveByInches(8);
 
         telemetryout("Moved back 8 inches");
 
+        powerMotors(0, 0);
+
 
     }
 
-        private void shimmy(BeaconSide beaconSide) throws InterruptedException {
+    private void shimmy(BeaconSide beaconSide) throws InterruptedException {
         if (beaconSide == BeaconSide.left) {
             powerMotors(0.3, -0.3);
         } else {
@@ -526,6 +550,20 @@ public abstract class AutonomousMode extends LinearOpMode {
         sleep(150);
         powerMotors(0, 0);
         sleep(150);
+    }
+
+    private void moreShimmyIfNeeded() throws InterruptedException {
+        BeaconSide beaconSide;
+        while (opModeIsActive()) {
+            // check color, if detected, keep shimmying
+            beaconSide = detectColor();
+            telemetryout("Color detected: " + beaconSide);
+            if (beaconSide == BeaconSide.none) {
+                return;
+            }
+            // shimmy on the beacon side for the second time
+            shimmy(beaconSide);
+        }
     }
 
     private BeaconSide detectColor() throws InterruptedException {
@@ -553,6 +591,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         if (colorDetected){
             beaconSide = padPosition == 15 ? BeaconSide.left : BeaconSide.right;
         }
+        telemetryout("Color detected: " + beaconSide);
         return beaconSide;
     }
 
@@ -614,11 +653,9 @@ public abstract class AutonomousMode extends LinearOpMode {
     private void powerFlywheels(boolean doPower) throws InterruptedException {
         // theflywheels should move out in the opposite direction
         if (doPower) {
-            motorFlywheelLeft.setPower(1);
-            motorFlywheelRight.setPower(-1);
+            motorFlywheel.setPower(-0.5);
         } else {
-            motorFlywheelLeft.setPower(0);
-            motorFlywheelRight.setPower(0);
+            motorFlywheel.setPower(0);
         }
         idle();
     }
@@ -976,28 +1013,24 @@ public abstract class AutonomousMode extends LinearOpMode {
         return getGyroRawHeading() - requiredRawHeading;
     }
 
-    private void moveOnShooting(int sign) {
+    private void moveOnShooting() {
 
         try {
-            this.powerMotors(sign * DRIVING_POWER, sign * DRIVING_POWER);
+            this.powerMotors(-DRIVING_POWER, -DRIVING_POWER);
             int currentPosition;
             int startPosition = (currentPosition = motorLeft1.getCurrentPosition());
             //start belt turning at 15 inch
-            double beltCount = ENCODER_COUNTS_PER_ROTATION*SHOOT_STARTBELT_DISTANCE/26.5;
+            double beltCount = ENCODER_COUNTS_PER_ROTATION * SHOOT_STARTBELT_DISTANCE / 26.5;
 
-            if(sign == -1){   //forward
-                powerFlywheels(true);
-            } else{
-                powerFlywheels(false);
-            }
-            if (sign == -1) {
-                while ((Math.abs(currentPosition - startPosition)) < ENCODER_COUNTS_PER_ROTATION * (SHOOT_DISTANCE1) / 26.5) {
-                    if (Math.abs(currentPosition - startPosition) > beltCount &&  sign == -1) {
-                        motorBelt.setPower(1);
-                    }
-                    currentPosition = motorLeft1.getCurrentPosition();
-                    idle();
+            powerFlywheels(true);
+
+            while ((Math.abs(currentPosition - startPosition)) < ENCODER_COUNTS_PER_ROTATION * (SHOOT_DISTANCE1) / 26.5) {
+                if (Math.abs(currentPosition - startPosition) > beltCount) {
+                    motorBelt.setPower(1);
                 }
+                currentPosition = motorLeft1.getCurrentPosition();
+                idle();
+
             }
             powerMotors(0,0);
         } catch (InterruptedException e) {

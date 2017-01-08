@@ -41,7 +41,6 @@ public abstract class AutoPlanB extends LinearOpMode {
     private Servo servoBeaconPad;
     private ModernRoboticsI2cGyro gyro = null;
     private DcMotor motorFlywheelRight;
-    private DcMotor motorFlywheelLeft;
 
     private double[] robotLocation = null;
 
@@ -66,10 +65,8 @@ public abstract class AutoPlanB extends LinearOpMode {
         //motorRight2 = hardwareMap.dcMotor.get("D2right");
         motorBelt = hardwareMap.dcMotor.get("Belt");
         motorFlywheelRight = hardwareMap.dcMotor.get("GunRight");
-        motorFlywheelLeft = hardwareMap.dcMotor.get("GunLeft");
         // run flywheels by speed
         motorFlywheelRight.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        motorFlywheelLeft.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
         // reset encoders
         setRunMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
@@ -163,10 +160,8 @@ public abstract class AutoPlanB extends LinearOpMode {
     private void powerFlywheels(boolean doPower) throws InterruptedException {
         // theflywheels should move out in the opposite direction
         if (doPower) {
-            motorFlywheelLeft.setPower(1);
             motorFlywheelRight.setPower(-1);
         } else {
-            motorFlywheelLeft.setPower(0);
             motorFlywheelRight.setPower(0);
         }
         idle();

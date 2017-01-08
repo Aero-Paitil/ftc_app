@@ -25,8 +25,8 @@ public class DriverMode extends OpMode {
     private DcMotor motorLeft1;
     private DcMotor motorRight1;
 
-    private DcMotor motorFlywheelRight;
-    private DcMotor motorFlywheelLeft;
+    private DcMotor motorFlywheel;
+    //private DcMotor motorFlywheelLeft;
 
     private DcMotor motorBelt;
     private DcMotor motorBrush;
@@ -42,7 +42,7 @@ public class DriverMode extends OpMode {
     private static double MINPOWER = 0.15;
 
     private double scaled(double x){
-        return 0.5*(x/1.07)*(.62*x*x + .45);
+        return (x/1.07)*(.62*x*x + .45);
     }
 
     @Override
@@ -59,13 +59,13 @@ public class DriverMode extends OpMode {
 
         motorBrush = hardwareMap.dcMotor.get("Brush");
         motorBelt = hardwareMap.dcMotor.get("Belt");
-        motorFlywheelRight = hardwareMap.dcMotor.get("GunRight");
-        motorFlywheelLeft = hardwareMap.dcMotor.get("GunLeft");
+        motorFlywheel = hardwareMap.dcMotor.get("GunRight");
+        //motorFlywheelLeft = hardwareMap.dcMotor.get("GunLeft");
         // run flywheels by speed
-        motorFlywheelRight.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        motorFlywheelLeft.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        motorFlywheelRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        motorFlywheelLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        motorFlywheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+       // motorFlywheelLeft.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        motorFlywheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+       // motorFlywheelLeft.setZeroPowerBehavior(Dc Motor.ZeroPowerBehavior.FLOAT);
 
         //setting the motors on the right side in reverse so both wheels spin the same way.
         motorLeft1.setDirection(DcMotor.Direction.REVERSE);
@@ -222,11 +222,11 @@ public class DriverMode extends OpMode {
     private void powerFlywheels(boolean doPower) {
         // theflywheels should move out in the opposite direction
         if (doPower) {
-            motorFlywheelLeft.setPower(1);
-            motorFlywheelRight.setPower(-1);
+           // motorFlywheelLeft.setPower(1);
+            motorFlywheel.setPower(-1);
         } else {
-            motorFlywheelLeft.setPower(0);
-            motorFlywheelRight.setPower(0);
+          //  motorFlywheelLeft.setPower(0);
+            motorFlywheel.setPower(0);
         }
     }
 }
