@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode;
 import android.content.SharedPreferences;
 import android.os.Environment;
 
+import com.qualcomm.hardware.modernrobotics.ModernRoboticsI2cColorSensor;
 import com.qualcomm.hardware.modernrobotics.ModernRoboticsI2cGyro;
 import com.qualcomm.hardware.modernrobotics.ModernRoboticsI2cRangeSensor;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -10,6 +11,7 @@ import com.qualcomm.robotcore.hardware.ColorSensor;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.I2cAddr;
+import com.qualcomm.robotcore.hardware.I2cController;
 import com.qualcomm.robotcore.hardware.OpticalDistanceSensor;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
@@ -46,9 +48,7 @@ import java.util.List;
 
 public abstract class AutonomousMode extends LinearOpMode {
 
-    public enum BeaconSide {left, right, none}
-
-    public enum ShootPosition {left, right}
+    enum BeaconSide {left, right, none}
 
     private double TILE_LENGTH = 23.5;
     private double HALF_WIDTH = 8.5;
@@ -73,7 +73,12 @@ public abstract class AutonomousMode extends LinearOpMode {
     private ModernRoboticsI2cRangeSensor rangeSensor;
     private ColorSensor colorSensor3c;
     private ColorSensor colorSensor3a;
+    private ModernRoboticsI2cColorSensor color3a, color3c;
     private OpticalDistanceSensor opticalSensor;
+
+
+    private I2cController color3aController, color3cController;
+    private I2cController.I2cPortReadyCallback color3aCallBack, color3cCallBack;
 
     //defining the 4 motors
     // the motors are slaved:
@@ -92,7 +97,7 @@ public abstract class AutonomousMode extends LinearOpMode {
 
     abstract boolean isBlueAlliance();
 
-    StringBuffer out = new StringBuffer();
+    private StringBuffer out = new StringBuffer();
 
     int delay;
     boolean stopAfterShooting;
@@ -152,6 +157,16 @@ public abstract class AutonomousMode extends LinearOpMode {
         colorSensor3c.setI2cAddress(I2cAddr.create8bit(0x3c));
         colorSensor3c.enableLed(false);
         opticalSensor = hardwareMap.opticalDistanceSensor.get("Optical");
+
+        color3a = (ModernRoboticsI2cColorSensor) colorSensor3a;
+        color3c = (ModernRoboticsI2cColorSensor) colorSensor3c;
+        color3aController = color3a.getI2cController();
+        color3cController = color3c.getI2cController();
+        color3aCallBack = color3aController.getI2cPortReadyCallback(color3a.getPort());
+        color3cCallBack = color3cController.getI2cPortReadyCallback(color3c.getPort());
+        //disable color
+        color3aController.deregisterForPortReadyCallback(color3a.getPort());
+        color3cController.deregisterForPortReadyCallback(color3c.getPort());
 
         //vuforiaInit();
 
@@ -339,7 +354,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         telemetryout("Rotated along the wall");
 
         // drive the distance between two white lines
-        movedRequiredDistance = moveByInchesGyro(-0.8, 0, 37);
+        movedRequiredDistance = moveByInchesGyro(-0.8, 0, 35.5 );
         telemetryout("Moved required distance 2: " + movedRequiredDistance);
         if (!movedRequiredDistance) {
             // if we didn't travel the correct distance,
@@ -567,6 +582,11 @@ public abstract class AutonomousMode extends LinearOpMode {
     }
 
     private BeaconSide detectColor() throws InterruptedException {
+        //enable color
+        color3aController.registerForI2cPortReadyCallback(color3aCallBack, color3a.getPort());
+        color3cController.registerForI2cPortReadyCallback(color3cCallBack, color3c.getPort());
+        sleep(150);
+
         int padPosition = 0;
         // detect color (red alliance
         BeaconSide beaconSide = BeaconSide.none;
@@ -592,6 +612,11 @@ public abstract class AutonomousMode extends LinearOpMode {
             beaconSide = padPosition == 15 ? BeaconSide.left : BeaconSide.right;
         }
         telemetryout("Color detected: " + beaconSide);
+
+        // disable color
+        color3aController.deregisterForPortReadyCallback(color3a.getPort());
+        color3cController.deregisterForPortReadyCallback(color3c.getPort());
+
         return beaconSide;
     }
 
@@ -630,16 +655,14 @@ public abstract class AutonomousMode extends LinearOpMode {
         telemetry.update();
     }
 
-    public void telemetryout(String step) {
-        out.append(step + "\n");
+    private void telemetryout(String step) {
+        out.append(step).append("\n");
         //telemetry.addData("Count: ", motorRight1.getCurrentPosition());
-        out.append("    Color 3c - R/G/B " + colorSensor3c.red() + "/" + colorSensor3c.green() + "/" +
-                colorSensor3c.blue() + "\n");
-        out.append("    Color 3a - R/G/B " + colorSensor3a.red() + "/" + colorSensor3a.green() + "/" +
-                colorSensor3a.blue() + "\n");
-        out.append("    Optical Light " + opticalSensor.getLightDetected() + "\n");
-        out.append("    Gyro Reading " + getGyroRawHeading() + "\n");
-        out.append("    Distance " + rangeSensor.getDistance(DistanceUnit.CM) + "cm\n");
+        out.append("    Color 3c - R/G/B ").append(colorSensor3c.red()).append("/").append(colorSensor3c.green()).append("/").append(colorSensor3c.blue()).append("\n");
+        out.append("    Color 3a - R/G/B ").append(colorSensor3a.red()).append("/").append(colorSensor3a.green()).append("/").append(colorSensor3a.blue()).append("\n");
+        out.append("    Optical Light ").append(opticalSensor.getLightDetected()).append("\n");
+        out.append("    Gyro Reading ").append(getGyroRawHeading()).append("\n");
+        out.append("    Distance ").append(rangeSensor.getDistance(DistanceUnit.CM)).append("cm\n");
     }
 
 
@@ -890,6 +913,7 @@ public abstract class AutonomousMode extends LinearOpMode {
      */
     private boolean driveUntilWhite(double drivingPower, int headingToBeaconZone, double maxInches) throws InterruptedException {
 
+
         int initialcount = motorLeft1.getCurrentPosition();
         double error, clockwiseSpeed;
         double kp = 0.03; //experimental coefficient for proportional correction of the direction
@@ -969,6 +993,9 @@ public abstract class AutonomousMode extends LinearOpMode {
         }
 
         double distance = rangeSensor.getDistance(DistanceUnit.CM);
+        I2cController gyroController = gyro.getI2cController();
+        I2cController.I2cPortReadyCallback gyroCallBack = gyroController.getI2cPortReadyCallback(gyro.getPort());
+        gyroController.deregisterForPortReadyCallback(gyro.getPort());
 
         while (opModeIsActive() && distance > 11) {
 
@@ -986,7 +1013,7 @@ public abstract class AutonomousMode extends LinearOpMode {
             if (!isBlue) {
                 clockwiseSpeed = -clockwiseSpeed;
             }
-            out.append(light+","+error+"\n");
+            out.append(light).append(",").append(error).append("\n");
 
             //clockwiseSpeed = Range.clip(clockwiseSpeed, -1.0, 1.0);
             telemetry.addData("Error", error);
@@ -997,6 +1024,11 @@ public abstract class AutonomousMode extends LinearOpMode {
             distance = rangeSensor.getDistance(DistanceUnit.CM);
         }
         powerMotors(0, 0);
+
+        //enable sensors again
+        gyroController.registerForI2cPortReadyCallback(gyroCallBack, gyro.getPort());
+        sleep(150);
+
         return beaconSide;
     }
 
