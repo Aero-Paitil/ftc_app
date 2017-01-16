@@ -206,9 +206,9 @@ public abstract class AutonomousMode extends LinearOpMode {
             }
 
             if (startTile.startsWith("3rd")) {
-                sequenceFromStart1();
+                sequenceFromTile3();
             } else {
-                sequenceFromStart2();
+                sequenceFromTile4();
             };
 
 
@@ -243,7 +243,7 @@ public abstract class AutonomousMode extends LinearOpMode {
      * from the corner of the Vortex.
      * @throws InterruptedException
      */
-    private void sequenceFromStart1() throws InterruptedException {
+    private void sequenceFromTile3() throws InterruptedException {
         // starting with robot at the wall in the middle of the third tile
         // robot facing backward
 
@@ -425,7 +425,7 @@ public abstract class AutonomousMode extends LinearOpMode {
      * from the corner of the Vortex.
      * @throws InterruptedException
      */
-    private void sequenceFromStart2() throws InterruptedException {
+    private void sequenceFromTile4() throws InterruptedException {
         int angle, fromAngle;
 
         // Move 24 inches backwards
@@ -445,15 +445,16 @@ public abstract class AutonomousMode extends LinearOpMode {
         powerFlywheels(false);
         motorBelt.setPower(0);
 
+        if (stopAfterShooting) {
+            moveBallAndPark();
+            return;
+        }
+
         // blue: rotate 90 degrees CW from heading 45
         // red: rotate -90 degrees CCW from heading -45
         fromAngle = angle;
         angle = isBlue ? 43 : -43;
         rotate(angle, fromAngle);
-
-        if (stopAfterShooting) {
-            return;
-        }
 
         // Go backwards a quarter of a circle
         // Outer (right) wheel will travel 2*pi(2*TILE_LENGTH + HALF_WIDTH)/4
@@ -549,6 +550,15 @@ public abstract class AutonomousMode extends LinearOpMode {
         powerMotors(0, 0);
 
 
+    }
+
+    private void moveBallAndPark() throws InterruptedException {
+        sleep((12-delay)*1000);
+        int fromAngle = isBlue ? 45 : -45;
+        int angle = isBlue ? 170 : -170;
+        rotate(angle,fromAngle);
+        motorBrush.setPower(-1);
+        moveByInches(1.75*TILE_LENGTH);
     }
 
     //Tiny rotation clockwise or counter clockwise
