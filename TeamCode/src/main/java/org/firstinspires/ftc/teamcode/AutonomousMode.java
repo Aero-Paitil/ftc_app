@@ -316,7 +316,7 @@ public abstract class AutonomousMode extends LinearOpMode {
 
         telemetryout("After followed line");
         // detect color
-        BeaconSide beaconSide = detectColor();
+        BeaconSide beaconSide = detectColor(true);
 
         if (beaconSide == BeaconSide.none && beaconSideFar == BeaconSide.none) {
             // if color is not detected stop and
@@ -389,7 +389,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         telemetryout("Followed line 2");
 
         // detect color
-        beaconSide = detectColor();
+        beaconSide = detectColor(true);
 
         if (beaconSide == BeaconSide.none && beaconSideFar == BeaconSide.none) {
             // if color is not detected stop and
@@ -517,7 +517,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         telemetryout("After followed line");
 
         // detect color
-        BeaconSide beaconSide = detectColor();
+        BeaconSide beaconSide = detectColor(true);
 
         telemetryout("Color detected: " + beaconSide);
 
@@ -551,6 +551,20 @@ public abstract class AutonomousMode extends LinearOpMode {
 
     }
 
+    //Tiny rotation clockwise or counter clockwise
+    private void smallrotate(String direction) throws InterruptedException{
+        telemetryout("before small rotate " + direction);
+        if (direction.equals("clockwise")){
+            powerMotors(0.3, -0.3);
+        }else{
+            powerMotors(-0.3, 0.3);
+        }
+        sleep(150);
+        powerMotors(0,0);
+        sleep(150);
+    }
+
+
     private void shimmy(BeaconSide beaconSide) throws InterruptedException {
         if (beaconSide == BeaconSide.left) {
             powerMotors(0.3, -0.3);
@@ -577,6 +591,10 @@ public abstract class AutonomousMode extends LinearOpMode {
     }
 
     private BeaconSide detectColor() throws InterruptedException {
+        return detectColor(false);
+    }
+
+    private BeaconSide detectColor(boolean handleUnknown) throws InterruptedException {
         //enable color
         color3aController.registerForI2cPortReadyCallback(color3aCallBack, color3a.getPort());
         color3cController.registerForI2cPortReadyCallback(color3cCallBack, color3c.getPort());
@@ -587,9 +605,11 @@ public abstract class AutonomousMode extends LinearOpMode {
         // detect color (red alliance
         BeaconSide beaconSide = BeaconSide.none;
         boolean colorDetected = false;
+        boolean maybe = true;
         ElapsedTime t = new ElapsedTime();
         t.reset();
-        while (!colorDetected && opModeIsActive() && t.milliseconds() < 100) {
+        while (opModeIsActive() && maybe) {
+            maybe = false;
             if (colorSensor3a.red() > colorSensor3a.blue() && colorSensor3c.blue() > colorSensor3c.red()) {
                 // 3a is more red, 3c is more blue
                 colorDetected = true;
@@ -598,8 +618,24 @@ public abstract class AutonomousMode extends LinearOpMode {
             } else if (colorSensor3c.red() > colorSensor3c.blue() && colorSensor3a.blue() > colorSensor3a.red()) {
                 // 3c is more red, 3a is more blue
                 colorDetected = true;
-                padPosition = isBlue? 15 : 240;
+                padPosition = isBlue ? 15 : 240;
                 setPadPosition(padPosition);
+            }else if (handleUnknown){
+                if ((colorSensor3a.red() > colorSensor3a.blue() && colorSensor3c.blue() == colorSensor3c.red())||
+                        (colorSensor3c.red() == colorSensor3c.blue() && colorSensor3a.blue() > colorSensor3a.red())){
+                    // rotate right
+                    smallrotate("clockwise");
+                    maybe = true;
+                }else if ((colorSensor3c.red() > colorSensor3c.blue() && colorSensor3a.blue() == colorSensor3a.red())||
+                        (colorSensor3a.red() == colorSensor3a.blue() && colorSensor3c.blue() > colorSensor3c.red())) {
+                    //rotate left
+                    smallrotate("counterclockwise");
+                    maybe = true;
+                }
+                if (Math.abs(Math.abs(getGyroRawHeading() ) - 90) > 10){
+                    telemetryout("gyro tolerance exceeded");
+                    maybe = false;
+                }
             }
             telemetry();
             idle();
@@ -687,13 +723,19 @@ public abstract class AutonomousMode extends LinearOpMode {
         idle();
     }
 
-    private void powerFlywheels(boolean doPower) throws InterruptedException {
+    private void powerFlywheels(boolean doPower) {
+        // theflywheels should move out in the opposite direction
         if (doPower) {
-            motorFlywheel.setPower((startTile.startsWith("3rd")) ? -0.9 : -0.9);
+            // motorFlywheelLeft.setPower(1);
+            if (this.hardwareMap.voltageSensor.iterator().next().getVoltage() < 13.5) {
+                motorFlywheel.setPower(-1);
+            }else{
+                motorFlywheel.setPower(-0.9);
+            }
         } else {
+            //  motorFlywheelLeft.setPower(0)
             motorFlywheel.setPower(0);
         }
-        idle();
     }
 
     private void setRunMode(DcMotor.RunMode runMode) {
@@ -887,7 +929,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         double kp = 0.03; //experimental coefficient for proportional correction of the direction
         double distance = rangeSensor.getDistance(DistanceUnit.CM);
         //telemetryout("Inside moveByInchesGyro function...");
-        while (opModeIsActive() && distance > 12 && Math.abs(motorLeft1.getCurrentPosition() - initialcount) < Math.abs(ENCODER_COUNTS_PER_ROTATION * maxInches / 26.5)) {
+        while (opModeIsActive() && distance > 8 && Math.abs(motorLeft1.getCurrentPosition() - initialcount) < Math.abs(ENCODER_COUNTS_PER_ROTATION * maxInches / 26.5)) {
             // error CCW - negative, CW - positive
             error = getRawHeadingError(headingToBeaconZone);
             //telemetryout("moveByInchesGyro function => error is: " + error);

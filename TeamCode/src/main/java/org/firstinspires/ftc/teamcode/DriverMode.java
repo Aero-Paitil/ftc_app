@@ -222,7 +222,11 @@ public class DriverMode extends OpMode {
         // theflywheels should move out in the opposite direction
         if (doPower) {
            // motorFlywheelLeft.setPower(1);
-            motorFlywheel.setPower(-0.9);
+            if (this.hardwareMap.voltageSensor.iterator().next().getVoltage() < 13.5) {
+                motorFlywheel.setPower(-1);
+            }else{
+                motorFlywheel.setPower(-0.9);
+            }
         } else {
           //  motorFlywheelLeft.setPower(0)
             motorFlywheel.setPower(0);
