@@ -60,8 +60,8 @@ public abstract class AutonomousMode extends LinearOpMode {
     private static final float IMAGE_HEIGHT_OVER_FLOOR = 146.05f; // millimeter
 
     private final static int ENCODER_COUNTS_PER_ROTATION = 2 * 1140;
-    private final static int SHOOT_DISTANCE1 = 14; //Drive 14 inches straight towards center before shoot
-    private final static int SHOOT_STARTBELT_DISTANCE = 10;
+    private final static int SHOOT_DISTANCE1 = 12; //Drive 12 inches straight towards center before shoot
+    private final static int SHOOT_STARTBELT_DISTANCE = 8;
 
     private boolean isBlue = isBlueAlliance();
     private String startTile;
@@ -103,19 +103,20 @@ public abstract class AutonomousMode extends LinearOpMode {
 
     int delay;
     boolean stopAfterShooting;
+    boolean firstTimeTelemetry = true;
 
     @Override
     public void runOpMode() throws InterruptedException {
         //retrieve preferences from AutonomousOptions
         SharedPreferences prefs = AutonomousOptions.getSharedPrefs(hardwareMap);
 
-        String delayString = prefs.getString(AutonomousOptions.DELAY_PREF, "1 second");
+        String delayString = prefs.getString(AutonomousOptions.DELAY_PREF, "0 sec");
         try {
             delay = Integer.parseInt(delayString.split(" ")[0]);
         } catch (Exception e){
             delay = 0;
         }
-        startTile = prefs.getString(AutonomousOptions.START_TILE_PREF, null);
+        startTile = prefs.getString(AutonomousOptions.START_TILE_PREF, "3rd tile");
         String stopAfterShootingString = prefs.getString(AutonomousOptions.STOP_AFTER_SHOOTING_PREF, "false");
         try {
             stopAfterShooting = Boolean.parseBoolean(stopAfterShootingString);
@@ -141,7 +142,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         motorBelt = hardwareMap.dcMotor.get("Belt");
         motorFlywheel = hardwareMap.dcMotor.get("GunRight");
         // run flywheels by speed
-        motorFlywheel.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        motorFlywheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         motorFlywheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
         // reset encoders
@@ -223,7 +224,7 @@ public abstract class AutonomousMode extends LinearOpMode {
                 outputStreamWriter.close();
 
                 String timestamp = new SimpleDateFormat("MMMdd_HHmm").format(new Date());
-                file = new File(Environment.getExternalStorageDirectory().getPath() + "/FIRST/lastrun.txt"+timestamp);
+                file = new File(Environment.getExternalStorageDirectory().getPath() + "/FIRST/lastrun_"+timestamp+ ".txt");
                 telemetry.addData("File", file.getAbsolutePath());
 
                 outputStreamWriter = new OutputStreamWriter(new FileOutputStream(file));
@@ -243,6 +244,8 @@ public abstract class AutonomousMode extends LinearOpMode {
      * @throws InterruptedException
      */
     private void sequenceFromStart1() throws InterruptedException {
+        // starting with robot at the wall in the middle of the third tile
+        // robot facing backward
 
         int angle, fromAngle;
         //start shooting at the position1 (3rd tile from the corner)
@@ -252,24 +255,18 @@ public abstract class AutonomousMode extends LinearOpMode {
         motorBelt.setPower(0);
         powerFlywheels(false);
 
-        telemetryout("voltage level : " +  this.hardwareMap.voltageSensor.iterator().next().getVoltage());
-
         telemetryout("After shooting");
 
         if (stopAfterShooting){
-            moveByInches(13);
+            moveByInches(11);
             powerMotors(0, 0);
             showTelemetry();
             return;
         }
 
-        // starting with robot at the wall in the middle of the third tile
-        // robot facing backward
-
         // move back 2 inches
-        moveByInches(2);
+        // moveByInches(2);
 
-        telemetryout("After moved forward nine inches");
         // blue: rotate 46 from heading 0
         // red: rotate -46 from heading 0
         angle = isBlue ? 46 : -46;
@@ -656,15 +653,30 @@ public abstract class AutonomousMode extends LinearOpMode {
     }
 
     private void telemetryout(String step) {
-        out.append(step).append("\n");
         //telemetry.addData("Count: ", motorRight1.getCurrentPosition());
-        if (colorSensorsEnabled) {
-            out.append("    Color 3c - R/G/B ").append(colorSensor3c.red()).append("/").append(colorSensor3c.green()).append("/").append(colorSensor3c.blue()).append("\n");
-            out.append("    Color 3a - R/G/B ").append(colorSensor3a.red()).append("/").append(colorSensor3a.green()).append("/").append(colorSensor3a.blue()).append("\n");
+
+        //out.append("    Optical Light ").append(opticalSensor.getLightDetected()).append("\n");
+        //out.append("    Gyro Reading ").append(getGyroRawHeading()).append("\n");
+        //out.append("    Distance ").append(rangeSensor.getDistance(DistanceUnit.CM)).append("cm\n");
+        //out.append("    Wheel Encoder Position ").append(motorLeft1.getCurrentPosition());
+        //out.append("    Time ").append(Calendar.HOUR_OF_DAY + ":" + Calendar.MINUTE + ":" + Calendar.SECOND + ":" + Calendar.MILLISECOND);
+        //out.append("    Voltage reading ").append(this.hardwareMap.voltageSensor.iterator().next().getVoltage());
+        if(firstTimeTelemetry) {
+            out.append("Time    Step            Optical light   GyroReading     Distance    Wheel Encoder Position      Voltage     Color3c     Color3a").append("\n");
+            out.append("===========================================================================================================================").append("\n");
+            firstTimeTelemetry = false;
         }
-        out.append("    Optical Light ").append(opticalSensor.getLightDetected()).append("\n");
-        out.append("    Gyro Reading ").append(getGyroRawHeading()).append("\n");
-        out.append("    Distance ").append(rangeSensor.getDistance(DistanceUnit.CM)).append("cm\n");
+        out.append("\n").append(new SimpleDateFormat("MMMdd_HHmm:ss.SS").format(new Date())).append(",\t");
+        out.append(step).append(",\t\t\t");
+        out.append(opticalSensor.getLightDetected()).append(",\t");
+        out.append(getGyroRawHeading()).append(",\t");
+        out.append(rangeSensor.getDistance(DistanceUnit.CM)).append("cm,\t");
+        out.append(motorLeft1.getCurrentPosition()).append(",\t");
+        out.append(this.hardwareMap.voltageSensor.iterator().next().getVoltage()).append(",\n");
+        if (colorSensorsEnabled) {
+            out.append("    Color 3c - R/G/B ").append(colorSensor3c.red()).append("/").append(colorSensor3c.green()).append("/").append(colorSensor3c.blue()).append(",\t");
+            out.append("    Color 3a - R/G/B ").append(colorSensor3a.red()).append("/").append(colorSensor3a.green()).append("/").append(colorSensor3a.blue()).append(",\n");
+        }
     }
 
 
@@ -677,7 +689,7 @@ public abstract class AutonomousMode extends LinearOpMode {
 
     private void powerFlywheels(boolean doPower) throws InterruptedException {
         if (doPower) {
-            motorFlywheel.setPower((startTile.startsWith("3rd")) ? -0.5 : -1);
+            motorFlywheel.setPower((startTile.startsWith("3rd")) ? -0.9 : -0.9);
         } else {
             motorFlywheel.setPower(0);
         }
@@ -874,9 +886,11 @@ public abstract class AutonomousMode extends LinearOpMode {
         double error, clockwiseSpeed;
         double kp = 0.03; //experimental coefficient for proportional correction of the direction
         double distance = rangeSensor.getDistance(DistanceUnit.CM);
+        //telemetryout("Inside moveByInchesGyro function...");
         while (opModeIsActive() && distance > 12 && Math.abs(motorLeft1.getCurrentPosition() - initialcount) < Math.abs(ENCODER_COUNTS_PER_ROTATION * maxInches / 26.5)) {
             // error CCW - negative, CW - positive
             error = getRawHeadingError(headingToBeaconZone);
+            //telemetryout("moveByInchesGyro function => error is: " + error);
             //don't do any correction
             //if heading error < 1 degree
             if (Math.abs(error) < 1) {
@@ -886,6 +900,8 @@ public abstract class AutonomousMode extends LinearOpMode {
             } else {
                 clockwiseSpeed = kp * Math.abs(error) / error;
             }
+            //telemetryout("moveByInchesGyro function => clockwiseSpeed = " + clockwiseSpeed);
+            //telemetryout("moveByInchesGyro function => distance = " +distance);
             //clockwiseSpeed = Range.clip(clockwiseSpeed, -1.0, 1.0);
             telemetry.addData("Error", error);
             telemetry.addData("Distance", distance);
@@ -894,6 +910,7 @@ public abstract class AutonomousMode extends LinearOpMode {
             //DbgLog.msg(i + " clockwise speed "+clockwiseSpeed);
 
             powerMotors(drivingPower - clockwiseSpeed, drivingPower + clockwiseSpeed);
+            //telemetryout("moveByInchesGyro function => powerMotors = "+ (drivingPower-clockwiseSpeed) + "and " + (drivingPower + clockwiseSpeed));
             distance = rangeSensor.getDistance(DistanceUnit.CM);
         }
         //motorBrush.setPower(0);
@@ -1003,13 +1020,7 @@ public abstract class AutonomousMode extends LinearOpMode {
             light = opticalSensor.getLightDetected();
 
             error = light - targetWhiteValue;
-            //don't do any correction
-            //if  error < 0.1
-            if (Math.abs(error) < 0.1) {
-                clockwiseSpeed = 0;
-            } else {
-                clockwiseSpeed = kp * error / 0.5;
-            }
+            clockwiseSpeed = kp * error / 0.5;
 
             if (!isBlue) {
                 clockwiseSpeed = -clockwiseSpeed;
@@ -1043,7 +1054,9 @@ public abstract class AutonomousMode extends LinearOpMode {
 
     //cc error is positive, ccw error is negative
     private double getRawHeadingError(double requiredRawHeading) {
-        return getGyroRawHeading() - requiredRawHeading;
+        double diffInHeading = getGyroRawHeading() - requiredRawHeading;
+        //telemetryout("Inside getRawHeadingError method: diffInHeading = " + diffInHeading);
+        return diffInHeading;
     }
 
     private void moveOnShooting() {

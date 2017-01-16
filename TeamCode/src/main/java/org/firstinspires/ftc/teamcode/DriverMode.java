@@ -63,7 +63,6 @@ public class DriverMode extends OpMode {
         //motorFlywheelLeft = hardwareMap.dcMotor.get("GunLeft");
         // run flywheels by speed
         motorFlywheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-       // motorFlywheelLeft.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         motorFlywheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
        // motorFlywheelLeft.setZeroPowerBehavior(Dc Motor.ZeroPowerBehavior.FLOAT);
 
@@ -223,9 +222,9 @@ public class DriverMode extends OpMode {
         // theflywheels should move out in the opposite direction
         if (doPower) {
            // motorFlywheelLeft.setPower(1);
-            motorFlywheel.setPower(-1);
+            motorFlywheel.setPower(-0.9);
         } else {
-          //  motorFlywheelLeft.setPower(0);
+          //  motorFlywheelLeft.setPower(0)
             motorFlywheel.setPower(0);
         }
     }
