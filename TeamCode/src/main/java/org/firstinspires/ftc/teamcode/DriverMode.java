@@ -5,6 +5,7 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.Servo;;
+import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
 @TeleOp(name="DriverMode", group="nb")
@@ -31,10 +32,14 @@ public class DriverMode extends OpMode {
     private DcMotor motorBelt;
     private DcMotor motorBrush;
     private Servo servoBeaconPad;
+    private Servo servoBar;
 
     private boolean inBrushBtnPressed = false;
     private boolean outBrushBtnPressed = false;
     private int brushState = 0; //-1:Intake, 1:Sweep out, 0:Stopped
+    private ElapsedTime gunTimer = new ElapsedTime();
+    private boolean triggered = false; //triggered= gun engaged
+
 
     private boolean forward;
     private boolean backButtonPressed = false;
@@ -62,7 +67,7 @@ public class DriverMode extends OpMode {
         motorFlywheel = hardwareMap.dcMotor.get("GunRight");
         //motorFlywheelLeft = hardwareMap.dcMotor.get("GunLeft");
         // run flywheels by speed
-        motorFlywheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        motorFlywheel.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         motorFlywheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
        // motorFlywheelLeft.setZeroPowerBehavior(Dc Motor.ZeroPowerBehavior.FLOAT);
 
@@ -75,6 +80,8 @@ public class DriverMode extends OpMode {
     public void start() {
         servoBeaconPad = hardwareMap.servo.get("BeaconPad");
         servoBeaconPad.setPosition(15/255.0);
+        servoBar = hardwareMap.servo.get("ServoBar");
+        servoBar.setPosition(215.0/255);
     }
 
 
@@ -144,23 +151,15 @@ public class DriverMode extends OpMode {
                 rightForward = -sign*dpadSpeed;
             }
         }
-        //using the Belt
-        if(gamepad1.right_bumper || gamepad1.left_bumper){
-            motorBelt.setPower(1);
-            telemetry.addData("Belt", "Up");
-        }
-        else {
-            if(brushState!=1){
-                motorBelt.setPower(0);
-                telemetry.addData("Belt", "Off");
-            }
-        }
+
 
         //using the Gun
-        boolean triggered = false;
         if (gamepad1.left_trigger > 0.7 || gamepad1.right_trigger > 0.7){
+            if (!triggered){
+                gunTimer.reset();
+            }
             triggered = true;
-        }else if (gamepad1.left_trigger < 0.3 || gamepad1.right_trigger < 0.3){
+        }else {
             triggered = false;
         }
         if (triggered){
@@ -169,6 +168,22 @@ public class DriverMode extends OpMode {
         }else{
             powerFlywheels(false);
             telemetry.addData("Gun", "Off");
+        }
+
+        //using the Belt
+        if(gamepad1.right_bumper || gamepad1.left_bumper){
+            if (triggered && gunTimer.seconds() < 2){
+                motorBelt.setPower(0);
+            } else {
+                motorBelt.setPower(1);
+                telemetry.addData("Belt", "Up");
+            }
+        }
+        else {
+            if(brushState!=1){
+                motorBelt.setPower(0);
+                telemetry.addData("Belt", "Off");
+            }
         }
 
         //driving backwards
@@ -219,16 +234,17 @@ public class DriverMode extends OpMode {
     }
 
     private void powerFlywheels(boolean doPower) {
-        // theflywheels should move out in the opposite direction
         if (doPower) {
-           // motorFlywheelLeft.setPower(1);
-            if (this.hardwareMap.voltageSensor.iterator().next().getVoltage() < 13.5) {
-                motorFlywheel.setPower(-1);
-            }else{
-                motorFlywheel.setPower(-0.9);
+            double maxPower = -0.7;
+            double ms = gunTimer.milliseconds();
+            if (ms < 400){
+                motorFlywheel.setPower(-0.4 );
+            } else if (ms < 1000) {
+                motorFlywheel.setPower(ms*maxPower/1000);
+            } else {
+                motorFlywheel.setPower(maxPower);//(-0.715)
             }
         } else {
-          //  motorFlywheelLeft.setPower(0)
             motorFlywheel.setPower(0);
         }
     }

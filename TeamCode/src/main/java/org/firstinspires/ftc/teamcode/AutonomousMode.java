@@ -94,6 +94,7 @@ public abstract class AutonomousMode extends LinearOpMode {
     private Servo servoBeaconPad;
     private ModernRoboticsI2cGyro gyro = null;
     private DcMotor motorFlywheel;
+    private Servo servoBar;
 
     private double[] robotLocation = null;
 
@@ -142,7 +143,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         motorBelt = hardwareMap.dcMotor.get("Belt");
         motorFlywheel = hardwareMap.dcMotor.get("GunRight");
         // run flywheels by speed
-        motorFlywheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        motorFlywheel.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         motorFlywheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
         // reset encoders
@@ -191,6 +192,11 @@ public abstract class AutonomousMode extends LinearOpMode {
             //motorBelt.setPower(0.5); // the box is too small at the moment
             servoBeaconPad = hardwareMap.servo.get("BeaconPad");
             setPadPosition(15); // to avoid pad covering camera
+            sleep(500);
+
+            servoBar = hardwareMap.servo.get("ServoBar");
+            // raise servoBar
+            servoBar.setPosition(95.0/255);
 
             telemetryout("Initial: " + (isBlue ? "blue; " : "red; ")+ startTile+
                     "; delay: "+delay+"; stop after shoot: "+stopAfterShooting);
@@ -249,8 +255,8 @@ public abstract class AutonomousMode extends LinearOpMode {
 
         int angle, fromAngle;
         //start shooting at the position1 (3rd tile from the corner)
-        moveOnShooting();
-
+        powerFlywheels(true);
+        motorBelt.setPower(1);
         sleep(4000);
         motorBelt.setPower(0);
         powerFlywheels(false);
@@ -258,14 +264,22 @@ public abstract class AutonomousMode extends LinearOpMode {
         telemetryout("After shooting");
 
         if (stopAfterShooting){
-            moveByInches(11);
+            //moveByInches(11);
             powerMotors(0, 0);
             showTelemetry();
             return;
         }
 
+        // raise servoBar
+        // TODO: can be removed?
+        servoBar.setPosition(95.0/255);
+
         // move back 2 inches
         // moveByInches(2);
+
+        // move forward
+        moveByInches(-11, 0.6);
+        telemetryout("After moved 11 inches");
 
         // blue: rotate 46 from heading 0
         // red: rotate -46 from heading 0
@@ -277,7 +291,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         sleep(100);
 
         // drive almost to the white line
-        boolean movedRequiredDistance = moveByInchesGyro(-0.8, angle, 41);
+        boolean movedRequiredDistance = moveByInchesGyro(-0.9, angle, 41);
         telemetryout("Moved 41  inches " + movedRequiredDistance);
 
         if (!movedRequiredDistance) {
@@ -289,8 +303,8 @@ public abstract class AutonomousMode extends LinearOpMode {
         }
 
 
-        // go to white line
-        boolean foundWhiteLine = driveUntilWhite(-0.3, angle);
+        // go to white line (first beacon)
+        boolean foundWhiteLine = driveUntilWhite(-0.3, angle, 20);
         telemetryout("Found white line: " + foundWhiteLine);
         if (!foundWhiteLine) {
             // if line is not detected stop and
@@ -311,31 +325,29 @@ public abstract class AutonomousMode extends LinearOpMode {
         angle = isBlue ? 30 : -30;
         rotate(angle, fromAngle);
 
+        // lower servo bar
+        servoBar.setPosition(215.0/255);
+
         telemetryout("Rotated to white line");
-        BeaconSide beaconSideFar = followLine(-0.3, MID_POINT_LIGHT_BACK);
+        followLine(-0.3, MID_POINT_LIGHT_BACK);
 
         telemetryout("After followed line");
         // detect color
         BeaconSide beaconSide = detectColor(true);
 
-        if (beaconSide == BeaconSide.none && beaconSideFar == BeaconSide.none) {
-            // if color is not detected stop and
-            // show telemetry while op mode is active
-            powerMotors(0, 0);
-            showTelemetry();
-            return;
+        if (beaconSide != BeaconSide.none) {
+
+            // if color is detected, move forward to hit the beacon
+            sleep(500); //Give time for pad to get  into position
+            driveUntilHit(5, -0.3);
+
+            telemetryout("At the wall");
+            // shimmy on the beacon side
+            shimmy(beaconSide);
+            moreShimmyIfNeeded();
+
+            telemetryout("After shimmy");
         }
-
-        // if color is detected, move forward to hit the beacon
-        sleep(500); //Give time for pad to get  into position
-        driveUntilHit(5, -0.3);
-
-        telemetryout("At the wall");
-        // shimmy on the beacon side
-        shimmy(beaconSide);
-        moreShimmyIfNeeded();
-
-        telemetryout("After shimmy");
 
         // move 8 inches back
         moveByInches(8);
@@ -348,8 +360,11 @@ public abstract class AutonomousMode extends LinearOpMode {
         rotate(angle, fromAngle);
 
         telemetryout("Rotated along the wall");
+
+        servoBar.setPosition(95.0/255);
+
         // drive the distance between two white lines
-        movedRequiredDistance = moveByInchesGyro(-0.8, 0, 35.5 );
+        movedRequiredDistance = moveByInchesGyro(-0.9, 0, 34 );
         telemetryout("Moved required distance 2: " + movedRequiredDistance);
         if (!movedRequiredDistance) {
             // if we didn't travel the correct distance,
@@ -359,8 +374,8 @@ public abstract class AutonomousMode extends LinearOpMode {
             return;
         }
 
-        // go to white line
-        foundWhiteLine = driveUntilWhite(-0.3, 0);
+        // go to white line (second beacon)
+        foundWhiteLine = driveUntilWhite(-0.3, 0, 20);
         telemetryout("Found white line 2: " + foundWhiteLine);
         if (!foundWhiteLine) {
             // if line is not detected stop and
@@ -384,14 +399,16 @@ public abstract class AutonomousMode extends LinearOpMode {
 
         telemetryout("Rotated to white line 2");
 
-        beaconSideFar = followLine(-0.3, MID_POINT_LIGHT_BACK);
+        servoBar.setPosition(215.0/255);
+
+        followLine(-0.3, MID_POINT_LIGHT_BACK);
 
         telemetryout("Followed line 2");
 
         // detect color
         beaconSide = detectColor(true);
 
-        if (beaconSide == BeaconSide.none && beaconSideFar == BeaconSide.none) {
+        if (beaconSide == BeaconSide.none) {
             // if color is not detected stop and
             // show telemetry while op mode is active
             powerMotors(0, 0);
@@ -439,11 +456,13 @@ public abstract class AutonomousMode extends LinearOpMode {
 
         // shooting the ball(s)
         powerFlywheels(true);
-        sleep(1000);
         motorBelt.setPower(1);
-        sleep(3500);
-        powerFlywheels(false);
+        sleep(4000);
         motorBelt.setPower(0);
+        powerFlywheels(false);
+
+
+        servoBar.setPosition(95.0/255);
 
         if (stopAfterShooting) {
             moveBallAndPark();
@@ -513,6 +532,8 @@ public abstract class AutonomousMode extends LinearOpMode {
 
         telemetryout("Rotated to white line");
 
+        servoBar.setPosition(215.0/255);
+
         BeaconSide beaconSideFar = followLine(-0.3, MID_POINT_LIGHT_BACK);
 
         telemetryout("After followed line");
@@ -553,7 +574,7 @@ public abstract class AutonomousMode extends LinearOpMode {
     }
 
     private void moveBallAndPark() throws InterruptedException {
-        sleep((12-delay)*1000);
+        sleep((10-delay)*1000);
         int fromAngle = isBlue ? 45 : -45;
         int angle = isBlue ? 170 : -170;
         rotate(angle,fromAngle);
@@ -734,16 +755,13 @@ public abstract class AutonomousMode extends LinearOpMode {
     }
 
     private void powerFlywheels(boolean doPower) {
-        // theflywheels should move out in the opposite direction
+        // the flywheels should move out in the opposite direction
         if (doPower) {
-            // motorFlywheelLeft.setPower(1);
-            if (this.hardwareMap.voltageSensor.iterator().next().getVoltage() < 13.5) {
-                motorFlywheel.setPower(-1);
-            }else{
-                motorFlywheel.setPower(-0.9);
-            }
+            motorFlywheel.setPower(-0.5);
+            sleep(1000);
+            motorFlywheel.setPower(-0.72 );
+            sleep(1000);
         } else {
-            //  motorFlywheelLeft.setPower(0)
             motorFlywheel.setPower(0);
         }
     }
@@ -937,9 +955,12 @@ public abstract class AutonomousMode extends LinearOpMode {
         int initialcount = motorLeft1.getCurrentPosition();
         double error, clockwiseSpeed;
         double kp = 0.03; //experimental coefficient for proportional correction of the direction
-        double distance = rangeSensor.getDistance(DistanceUnit.CM);
+        long checkBlockingStartTime = System.currentTimeMillis();
+        double iniDistance = rangeSensor.getDistance(DistanceUnit.CM);
+        double endDistance = 0;
+
         //telemetryout("Inside moveByInchesGyro function...");
-        while (opModeIsActive() && distance > 8 && Math.abs(motorLeft1.getCurrentPosition() - initialcount) < Math.abs(ENCODER_COUNTS_PER_ROTATION * maxInches / 26.5)) {
+        while (opModeIsActive() && Math.abs(motorLeft1.getCurrentPosition() - initialcount) < Math.abs(ENCODER_COUNTS_PER_ROTATION * maxInches / 26.5)) {
             // error CCW - negative, CW - positive
             error = getRawHeadingError(headingToBeaconZone);
             //telemetryout("moveByInchesGyro function => error is: " + error);
@@ -956,17 +977,24 @@ public abstract class AutonomousMode extends LinearOpMode {
             //telemetryout("moveByInchesGyro function => distance = " +distance);
             //clockwiseSpeed = Range.clip(clockwiseSpeed, -1.0, 1.0);
             telemetry.addData("Error", error);
-            telemetry.addData("Distance", distance);
             telemetry.update();
 
             //DbgLog.msg(i + " clockwise speed "+clockwiseSpeed);
 
             powerMotors(drivingPower - clockwiseSpeed, drivingPower + clockwiseSpeed);
             //telemetryout("moveByInchesGyro function => powerMotors = "+ (drivingPower-clockwiseSpeed) + "and " + (drivingPower + clockwiseSpeed));
-            distance = rangeSensor.getDistance(DistanceUnit.CM);
+
+            //safety check every 0.5 sec. If an object blocked in front, stop the robot
+//            if((System.currentTimeMillis()-checkBlockingStartTime)/1000 > 0.5) {
+//                checkBlockingStartTime = System.currentTimeMillis();
+//                endDistance = rangeSensor.getDistance(DistanceUnit.CM);
+//                if( Math.abs((endDistance - iniDistance) < 2) && endDistance <10){
+//                    return false;
+//                }
+//                iniDistance = endDistance;
+//            }
         }
-        //motorBrush.setPower(0);
-        return opModeIsActive() && distance > 12;
+        return opModeIsActive();
     }
 
     private boolean driveUntilWhite(double drivingPower, int headingToBeaconZone) throws InterruptedException {
@@ -991,10 +1019,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         //maintain the direction until robot "sees" the edge of white line/touches/close to some other object
         //double alpha = colorSensorBottom.alpha();
         double light = opticalSensor.getLightDetected();
-        double distance = rangeSensor.getDistance(DistanceUnit.CM);
-        //double leftcounts = motorLeft1.getCurrentPosition();
-        //double sign = drivingPower/Math.abs(drivingPower);
-        while (opModeIsActive() && light < MID_POINT_LIGHT_BACK && distance > 6 && Math.abs(motorLeft1.getCurrentPosition() - initialcount) < Math.abs(ENCODER_COUNTS_PER_ROTATION * maxInches / 26.5)) {
+        while (opModeIsActive() && light < MID_POINT_LIGHT_BACK && Math.abs(motorLeft1.getCurrentPosition() - initialcount) < Math.abs(ENCODER_COUNTS_PER_ROTATION * maxInches / 26.5)) {
             // error CCW - negative, CW - positive
             error = getRawHeadingError(headingToBeaconZone);
             //don't do any correction
@@ -1012,7 +1037,6 @@ public abstract class AutonomousMode extends LinearOpMode {
             //DbgLog.msg(i + " clockwise speed "+clockwiseSpeed);
 
             powerMotors(drivingPower - clockwiseSpeed, drivingPower + clockwiseSpeed);
-            distance = rangeSensor.getDistance(DistanceUnit.CM);
             light = opticalSensor.getLightDetected();
         }
         //motorBrush.setPower(0);
@@ -1113,27 +1137,66 @@ public abstract class AutonomousMode extends LinearOpMode {
 
     private void moveOnShooting() {
 
-        try {
-            this.powerMotors(-DRIVING_POWER, -DRIVING_POWER);
-            int currentPosition;
-            int startPosition = (currentPosition = motorLeft1.getCurrentPosition());
-            //start belt turning at 15 inch
-            double beltCount = ENCODER_COUNTS_PER_ROTATION * SHOOT_STARTBELT_DISTANCE / 26.5;
+//        try {
+              int currentPosition;
+//            this.powerMotors(-DRIVING_POWER, -DRIVING_POWER);
+//            int startPosition = (currentPosition = motorLeft1.getCurrentPosition());
+//            //start belt turning at 15 inch
+//            double beltCount = ENCODER_COUNTS_PER_ROTATION * SHOOT_STARTBELT_DISTANCE / 26.5;
 
             powerFlywheels(true);
+            sleep(5000);
+            motorBelt.setPower(1);
 
-            while ((Math.abs(currentPosition - startPosition)) < ENCODER_COUNTS_PER_ROTATION * (SHOOT_DISTANCE1) / 26.5) {
-                if (Math.abs(currentPosition - startPosition) > beltCount) {
-                    motorBelt.setPower(1);
-                }
-                currentPosition = motorLeft1.getCurrentPosition();
-                idle();
-
-            }
-            powerMotors(0,0);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+//            while ((Math.abs(currentPosition - startPosition)) < ENCODER_COUNTS_PER_ROTATION * (SHOOT_DISTANCE1) / 26.5) {
+//                if (Math.abs(currentPosition - startPosition) > beltCount) {
+//                    motorBelt.setPower(1);
+//                }
+//                currentPosition = motorLeft1.getCurrentPosition();
+//                idle();
+//
+//            }
+//            powerMotors(0,0);
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
     }
+
+    /*private double filterRangeSensorData(double curDistance, double preDistance,ArrayList<Double> rangeArray){
+        double rangeAvg = 0;
+        double lastRangeAvg = 0.0;
+        double sum = 0;
+        double lastSum = 0;
+
+        if((curDistance!=preDistance ) && curDistance < 130) {
+            rangeArray.add(curDistance);
+            for (double distance : rangeArray) {
+                sum += distance;
+            }
+            rangeAvg = sum / rangeArray.size();
+
+            //retrieve last 10 readings, if avg below 13, the robot is stuck with and object, return distance = 0 to stop the robot
+            telemetryout(" curDistance=" + curDistance + " preDist=" + preDistance + " sum=" + sum + " size=" + rangeArray.size() + " rArray=" + rangeArray + " rAvg=" + rangeAvg);
+
+            //filter exceptional readings from rangeSensor,  && Math.abs(curDistance-rangeAvg)> 15
+            if(curDistance <= 13 ){
+                if(rangeArray.size() >=20) {
+                    List<Double> last20 = rangeArray.subList(rangeArray.size() - 20, rangeArray.size());
+                    for (double reading : last20) {
+                        lastSum += reading;
+                    }
+                    lastRangeAvg = lastSum / 20;
+                    telemetryout("lastRangeAvg = " + lastRangeAvg + " return=>"+ (lastRangeAvg > 10 ? preDistance : 0));
+                    curDistance = lastRangeAvg > 10 ? preDistance : 0;
+                }else{
+                    telemetryout("obect is close to robot");
+                    curDistance = preDistance;
+                }
+            }
+        }
+        telemetryout("before exit, curDistance = "+ curDistance);
+        return curDistance;
+    }*/
+
 
 }
