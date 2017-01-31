@@ -254,6 +254,12 @@ public abstract class AutonomousMode extends LinearOpMode {
         // robot facing backward
 
         int angle, fromAngle;
+
+
+        // move forward
+        moveByInches(-11, 0.6);
+        telemetryout("After moved 11 inches");
+
         //start shooting at the position1 (3rd tile from the corner)
         powerFlywheels(true);
         motorBelt.setPower(1);
@@ -276,10 +282,6 @@ public abstract class AutonomousMode extends LinearOpMode {
 
         // move back 2 inches
         // moveByInches(2);
-
-        // move forward
-        moveByInches(-11, 0.6);
-        telemetryout("After moved 11 inches");
 
         // blue: rotate 46 from heading 0
         // red: rotate -46 from heading 0
@@ -758,9 +760,9 @@ public abstract class AutonomousMode extends LinearOpMode {
         // the flywheels should move out in the opposite direction
         if (doPower) {
             motorFlywheel.setPower(-0.5);
-            sleep(1000);
+            sleep(1200);
             motorFlywheel.setPower(-0.72 );
-            sleep(1000);
+            sleep(1200);
         } else {
             motorFlywheel.setPower(0);
         }

@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode;
 
 import android.os.Environment;
 
+import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
@@ -13,7 +14,7 @@ import java.io.OutputStreamWriter;
 /**
  * testing flywheel stabilization behavior (speed vs time) with various power profiles
  */
-
+@Autonomous(name="Flywheel", group="nb")
 public class FlywheelTest extends LinearOpMode {
 
     private DcMotor motorFlywheel;
@@ -67,13 +68,12 @@ public class FlywheelTest extends LinearOpMode {
         while (timer.milliseconds() < 7000) {
             timeMs = timer.milliseconds();
             timeDiff = timeMs - prevTimeMs;
-            if (timeDiff > 20) {
                 count = motorFlywheel.getCurrentPosition();
                 speed = (Math.abs(count - prevCount) / timeDiff);
                 sb.append(timeMs).append(",").append(speed).append("\n");
                 prevTimeMs = timeMs;
                 prevCount = count;
-            }
+            sleep(70);
         }
 
         try {

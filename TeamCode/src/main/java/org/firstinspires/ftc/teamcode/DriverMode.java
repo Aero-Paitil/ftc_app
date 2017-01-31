@@ -235,12 +235,10 @@ public class DriverMode extends OpMode {
 
     private void powerFlywheels(boolean doPower) {
         if (doPower) {
-            double maxPower = -0.7;
+            double maxPower = -0.68;
             double ms = gunTimer.milliseconds();
-            if (ms < 400){
-                motorFlywheel.setPower(-0.4 );
-            } else if (ms < 1000) {
-                motorFlywheel.setPower(ms*maxPower/1000);
+            if (ms < 1200){
+                motorFlywheel.setPower(-0.5 );
             } else {
                 motorFlywheel.setPower(maxPower);//(-0.715)
             }
