@@ -56,8 +56,8 @@ public class DriverMode extends OpMode {
         motorLeft1 = hardwareMap.dcMotor.get("D1left");
         motorRight1 = hardwareMap.dcMotor.get("D1right");
         // run by power
-        motorLeft1.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        motorRight1.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        motorLeft1.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        motorRight1.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         // float zero power
         motorLeft1.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         motorRight1.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
@@ -172,7 +172,7 @@ public class DriverMode extends OpMode {
 
         //using the Belt
         if(gamepad1.right_bumper || gamepad1.left_bumper){
-            if (triggered && gunTimer.seconds() < 2){
+            if (triggered && gunTimer.milliseconds() < 2400){
                 motorBelt.setPower(0);
             } else {
                 motorBelt.setPower(1);
@@ -235,7 +235,7 @@ public class DriverMode extends OpMode {
 
     private void powerFlywheels(boolean doPower) {
         if (doPower) {
-            double maxPower = -0.68;
+            double maxPower = -0.70;
             double ms = gunTimer.milliseconds();
             if (ms < 1200){
                 motorFlywheel.setPower(-0.5 );

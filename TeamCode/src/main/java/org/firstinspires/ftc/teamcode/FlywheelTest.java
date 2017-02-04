@@ -10,11 +10,12 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
+import java.text.DecimalFormat;
 
 /**
  * testing flywheel stabilization behavior (speed vs time) with various power profiles
  */
-@Autonomous(name="Flywheel", group="nb")
+@Autonomous(name = "Flywheel", group = "nb")
 public class FlywheelTest extends LinearOpMode {
 
     private DcMotor motorFlywheel;
@@ -37,17 +38,17 @@ public class FlywheelTest extends LinearOpMode {
             return;
         }
 
-        testFlywheel(-0.5);
-        testFlywheel(-0.6);
+        testFlywheel(-0.68);
+        testFlywheel(-0.69);
         testFlywheel(-0.7);
-        testFlywheel(-0.8);
-        testFlywheel(-0.9);
+        testFlywheel(-0.71);
+        testFlywheel(-0.72);
 
     }
 
     private void testFlywheel(double power) {
 
-        telemetry.addData("Test power", ""+power);
+        telemetry.addData("Test power", "" + power);
         telemetry.update();
 
         // the flywheels should move out in the opposite direction
@@ -60,25 +61,37 @@ public class FlywheelTest extends LinearOpMode {
 
         StringBuffer sb = new StringBuffer("time,speed\n");
 
-        motorFlywheel.setPower(power);
+        motorFlywheel.setPower(-0.5);
         ElapsedTime timer = new ElapsedTime();
         timer.reset();
         double prevTimeMs = timer.milliseconds();
         double timeMs, timeDiff, speed;
-        while (timer.milliseconds() < 7000) {
+        DecimalFormat f = new DecimalFormat("0.####");
+        while (timer.milliseconds() < 1200) {
             timeMs = timer.milliseconds();
             timeDiff = timeMs - prevTimeMs;
-                count = motorFlywheel.getCurrentPosition();
-                speed = (Math.abs(count - prevCount) / timeDiff);
-                sb.append(timeMs).append(",").append(speed).append("\n");
-                prevTimeMs = timeMs;
-                prevCount = count;
-            sleep(70);
+            count = motorFlywheel.getCurrentPosition();
+            speed = (Math.abs(count - prevCount) / timeDiff);
+            sb.append(f.format(timeMs)).append(",").append(f.format(speed)).append("\n");
+            prevTimeMs = timeMs;
+            prevCount = count;
+            sleep(150);
+        }
+        motorFlywheel.setPower(power);
+        while (timer.milliseconds() < 10000) {
+            timeMs = timer.milliseconds();
+            timeDiff = timeMs - prevTimeMs;
+            count = motorFlywheel.getCurrentPosition();
+            speed = (Math.abs(count - prevCount) / timeDiff);
+            sb.append(f.format(timeMs)).append(",").append(f.format(speed)).append("\n");
+            prevTimeMs = timeMs;
+            prevCount = count;
+            sleep(150);
         }
 
         try {
-            String powerStr = ""+(int)Math.round(power*100);
-            File file = new File(Environment.getExternalStorageDirectory().getPath() + "/FIRST/flywheel"+powerStr+".txt");
+            String powerStr = "" + (int) Math.round(power * 100);
+            File file = new File(Environment.getExternalStorageDirectory().getPath() + "/FIRST/flywheel" + powerStr + ".txt");
             telemetry.addData("File", file.getAbsolutePath());
 
             OutputStreamWriter outputStreamWriter = new OutputStreamWriter(new FileOutputStream(file));
