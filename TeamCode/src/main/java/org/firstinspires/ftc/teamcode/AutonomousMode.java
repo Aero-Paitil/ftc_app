@@ -218,15 +218,11 @@ public abstract class AutonomousMode extends LinearOpMode {
             } else {
                 sequenceFromTile4();
             }
-            ;
 
-
-            //stop tracking images
-            //allImages.deactivate();
         } finally {
             try {
                 File file = new File(Environment.getExternalStorageDirectory().getPath() + "/FIRST/lastrun.txt");
-                telemetry.addData("File", file.getAbsolutePath());
+                telemetry.addData("Wrote File", file.getAbsolutePath());
 
                 OutputStreamWriter outputStreamWriter = new OutputStreamWriter(new FileOutputStream(file));
                 outputStreamWriter.write(out.toString());
@@ -243,7 +239,6 @@ public abstract class AutonomousMode extends LinearOpMode {
             } catch (Exception e) {
                 telemetry.addData("Exception", "File write failed: " + e.toString());
             }
-
         }
     }
 
@@ -731,29 +726,22 @@ public abstract class AutonomousMode extends LinearOpMode {
     }
 
     private void telemetryout(String step) {
-        //telemetry.addData("Count: ", motorRight1.getCurrentPosition());
-
-        //out.append("    Optical Light ").append(opticalSensor.getLightDetected()).append("\n");
-        //out.append("    Gyro Reading ").append(getGyroRawHeading()).append("\n");
-        //out.append("    Distance ").append(rangeSensor.getDistance(DistanceUnit.CM)).append("cm\n");
-        //out.append("    Wheel Encoder Position ").append(motorLeft1.getCurrentPosition());
-        //out.append("    Time ").append(Calendar.HOUR_OF_DAY + ":" + Calendar.MINUTE + ":" + Calendar.SECOND + ":" + Calendar.MILLISECOND);
-        //out.append("    Voltage reading ").append(this.hardwareMap.voltageSensor.iterator().next().getVoltage());
-        if (firstTimeTelemetry) {
-            out.append("Time    Step            Optical light   GyroReading     Distance    Wheel Encoder Position      Voltage     Color3c     Color3a").append("\n");
-            out.append("===========================================================================================================================").append("\n");
+       if (firstTimeTelemetry) {
+            out.append("Time,Step,Optical Light,Gyro Reading,Distance,Wheel Encoder Position,Voltage,Color3c - R/G/B,Color3a - R/G/B").append("\n");
             firstTimeTelemetry = false;
         }
-        out.append("\n").append(new SimpleDateFormat("MMMdd_HHmm:ss.SS").format(new Date())).append(",\t");
-        out.append(step).append(",\t\t\t");
-        out.append(opticalSensor.getLightDetected()).append(",\t");
-        out.append(getGyroRawHeading()).append(",\t");
-        out.append(rangeSensor.getDistance(DistanceUnit.CM)).append("cm,\t");
-        out.append(motorLeft1.getCurrentPosition()).append(",\t");
-        out.append(this.hardwareMap.voltageSensor.iterator().next().getVoltage()).append(",\n");
+        out.append("\n").append(new SimpleDateFormat("MMMdd_HHmm:ss").format(new Date())).append(",");
+        out.append(step).append(",");
+        out.append(opticalSensor.getLightDetected()).append(",");
+        out.append(getGyroRawHeading()).append(",");
+        out.append(rangeSensor.getDistance(DistanceUnit.CM)).append("cm,");
+        out.append(motorLeft1.getCurrentPosition()).append(",");
+        out.append(this.hardwareMap.voltageSensor.iterator().next().getVoltage()).append(",");
         if (colorSensorsEnabled) {
-            out.append("    Color 3c - R/G/B ").append(colorSensor3c.red()).append("/").append(colorSensor3c.green()).append("/").append(colorSensor3c.blue()).append(",\t");
-            out.append("    Color 3a - R/G/B ").append(colorSensor3a.red()).append("/").append(colorSensor3a.green()).append("/").append(colorSensor3a.blue()).append(",\n");
+            out.append(colorSensor3c.red()).append("/").append(colorSensor3c.green()).append("/").append(colorSensor3c.blue()).append(",");
+            out.append(colorSensor3a.red()).append("/").append(colorSensor3a.green()).append("/").append(colorSensor3a.blue()).append(",");
+        } else {
+            out.append(",,");
         }
     }
 
