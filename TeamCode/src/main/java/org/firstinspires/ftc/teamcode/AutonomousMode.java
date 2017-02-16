@@ -52,7 +52,7 @@ public abstract class AutonomousMode extends LinearOpMode {
 
     private double TILE_LENGTH = 23.5;
     private double HALF_WIDTH = 8.5;
-    private double DRIVING_POWER = 0.3;
+    private double DRIVING_POWER = 0.4;
     private double MID_POINT_LIGHT_BACK = 0.3;
     //private double MAX_COUNTS_TO_WHITE = 2.26 * ENCODER_COUNTS_PER_ROTATION;
 
@@ -174,6 +174,19 @@ public abstract class AutonomousMode extends LinearOpMode {
 
         gyro.resetZAxisIntegrator(); //reset gyro heading to 0
 
+        // put the servos in correct position
+        servoBeaconPad = hardwareMap.servo.get("BeaconPad");
+        setPadPosition(15); // to avoid pad covering camera
+        sleep(500);
+
+        servoBar = hardwareMap.servo.get("ServoBar");
+        // lower servo bar
+        servoBar.setPosition(215.0 / 255);
+
+        telemetryout("Initial: " + (isBlue ? "blue; " : "red; ") + startTile +
+                "; delay: " + delay + "; after shoot: " + afterShootingBehavior);
+        telemetry.update();
+
         //waitForStart();
         // Wait for the game to start (Display Gyro value), and reset gyro before we move..
         while (!isStarted()) {
@@ -191,23 +204,13 @@ public abstract class AutonomousMode extends LinearOpMode {
             gyro.resetZAxisIntegrator(); //reset gyro heading to 0
             sleep(50);
 
-            //motorBelt.setPower(0.5); // the box is too small at the moment
-            servoBeaconPad = hardwareMap.servo.get("BeaconPad");
-            setPadPosition(15); // to avoid pad covering camera
-            sleep(500);
-
-            servoBar = hardwareMap.servo.get("ServoBar");
-            // raise servoBar
-            servoBar.setPosition(95.0 / 255);
-
-            telemetryout("Initial: " + (isBlue ? "blue; " : "red; ") + startTile +
-                    "; delay: " + delay + "; after shoot: " + afterShootingBehavior);
-            telemetry.update();
-
             //disable color: color sensors are only enabled when detecting color
             color3aController.deregisterForPortReadyCallback(color3a.getPort());
             color3cController.deregisterForPortReadyCallback(color3c.getPort());
             colorSensorsEnabled = false;
+
+            // raise servoBar
+            servoBar.setPosition(95.0 / 255);
 
             if (delay > 0) {
                 sleep(1000 * delay);
@@ -257,7 +260,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         //start shooting at the position1 (3rd tile from the corner)
         moveOnForShooting(0.5, SHOOT_DISTANCE1, SHOOT_POWER1);
         motorBelt.setPower(1);
-        sleep(4000);
+        sleep(2500);
         motorBelt.setPower(0);
         powerFlywheels(false);
 
@@ -270,13 +273,6 @@ public abstract class AutonomousMode extends LinearOpMode {
             return;
         }
 
-        // raise servoBar
-        // TODO: can be removed?
-        servoBar.setPosition(95.0 / 255);
-
-        // move back 2 inches
-        // moveByInches(2);
-
         // blue: rotate 46 from heading 0
         // red: rotate -46 from heading 0
         angle = isBlue ? 43 : -47;
@@ -287,7 +283,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         sleep(100);
 
         // drive almost to the white line
-        boolean movedRequiredDistance = moveByInchesGyro(-0.9, angle, 41);
+        boolean movedRequiredDistance = moveByInchesGyro(-1, angle, 41);
         telemetryout("Moved 41  inches " + movedRequiredDistance);
 
         if (!movedRequiredDistance) {
@@ -312,14 +308,14 @@ public abstract class AutonomousMode extends LinearOpMode {
 
         // go 8 inches past white line
         double pastLineInches = -8; //
-        moveByInches(pastLineInches);
+        moveByInches(pastLineInches, 0.3);
 
         telemetryout("Passed " + pastLineInches + " inches after white line");
         // blue: rotate ~30 degrees CW from heading 45
         // red: rotate ~30 degrees CCW from heading -45
         fromAngle = angle;
         angle = isBlue ? 30 : -30;
-        rotate(angle, fromAngle);
+        rotate(angle, fromAngle, 0.3);
 
         // lower servo bar
         servoBar.setPosition(215.0 / 255);
@@ -360,7 +356,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         servoBar.setPosition(95.0 / 255);
 
         // drive the distance between two white lines
-        movedRequiredDistance = moveByInchesGyro(-0.9, 0, 34);
+        movedRequiredDistance = moveByInchesGyro(-1, 0, 34);
         telemetryout("Moved required distance 2: " + movedRequiredDistance);
         if (!movedRequiredDistance) {
             // if we didn't travel the correct distance,
@@ -382,8 +378,11 @@ public abstract class AutonomousMode extends LinearOpMode {
         }
 
         // go 8 inches past white line
-        pastLineInches = -8; //
+        pastLineInches = -8-5; // extra 5 inches to clear space for the turn
         moveByInches(pastLineInches);
+        sleep(100);
+        servoBar.setPosition(215.0 / 255);
+        moveByInches(5);
 
         telemetryout("Passed " + pastLineInches + " inches after white line 2");
 
@@ -394,8 +393,6 @@ public abstract class AutonomousMode extends LinearOpMode {
         rotate(angle, fromAngle);
 
         telemetryout("Rotated to white line 2");
-
-        servoBar.setPosition(215.0 / 255);
 
         followLine(-0.3, MID_POINT_LIGHT_BACK);
 
@@ -457,9 +454,6 @@ public abstract class AutonomousMode extends LinearOpMode {
         sleep(4000);
         motorBelt.setPower(0);
         powerFlywheels(false);
-
-
-        servoBar.setPosition(95.0 / 255);
 
         if (stopAfterShooting) {
             powerMotors(0, 0);
@@ -916,9 +910,12 @@ public abstract class AutonomousMode extends LinearOpMode {
         powerMotors(0, 0);
     }
 
+    private void rotate(int angle, int fromRawHeading) throws InterruptedException {
+        rotate(angle, fromRawHeading, DRIVING_POWER);
+    }
 
     // pcircle - part of the circle, positive - clockwise
-    private void rotate(int angle, int fromRawHeading) throws InterruptedException {
+    private void rotate(int angle, int fromRawHeading, double power) throws InterruptedException {
         sleep(100); // to make sure robot stopped moving
 
         int counts = motorRight1.getCurrentPosition();
@@ -931,7 +928,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         telemetry.update();
 
         double sign = Math.round(pcircle / Math.abs(pcircle));
-        powerMotors(sign * DRIVING_POWER, -sign * DRIVING_POWER);
+        powerMotors(sign * power, -sign * power);
         // assuming 16 inches between wheels, 8 inches radius - 50.24 in
         // assuming 15 inches between wheels, 7.5 inches radius - 46.24 in
         // assuming 15.5 inches between wheels, 7.75 inches radius - 48.67 in
@@ -1142,10 +1139,11 @@ public abstract class AutonomousMode extends LinearOpMode {
         motorFlywheel.setPower(-0.5);
         timer.reset();
 
-        this.powerMotors(-power, -power);
-
         int startPosition = motorLeft1.getCurrentPosition();
         int currentPosition = startPosition;
+
+        this.powerMotors(-power, -power);
+
 
         while (opModeIsActive() && Math.abs(currentPosition - startPosition) < ENCODER_COUNTS_PER_ROTATION * distance / 26.5 &&
                 timer.milliseconds()<1200) {
@@ -1159,8 +1157,8 @@ public abstract class AutonomousMode extends LinearOpMode {
         }
         powerMotors(0, 0);
         int currentms = (int)timer.milliseconds();
-        if (currentms < 2400){
-            sleep(2400-currentms);
+        if (currentms < 2000){
+            sleep(2000-currentms);
         }
     }
 

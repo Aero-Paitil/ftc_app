@@ -172,7 +172,7 @@ public class DriverMode extends OpMode {
 
         //using the Belt
         if(gamepad1.right_bumper || gamepad1.left_bumper){
-            if (triggered && gunTimer.milliseconds() < 2400){
+            if (triggered && gunTimer.milliseconds() < 1500){
                 motorBelt.setPower(0);
             } else {
                 motorBelt.setPower(1);
