@@ -43,7 +43,7 @@ public class AutonomousOptions extends OpMode {
     private static final String[] DELAYS = {"0 sec", "3 sec", "5 sec", "7 sec"};
     private static final String[] START_POS = {"3rd tile from corner", "4th tile from corner"};
     //private static final String[] STOP_AFTER_SHOOTING = {"true", "false"};
-    private static final String[] STOP_AFTER_SHOOTING = {"stop", "ballPark","beacon"};
+    private static final String[] STOP_AFTER_SHOOTING = {"stop", "ballPark","beacon","rampPark"};
 
     public static SharedPreferences getSharedPrefs(HardwareMap hardwareMap) {
         return hardwareMap.appContext.getSharedPreferences("autonomous", 0);

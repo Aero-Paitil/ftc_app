@@ -46,7 +46,7 @@ import java.util.List;
  * Updated by Sangmin and Jasmine 11/05/2016 - drive straight using gyro
  */
 
-public abstract class AutonomousMode extends LinearOpMode {
+abstract class AutonomousMode extends LinearOpMode {
 
     enum BeaconSide {left, right, none}
 
@@ -181,7 +181,7 @@ public abstract class AutonomousMode extends LinearOpMode {
 
         servoBar = hardwareMap.servo.get("ServoBar");
         // lower servo bar
-        servoBar.setPosition(215.0 / 255);
+        lowerBar();
 
         telemetryout("Initial: " + (isBlue ? "blue; " : "red; ") + startTile +
                 "; delay: " + delay + "; after shoot: " + afterShootingBehavior);
@@ -210,7 +210,7 @@ public abstract class AutonomousMode extends LinearOpMode {
             colorSensorsEnabled = false;
 
             // raise servoBar
-            servoBar.setPosition(95.0 / 255);
+            liftBar();
 
             if (delay > 0) {
                 sleep(1000 * delay);
@@ -272,7 +272,10 @@ public abstract class AutonomousMode extends LinearOpMode {
             showTelemetry();
             return;
         }
-
+        if (afterShootingBehavior.equals("rampPark")){
+            parkOnRamp();
+            return;
+        }
         // blue: rotate 46 from heading 0
         // red: rotate -46 from heading 0
         angle = isBlue ? 43 : -47;
@@ -317,8 +320,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         angle = isBlue ? 30 : -30;
         rotate(angle, fromAngle, 0.3);
 
-        // lower servo bar
-        servoBar.setPosition(215.0 / 255);
+        lowerBar();
 
         telemetryout("Rotated to white line");
         followLine(-0.3, MID_POINT_LIGHT_BACK);
@@ -353,7 +355,7 @@ public abstract class AutonomousMode extends LinearOpMode {
 
         telemetryout("Rotated along the wall");
 
-        servoBar.setPosition(95.0 / 255);
+        liftBar();
 
         // drive the distance between two white lines
         movedRequiredDistance = moveByInchesGyro(-1, 0, 34);
@@ -381,7 +383,7 @@ public abstract class AutonomousMode extends LinearOpMode {
         pastLineInches = -8-5; // extra 5 inches to clear space for the turn
         moveByInches(pastLineInches);
         sleep(100);
-        servoBar.setPosition(215.0 / 255);
+        lowerBar();
         moveByInches(5);
 
         telemetryout("Passed " + pastLineInches + " inches after white line 2");
@@ -465,6 +467,9 @@ public abstract class AutonomousMode extends LinearOpMode {
         if (afterShootingBehavior.equals("ballPark")) {
             moveBallAndPark();
             return;
+        } else if (afterShootingBehavior.equals("rampPark")){
+            parkOnRamp();
+            return;
         }
 
         // blue: rotate 90 degrees CW from heading 45
@@ -530,7 +535,7 @@ public abstract class AutonomousMode extends LinearOpMode {
 
         telemetryout("Rotated to white line");
 
-        servoBar.setPosition(215.0 / 255);
+        lowerBar();
 
         BeaconSide beaconSideFar = followLine(-0.3, MID_POINT_LIGHT_BACK);
 
@@ -571,6 +576,22 @@ public abstract class AutonomousMode extends LinearOpMode {
 
     }
 
+    private void parkOnRamp() throws InterruptedException {
+        int fromAngle, angle, distance;
+        if (startTile.startsWith("3rd")) {
+            fromAngle = 0;
+            angle = isBlue ? -75 : 75;
+            distance = isBlue ? 45 : 50;
+        } else {
+            fromAngle = isBlue ? 45 : -45;
+            angle = isBlue ? -110 : 110;
+            distance = isBlue ? 70 : 75;
+        }
+        rotate(angle, fromAngle);
+        lowerBar();
+        moveByInches(distance);
+    }
+
     private void moveBallAndPark() throws InterruptedException {
         sleep((10 - delay) * 1000);
         int fromAngle = isBlue ? 45 : -45;
@@ -579,6 +600,13 @@ public abstract class AutonomousMode extends LinearOpMode {
         motorBrush.setPower(-1);
         moveByInches(1.75 * TILE_LENGTH);
     }
+    private void liftBar(){
+        servoBar.setPosition(95.0 / 255);
+    }
+    private void lowerBar(){
+        servoBar.setPosition(215.0 / 255);
+    }
+
 
     //Tiny rotation clockwise or counter clockwise
     private void smallrotate(String direction) throws InterruptedException {
