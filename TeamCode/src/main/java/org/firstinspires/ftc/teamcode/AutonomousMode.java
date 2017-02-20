@@ -61,7 +61,7 @@ abstract class AutonomousMode extends LinearOpMode {
 
     private final static int ENCODER_COUNTS_PER_ROTATION = 2 * 1140;
     private final static int SHOOT_DISTANCE1 = 11; //inches
-    private final static double SHOOT_POWER1 = -0.72; //flywheel power for shooting
+    private final static double SHOOT_POWER1 = -0.71; //flywheel power for shooting
     private final static double SHOOT_POWER2 = -0.70; //flywheel power for shooting
 
     private boolean isBlue = isBlueAlliance();
@@ -286,7 +286,7 @@ abstract class AutonomousMode extends LinearOpMode {
         sleep(200);
 
         // drive almost to the white line
-        boolean movedRequiredDistance = moveByInchesGyro(-1, angle, 41);
+        boolean movedRequiredDistance = moveByInchesGyro(-1, angle, 41, -0.3);
         telemetryout("Moved 41  inches " + movedRequiredDistance);
 
         if (!movedRequiredDistance) {
@@ -360,7 +360,7 @@ abstract class AutonomousMode extends LinearOpMode {
         sleep(200);
 
         // drive the distance between two white lines
-        movedRequiredDistance = moveByInchesGyro(-1, 0, 33);
+        movedRequiredDistance = moveByInchesGyro(-1, 0, 33, -0.3);
         telemetryout("Moved required distance 2: " + movedRequiredDistance);
         if (!movedRequiredDistance) {
             // if we didn't travel the correct distance,
@@ -435,14 +435,14 @@ abstract class AutonomousMode extends LinearOpMode {
 
         counts = outerMotor.getCurrentPosition();
 
-        while (opModeIsActive() && Math.abs(outerMotor.getCurrentPosition() - counts) < Math.abs(ENCODER_COUNTS_PER_ROTATION * outerWheelDist / 26.5)) {
+        while (opModeIsActive() && Math.abs(outerMotor.getCurrentPosition() - counts) < inchesToCounts(outerWheelDist)) {
             idle();
             telemetry.addData("Raw heading", getGyroRawHeading());
             telemetry.update();
         }
 
         angle = isBlue ? 45 : -45;
-        moveByInchesGyro(1, angle, 43);
+        moveByInchesGyro(1, angle, 43, -1);
 
         powerMotors(0, 0);
         motorBrush.setPower(0);
@@ -514,7 +514,7 @@ abstract class AutonomousMode extends LinearOpMode {
             rightPower = powerRatio * leftPower;
         }
         powerMotors(leftPower, rightPower);
-        while (opModeIsActive() && Math.abs(motorRight1.getCurrentPosition() - counts) < Math.abs(ENCODER_COUNTS_PER_ROTATION * inches / 26.5)) {
+        while (opModeIsActive() && Math.abs(motorRight1.getCurrentPosition() - counts) < inchesToCounts(inches)) {
             idle();
             telemetry.addData("Raw heading", getGyroRawHeading());
             telemetry.update();
@@ -949,7 +949,7 @@ abstract class AutonomousMode extends LinearOpMode {
         int counts = motorRight1.getCurrentPosition();
         double sign = Math.round(inches / Math.abs(inches));
         powerMotors(sign * drivingPower, sign * drivingPower);
-        while (opModeIsActive() && Math.abs(motorRight1.getCurrentPosition() - counts) < Math.abs(ENCODER_COUNTS_PER_ROTATION * inches / 26.5)) {
+        while (opModeIsActive() && Math.abs(motorRight1.getCurrentPosition() - counts) < inchesToCounts(inches)) {
             idle();
             telemetry.addData("Raw heading", getGyroRawHeading());
             telemetry.update();
@@ -979,10 +979,14 @@ abstract class AutonomousMode extends LinearOpMode {
         // assuming 16 inches between wheels, 8 inches radius - 50.24 in
         // assuming 15 inches between wheels, 7.5 inches radius - 46.24 in
         // assuming 15.5 inches between wheels, 7.75 inches radius - 48.67 in
-        while (Math.abs(motorRight1.getCurrentPosition() - counts) < Math.abs(pcircle * ENCODER_COUNTS_PER_ROTATION * 48.67 / 26.5)) {
+        while (Math.abs(motorRight1.getCurrentPosition() - counts) < Math.abs(pcircle) * inchesToCounts(48.67)) {
             idle();
         }
         powerMotors(0, 0);
+    }
+
+    private double inchesToCounts(double inches){
+        return Math.abs(ENCODER_COUNTS_PER_ROTATION * inches / 26.5);
     }
 
     /**
@@ -994,18 +998,23 @@ abstract class AutonomousMode extends LinearOpMode {
      * @return true if traveled distance, otherwise false
      * @throws InterruptedException
      */
-    private boolean moveByInchesGyro(double drivingPower, int headingToBeaconZone, double maxInches) throws InterruptedException {
+    private boolean moveByInchesGyro(double drivingPower, int headingToBeaconZone, double maxInches, double nextPower) throws InterruptedException {
 
         int initialcount = motorLeft1.getCurrentPosition();
         double error, clockwiseSpeed;
         double kp = 0.03; //experimental coefficient for proportional correction of the direction
+        double countsSinceStart = Math.abs(motorLeft1.getCurrentPosition() - initialcount);
+        double slope = (nextPower - drivingPower) / Math.min(10, maxInches); // this slope is for calculating power
+        double countsForGradient = inchesToCounts(maxInches > 10 ? maxInches - 10 : 0);
 
-        while (opModeIsActive() && Math.abs(motorLeft1.getCurrentPosition() - initialcount) < Math.abs(ENCODER_COUNTS_PER_ROTATION * maxInches / 26.5)) {
+        while (opModeIsActive() && countsSinceStart < inchesToCounts(maxInches)) {
             // error CCW - negative, CW - positive
             error = getRawHeadingError(headingToBeaconZone);
             //telemetryout("moveByInchesGyro function => error is: " + error);
 
-            if (Math.abs(error) >= 1 && Math.abs(error) <= 20) {
+            if (Math.abs(error) < 1) {
+                clockwiseSpeed = 0;
+            } else if (Math.abs(error) >= 1 && Math.abs(error) <= 20) {
                 clockwiseSpeed = kp * error / 4;
             } else {
                 clockwiseSpeed = kp * Math.abs(error) / error;
@@ -1017,6 +1026,13 @@ abstract class AutonomousMode extends LinearOpMode {
             telemetry.update();
 
             powerMotors(drivingPower - clockwiseSpeed, drivingPower + clockwiseSpeed);
+
+            if (countsSinceStart > countsForGradient){
+                double motorpower = slope * (countsSinceStart-inchesToCounts(maxInches)) + nextPower;
+                powerMotors(motorpower, motorpower);
+            }
+
+            countsSinceStart = Math.abs(motorLeft1.getCurrentPosition() - initialcount);
             //telemetryout("moveByInchesGyro function => powerMotors = "+ (drivingPower-clockwiseSpeed) + "and " + (drivingPower + clockwiseSpeed));
         }
         return opModeIsActive();
@@ -1045,7 +1061,7 @@ abstract class AutonomousMode extends LinearOpMode {
         //maintain the direction until robot "sees" the edge of white line/touches/close to some other object
         //double alpha = colorSensorBottom.alpha();
         double light = opticalSensor.getLightDetected();
-        while (opModeIsActive() && light < MID_POINT_LIGHT_BACK && Math.abs(motorLeft1.getCurrentPosition() - initialcount) < Math.abs(ENCODER_COUNTS_PER_ROTATION * maxInches / 26.5)) {
+        while (opModeIsActive() && light < MID_POINT_LIGHT_BACK && Math.abs(motorLeft1.getCurrentPosition() - initialcount) < inchesToCounts(maxInches)) {
             // error CCW - negative, CW - positive
             error = getRawHeadingError(headingToBeaconZone);
             //don't do any correction
@@ -1173,13 +1189,13 @@ abstract class AutonomousMode extends LinearOpMode {
         this.powerMotors(-power, -power);
 
 
-        while (opModeIsActive() && Math.abs(currentPosition - startPosition) < ENCODER_COUNTS_PER_ROTATION * distance / 26.5 &&
+        while (opModeIsActive() && Math.abs(currentPosition - startPosition) < inchesToCounts(distance) &&
                 timer.milliseconds()<1200) {
             currentPosition = motorLeft1.getCurrentPosition();
             idle();
         }
         motorFlywheel.setPower(shootPower);
-        while (opModeIsActive() && (Math.abs(currentPosition - startPosition) < ENCODER_COUNTS_PER_ROTATION * distance / 26.5)){
+        while (opModeIsActive() && (Math.abs(currentPosition - startPosition) < inchesToCounts(distance))){
             currentPosition = motorLeft1.getCurrentPosition();
             idle();
         }
