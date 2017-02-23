@@ -378,10 +378,13 @@ abstract class AutonomousMode extends LinearOpMode {
             // show telemetry while op mode is active
             powerMotors(0, 0);
             lowerBar();
+            showTelemetry();
+            return;
         } else {
             // go 8 inches past white line
             pastLineInches = -8 - 5; // extra 5 inches to clear space for the turn
-            moveByInches(pastLineInches);
+            //moveByInches(pastLineInches);
+            moveByInchesGyro(-0.3, 0, Math.abs(pastLineInches), -0.3 );
             lowerBar();
             sleep(100);
             moveByInches(5);
@@ -1006,7 +1009,7 @@ abstract class AutonomousMode extends LinearOpMode {
         double countsSinceStart = Math.abs(motorLeft1.getCurrentPosition() - initialcount);
         double slope = (nextPower - drivingPower) / Math.min(10, maxInches); // this slope is for calculating power
         double countsForGradient = inchesToCounts(maxInches > 10 ? maxInches - 10 : 0);
-
+        double motorPower = drivingPower;
         while (opModeIsActive() && countsSinceStart < inchesToCounts(maxInches)) {
             // error CCW - negative, CW - positive
             error = getRawHeadingError(headingToBeaconZone);
@@ -1025,12 +1028,11 @@ abstract class AutonomousMode extends LinearOpMode {
             telemetry.addData("Error", error);
             telemetry.update();
 
-            powerMotors(drivingPower - clockwiseSpeed, drivingPower + clockwiseSpeed);
 
             if (countsSinceStart > countsForGradient){
-                double motorpower = slope * (countsSinceStart-inchesToCounts(maxInches)) + nextPower;
-                powerMotors(motorpower, motorpower);
+                motorPower = slope * (countsSinceStart-inchesToCounts(maxInches)) + nextPower;
             }
+            powerMotors(motorPower - clockwiseSpeed, motorPower + clockwiseSpeed);
 
             countsSinceStart = Math.abs(motorLeft1.getCurrentPosition() - initialcount);
             //telemetryout("moveByInchesGyro function => powerMotors = "+ (drivingPower-clockwiseSpeed) + "and " + (drivingPower + clockwiseSpeed));
