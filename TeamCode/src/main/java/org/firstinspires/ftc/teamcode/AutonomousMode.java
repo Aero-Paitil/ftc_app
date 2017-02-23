@@ -15,6 +15,7 @@ import com.qualcomm.robotcore.hardware.I2cController;
 import com.qualcomm.robotcore.hardware.OpticalDistanceSensor;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
+import com.qualcomm.robotcore.util.Range;
 import com.qualcomm.robotcore.util.RobotLog;
 
 import org.firstinspires.ftc.robotcore.external.ClassFactory;
@@ -62,7 +63,7 @@ abstract class AutonomousMode extends LinearOpMode {
     private final static int ENCODER_COUNTS_PER_ROTATION = 2 * 1140;
     private final static int SHOOT_DISTANCE1 = 11; //inches
     private final static double SHOOT_POWER1 = -0.71; //flywheel power for shooting
-    private final static double SHOOT_POWER2 = -0.70; //flywheel power for shooting
+    private final static double SHOOT_POWER2 = -0.695; //flywheel power for shooting
 
     private boolean isBlue = isBlueAlliance();
     private String startTile;
@@ -337,7 +338,7 @@ abstract class AutonomousMode extends LinearOpMode {
 
             telemetryout("At the wall");
             // shimmy on the beacon side
-            shimmy(beaconSide);
+            // shimmy(beaconSide);
             moreShimmyIfNeeded();
 
             telemetryout("After shimmy");
@@ -383,8 +384,8 @@ abstract class AutonomousMode extends LinearOpMode {
         } else {
             // go 8 inches past white line
             pastLineInches = -8 - 5; // extra 5 inches to clear space for the turn
-            //moveByInches(pastLineInches);
-            moveByInchesGyro(-0.3, 0, Math.abs(pastLineInches), -0.3 );
+            moveByInches(pastLineInches);
+            //moveByInchesGyro(-0.3, 0, Math.abs(pastLineInches), -0.3 );
             lowerBar();
             sleep(100);
             moveByInches(5);
@@ -415,7 +416,7 @@ abstract class AutonomousMode extends LinearOpMode {
 
             telemetryout("At the wall 2");
             // shimmy on the beacon side
-            shimmy(beaconSide);
+            //shimmy(beaconSide);
             moreShimmyIfNeeded();
 
             telemetryout("After shimmy 2");
@@ -445,7 +446,7 @@ abstract class AutonomousMode extends LinearOpMode {
         }
 
         angle = isBlue ? 45 : -45;
-        moveByInchesGyro(1, angle, 43, -1);
+        moveByInchesGyro(1, angle, 43, 1);
 
         powerMotors(0, 0);
         motorBrush.setPower(0);
@@ -606,12 +607,12 @@ abstract class AutonomousMode extends LinearOpMode {
             distance = isBlue ? 45 : 50;
         } else {
             fromAngle = isBlue ? 45 : -45;
-            angle = isBlue ? -110 : 110;
+            angle = isBlue ? -110 : 117;
             distance = isBlue ? 70 : 75;
         }
         rotate(angle, fromAngle);
         lowerBar();
-        moveByInches(distance);
+        moveByInches(distance, 0.5);
     }
 
     private void moveBallAndPark() throws InterruptedException {
@@ -1032,7 +1033,7 @@ abstract class AutonomousMode extends LinearOpMode {
             if (countsSinceStart > countsForGradient){
                 motorPower = slope * (countsSinceStart-inchesToCounts(maxInches)) + nextPower;
             }
-            powerMotors(motorPower - clockwiseSpeed, motorPower + clockwiseSpeed);
+            powerMotors(Range.clip(motorPower - clockwiseSpeed, -1.0, 1.0), Range.clip(motorPower + clockwiseSpeed, -1.0, 1.0));
 
             countsSinceStart = Math.abs(motorLeft1.getCurrentPosition() - initialcount);
             //telemetryout("moveByInchesGyro function => powerMotors = "+ (drivingPower-clockwiseSpeed) + "and " + (drivingPower + clockwiseSpeed));
