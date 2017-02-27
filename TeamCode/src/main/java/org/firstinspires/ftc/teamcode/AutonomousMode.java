@@ -287,7 +287,7 @@ abstract class AutonomousMode extends LinearOpMode {
         sleep(200);
 
         // drive almost to the white line
-        boolean movedRequiredDistance = moveByInchesGyro(-1, angle, 41, -0.3);
+        boolean movedRequiredDistance = moveByInchesGyro(-0.92, angle, 41, -0.3);
         telemetryout("Moved 41  inches " + movedRequiredDistance);
 
         if (!movedRequiredDistance) {
@@ -361,7 +361,7 @@ abstract class AutonomousMode extends LinearOpMode {
         sleep(200);
 
         // drive the distance between two white lines
-        movedRequiredDistance = moveByInchesGyro(-1, 0, 33, -0.3);
+        movedRequiredDistance = moveByInchesGyro(-0.92, 0, 33, -0.3);
         telemetryout("Moved required distance 2: " + movedRequiredDistance);
         if (!movedRequiredDistance) {
             // if we didn't travel the correct distance,
@@ -446,7 +446,7 @@ abstract class AutonomousMode extends LinearOpMode {
         }
 
         angle = isBlue ? 45 : -45;
-        moveByInchesGyro(1, angle, 43, 1);
+        moveByInchesGyro(0.92, angle, 43, 0.92);
 
         powerMotors(0, 0);
         motorBrush.setPower(0);
