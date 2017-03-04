@@ -62,7 +62,7 @@ abstract class AutonomousMode extends LinearOpMode {
 
     private final static int ENCODER_COUNTS_PER_ROTATION = 2 * 1140;
     private final static int SHOOT_DISTANCE1 = 11; //inches
-    private final static double SHOOT_POWER1 = -0.71; //flywheel power for shooting
+    private final static double SHOOT_POWER1 = -0.72; //flywheel power for shooting
     private final static double SHOOT_POWER2 = -0.695; //flywheel power for shooting
 
     private boolean isBlue = isBlueAlliance();
@@ -217,6 +217,7 @@ abstract class AutonomousMode extends LinearOpMode {
                 sleep(1000 * delay);
             }
 
+            //moveByInchesGyroTest();
             if (startTile.startsWith("3rd")) {
                 sequenceFromTile3();
             } else {
@@ -259,7 +260,7 @@ abstract class AutonomousMode extends LinearOpMode {
         int angle, fromAngle;
 
         //start shooting at the position1 (3rd tile from the corner)
-        moveOnForShooting(0.4, SHOOT_DISTANCE1, SHOOT_POWER1);
+        moveOnForShooting(0.5, SHOOT_DISTANCE1, SHOOT_POWER1);
         motorBelt.setPower(1);
         sleep(2500);
         motorBelt.setPower(0);
@@ -563,6 +564,24 @@ abstract class AutonomousMode extends LinearOpMode {
         powerMotors(0, 0);
 
 
+    }
+
+    private void moveByInchesGyroTest() throws InterruptedException {
+        out.append("Moving from -0.92 power to -0.3").append("\n");
+        moveByInchesGyro(-0.92, 0, 30, -0.3);
+        powerMotors(0,0);
+        sleep(2000);
+        out.append("Moving from 0.92 power to 0.3").append("\n");
+        moveByInchesGyro(0.92, 0, 30, 0.3);
+        powerMotors(0,0);
+        sleep(2000);
+        out.append("Moving from -0.3 power to -0.92").append("\n");
+        moveByInchesGyro(-0.3, 0, 30, -0.92);
+        powerMotors(0,0);
+        sleep(2000);
+        out.append("Moving from 0.3 power to 0.92").append("\n");
+        moveByInchesGyro(0.3, 0, 30, 0.92);
+        powerMotors(0,0);
     }
 
     private void parkOnRamp() throws InterruptedException {
@@ -970,21 +989,25 @@ abstract class AutonomousMode extends LinearOpMode {
     /**
      * Drive until white line
      *
-     * @param drivingPower        power (positive - forward, negative - backward)
+     * @param startPower        starting power (positive - forward, negative - backward)
      * @param headingToBeaconZone raw gyro heading
      * @param maxInches           - maximum inches to travel
+     * @param endPower - Ending desired power
      * @return true if traveled distance, otherwise false
      * @throws InterruptedException
      */
-    private boolean moveByInchesGyro(double drivingPower, int headingToBeaconZone, double maxInches, double nextPower) throws InterruptedException {
+    private boolean moveByInchesGyro(double startPower, int headingToBeaconZone, double maxInches, double endPower) throws InterruptedException {
 
         int initialcount = motorLeft1.getCurrentPosition();
         double error, clockwiseSpeed;
         double kp = 0.03; //experimental coefficient for proportional correction of the direction
         double countsSinceStart = Math.abs(motorLeft1.getCurrentPosition() - initialcount);
-        double slope = (nextPower - drivingPower) / Math.min(10, maxInches); // this slope is for calculating power
-        double countsForGradient = inchesToCounts(maxInches > 10 ? maxInches - 10 : 0);
-        double motorPower = drivingPower;
+        //out.append("countsSinceStart = ").append(countsSinceStart).append("\n");
+        double slope = (endPower - startPower) / inchesToCounts(Math.min(10, maxInches)); // this slope is for calculating power
+        //out.append("Slope = ").append(slope).append("\n");
+        double countsForGradient = (maxInches < 10) ? 0 : Math.abs(inchesToCounts(maxInches - 10));
+        //out.append("countsForGradient = ").append(countsForGradient).append("\n");
+        double motorPower = startPower;
         while (opModeIsActive() && countsSinceStart < inchesToCounts(maxInches)) {
             // error CCW - negative, CW - positive
             error = getRawHeadingError(headingToBeaconZone);
@@ -1005,12 +1028,13 @@ abstract class AutonomousMode extends LinearOpMode {
 
 
             if (countsSinceStart > countsForGradient){
-                motorPower = slope * (countsSinceStart-inchesToCounts(maxInches)) + nextPower;
+                motorPower = slope * (countsSinceStart-inchesToCounts(maxInches)) + endPower;
+                //out.append(countsSinceStart).append(",").append(motorPower).append("\n");
             }
             powerMotors(Range.clip(motorPower - clockwiseSpeed, -1.0, 1.0), Range.clip(motorPower + clockwiseSpeed, -1.0, 1.0));
 
             countsSinceStart = Math.abs(motorLeft1.getCurrentPosition() - initialcount);
-            //telemetryout("moveByInchesGyro function => powerMotors = "+ (drivingPower-clockwiseSpeed) + "and " + (drivingPower + clockwiseSpeed));
+            //telemetryout("moveByInchesGyro function => powerMotors = "+ (startPower-clockwiseSpeed) + "and " + (startPower + clockwiseSpeed));
         }
         return opModeIsActive();
     }
