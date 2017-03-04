@@ -334,16 +334,17 @@ abstract class AutonomousMode extends LinearOpMode {
 
             // if color is detected, move forward to hit the beacon
             sleep(500); //Give time for pad to get  into position
-            driveUntilHit(5, -0.3);
-
-            telemetryout("At the wall");
-            // shimmy on the beacon side
-            // shimmy(beaconSide);
-            moreShimmyIfNeeded();
-
-            telemetryout("After shimmy");
+            boolean atWall = driveUntilHit(5, -0.3);
+            if (atWall) {
+                telemetryout("At the wall");
+                // shimmy on the beacon side
+                // shimmy(beaconSide);
+                moreShimmyIfNeeded();
+                telemetryout("After shimmy");
+            }
         }
 
+        //TODO: write short distance gyro drive with large coefficient
         // move 8 inches back
         moveByInches(8);
 
@@ -412,38 +413,22 @@ abstract class AutonomousMode extends LinearOpMode {
 
             // if color is detected, move forward to hit the beacon
             sleep(500); //Give time for pad to get  into position
-            driveUntilHit(5, -0.3);
+            boolean atWall = driveUntilHit(5, -0.3);
 
-            telemetryout("At the wall 2");
-            // shimmy on the beacon side
-            //shimmy(beaconSide);
-            moreShimmyIfNeeded();
-
-            telemetryout("After shimmy 2");
+            if (atWall) {
+                telemetryout("At the wall 2");
+                // shimmy on the beacon side
+                //shimmy(beaconSide);
+                moreShimmyIfNeeded();
+                telemetryout("After shimmy 2");
+            }
         }
 
         motorBrush.setPower(-1);
 
-        //first travel 1/8th of a circle with the radius of the tile length
-        double outerWheelDist = 2 * Math.PI * (TILE_LENGTH + HALF_WIDTH) / 10.0;
-        double powerRatio = (TILE_LENGTH - HALF_WIDTH)/(TILE_LENGTH + HALF_WIDTH);
-        DcMotor outerMotor;
-        int counts;
-        if (isBlue) {
-            outerMotor = motorRight1;
-            powerMotors(powerRatio, 1);
-        } else {
-            outerMotor = motorLeft1;
-            powerMotors(1, powerRatio);
-        }
-
-        counts = outerMotor.getCurrentPosition();
-
-        while (opModeIsActive() && Math.abs(outerMotor.getCurrentPosition() - counts) < inchesToCounts(outerWheelDist)) {
-            idle();
-            telemetry.addData("Raw heading", getGyroRawHeading());
-            telemetry.update();
-        }
+        //first travel 1/10th of a circle with the radius of the tile length
+        //red - clockwise; blue - counterclockwise
+        moveByArch(TILE_LENGTH, 1/10.0, !isBlue, 1.0);
 
         angle = isBlue ? 45 : -45;
         moveByInchesGyro(0.92, angle, 43, 0.92);
@@ -502,27 +487,7 @@ abstract class AutonomousMode extends LinearOpMode {
         rotate(angle, fromAngle);
 
         // Go backwards a quarter of a circle
-        // Outer (right) wheel will travel 2*pi(2*TILE_LENGTH + HALF_WIDTH)/4
-        double inches = isBlue ?
-                (2 * Math.PI * (2 * TILE_LENGTH - HALF_WIDTH) / 4) :
-                (2 * Math.PI * (2 * TILE_LENGTH + HALF_WIDTH) / 4);
-        double powerRatio = (2 * TILE_LENGTH + HALF_WIDTH) / (2 * TILE_LENGTH - HALF_WIDTH);
-        int counts = motorRight1.getCurrentPosition();
-        double leftPower;
-        double rightPower;
-        if (isBlue) {
-            rightPower = -0.6;
-            leftPower = powerRatio * rightPower;
-        } else {
-            leftPower = -0.6;
-            rightPower = powerRatio * leftPower;
-        }
-        powerMotors(leftPower, rightPower);
-        while (opModeIsActive() && Math.abs(motorRight1.getCurrentPosition() - counts) < inchesToCounts(inches)) {
-            idle();
-            telemetry.addData("Raw heading", getGyroRawHeading());
-            telemetry.update();
-        }
+        moveByArch(2*TILE_LENGTH, 1/4.0, !isBlue, -0.6);
         powerMotors(0, 0);
 
         // blue: rotate 30 degrees CW from heading 0
@@ -579,15 +544,16 @@ abstract class AutonomousMode extends LinearOpMode {
 
         // if color is detected, move forward to hit the beacon
         sleep(500); //Give time for pad to get  into position
-        driveUntilHit(5, -0.3);
+        boolean atWall = driveUntilHit(5, -0.3);
 
-        telemetryout("At the wall");
+        if (atWall){
+            telemetryout("At the wall");
+            // shimmy on the beacon side
+            shimmy(beaconSide);
+            moreShimmyIfNeeded();
+            telemetryout("After shimmy");
+        }
 
-        // shimmy on the beacon side
-        shimmy(beaconSide);
-        moreShimmyIfNeeded();
-
-        telemetryout("After shimmy");
 
         // move away from beacon
         moveByInches(8);
@@ -733,13 +699,21 @@ abstract class AutonomousMode extends LinearOpMode {
         return beaconSide;
     }
 
-    private void driveUntilHit(int distincm, double drivingPower) throws InterruptedException {
+    private boolean driveUntilHit(int distincm, double drivingPower) throws InterruptedException {
         powerMotors(drivingPower, drivingPower);
+        ElapsedTime timer = new ElapsedTime();
+        timer.reset();
+        //time out if robot cannot approach wall
         while (rangeSensor.getDistance(DistanceUnit.CM) > distincm) {
             idle();
+            if (timer.milliseconds() > 4000) {
+                powerMotors(0,0);
+                return false;
+            }
         }
         powerMotors(0, 0);
         sleep(600);
+        return true;
     }
 
     private void setPadPosition(int pos) {
@@ -1186,11 +1160,10 @@ abstract class AutonomousMode extends LinearOpMode {
         motorFlywheel.setPower(-0.5);
         timer.reset();
 
-        int startPosition = motorLeft1.getCurrentPosition();
-        int currentPosition = startPosition;
-
         this.powerMotors(-power, -power);
 
+        int startPosition = motorLeft1.getCurrentPosition();
+        int currentPosition = startPosition;
 
         while (opModeIsActive() && Math.abs(currentPosition - startPosition) < inchesToCounts(distance) &&
                 timer.milliseconds()<1200) {
@@ -1203,10 +1176,39 @@ abstract class AutonomousMode extends LinearOpMode {
             idle();
         }
         powerMotors(0, 0);
-        sleep(400);
         int currentms = (int)timer.milliseconds();
-        if (currentms < 2000){
-            sleep(2000-currentms);
+        if (currentms < 2400){
+            sleep(2400-currentms);
+        }
+    }
+
+    /**
+     * method for moving robot part of circle
+     * @param radius - radius of circle
+     * @param pCircle - fraction of circle
+     * @param clockwise - moving clockwise?
+     * @param power - power to outer wheel
+     * @throws InterruptedException
+     */
+    private void moveByArch(double radius, double pCircle, boolean clockwise, double power) throws InterruptedException {
+        double outerWheelDist = 2 * Math.PI * (radius + HALF_WIDTH) * pCircle;
+        double powerRatio = (radius - HALF_WIDTH)/(radius + HALF_WIDTH);
+        DcMotor outerMotor;
+        int counts;
+        if (!clockwise) {
+            outerMotor = motorRight1;
+            powerMotors(powerRatio, power);
+        } else {
+            outerMotor = motorLeft1;
+            powerMotors(power, powerRatio);
+        }
+
+        counts = outerMotor.getCurrentPosition();
+
+        while (opModeIsActive() && Math.abs(outerMotor.getCurrentPosition() - counts) < inchesToCounts(outerWheelDist)) {
+            idle();
+            telemetry.addData("Raw heading", getGyroRawHeading());
+            telemetry.update();
         }
     }
 
