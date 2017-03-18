@@ -97,6 +97,8 @@ abstract class AutonomousMode extends LinearOpMode {
     private ModernRoboticsI2cGyro gyro = null;
     private DcMotor motorFlywheel;
     private Servo servoBar;
+    private Servo kickServo2;
+    private Servo kickServo3;
 
     private double[] robotLocation = null;
 
@@ -104,10 +106,10 @@ abstract class AutonomousMode extends LinearOpMode {
 
     private StringBuffer out = new StringBuffer();
 
-    int delay;
-    boolean stopAfterShooting;
-    String afterShootingBehavior;
-    boolean firstTimeTelemetry = true;
+    private int delay;
+    private boolean stopAfterShooting;
+    private String afterShootingBehavior;
+    private boolean firstTimeTelemetry = true;
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -174,6 +176,10 @@ abstract class AutonomousMode extends LinearOpMode {
         //vuforiaInit();
 
         gyro.resetZAxisIntegrator(); //reset gyro heading to 0
+
+        kickServo2 =  hardwareMap.servo.get("KickServo2");
+        kickServo3 = hardwareMap.servo.get("KickServo3");
+        kickServosIn();
 
         // put the servos in correct position
         servoBeaconPad = hardwareMap.servo.get("BeaconPad");
@@ -328,6 +334,7 @@ abstract class AutonomousMode extends LinearOpMode {
         followLine(-0.3, MID_POINT_LIGHT_BACK);
 
         telemetryout("After followed line");
+
         // detect color
         BeaconSide beaconSide = detectColor(true);
 
@@ -335,6 +342,8 @@ abstract class AutonomousMode extends LinearOpMode {
 
             // if color is detected, move forward to hit the beacon
             sleep(500); //Give time for pad to get  into position
+            kickServosIn();
+
             boolean atWall = driveUntilHit(5, -0.3);
             if (atWall) {
                 telemetryout("At the wall");
@@ -343,6 +352,8 @@ abstract class AutonomousMode extends LinearOpMode {
                 moreShimmyIfNeeded();
                 telemetryout("After shimmy");
             }
+        } else {
+            kickServosIn(false);
         }
 
         //TODO: write short distance gyro drive with large coefficient
@@ -414,6 +425,8 @@ abstract class AutonomousMode extends LinearOpMode {
 
             // if color is detected, move forward to hit the beacon
             sleep(500); //Give time for pad to get  into position
+            kickServosIn();
+
             boolean atWall = driveUntilHit(5, -0.3);
 
             if (atWall) {
@@ -423,6 +436,8 @@ abstract class AutonomousMode extends LinearOpMode {
                 moreShimmyIfNeeded();
                 telemetryout("After shimmy 2");
             }
+        } else {
+            kickServosIn(false);
         }
 
         motorBrush.setPower(-1);
@@ -540,11 +555,13 @@ abstract class AutonomousMode extends LinearOpMode {
             // show telemetry while op mode is active
             powerMotors(0, 0);
             showTelemetry();
+            kickServosIn(false);
             return;
         }
 
         // if color is detected, move forward to hit the beacon
         sleep(500); //Give time for pad to get  into position
+        kickServosIn();
         boolean atWall = driveUntilHit(5, -0.3);
 
         if (atWall){
@@ -615,6 +632,23 @@ abstract class AutonomousMode extends LinearOpMode {
         servoBar.setPosition(215.0 / 255);
     }
 
+    private void kickServosIn() {
+        kickServosIn(true);
+    }
+
+    private void kickServosIn(boolean withDelays) {
+        //sleep(100);
+        kickServo2.setPosition(10.0/255);
+        kickServo3.setPosition(215.0/255);
+        if (withDelays) {
+            sleep(500);
+        }
+    }
+
+    private void kickServosOut() {
+        kickServo2.setPosition(230.0/255);
+        kickServo3.setPosition(0);
+    }
 
     //Tiny rotation clockwise or counter clockwise
     private void smallrotate(String direction) throws InterruptedException {
@@ -1134,7 +1168,7 @@ abstract class AutonomousMode extends LinearOpMode {
         I2cController.I2cPortReadyCallback gyroCallBack = gyroController.getI2cPortReadyCallback(gyro.getPort());
         gyroController.deregisterForPortReadyCallback(gyro.getPort());
 
-        while (opModeIsActive() && distance > 11) {
+        while (opModeIsActive() && distance > 15) {
 
             light = opticalSensor.getLightDetected();
 
@@ -1155,6 +1189,8 @@ abstract class AutonomousMode extends LinearOpMode {
             distance = rangeSensor.getDistance(DistanceUnit.CM);
         }
         powerMotors(0, 0);
+
+        kickServosOut();
 
         //enable sensors again
         gyroController.registerForI2cPortReadyCallback(gyroCallBack, gyro.getPort());
