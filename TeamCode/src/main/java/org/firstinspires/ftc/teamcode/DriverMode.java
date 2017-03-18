@@ -4,7 +4,7 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.Servo;;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
@@ -31,14 +31,15 @@ public class DriverMode extends OpMode {
 
     private DcMotor motorBelt;
     private DcMotor motorBrush;
-    private Servo servoBeaconPad;
     private Servo servoBar;
+    private Servo kickServo2;
+    private Servo kickServo3;
 
     private boolean inBrushBtnPressed = false;
     private boolean outBrushBtnPressed = false;
     private int brushState = 0; //-1:Intake, 1:Sweep out, 0:Stopped
     private ElapsedTime gunTimer = new ElapsedTime();
-    private boolean triggered = false; //triggered= gun engaged
+    private boolean triggered = false; //triggered= trigger pressed
 
 
     private boolean forward;
@@ -46,12 +47,18 @@ public class DriverMode extends OpMode {
 
     private static double MINPOWER = 0.15;
 
-    private double scaled(double x){
-        return (x/1.07)*(.62*x*x + .45);
+    private double scaled(double x) {
+        return (x / 1.07) * (.62 * x * x + .45);
     }
+
+    private enum Flywheel {off, speedUp1, speedUp2, readyToShoot}
+
+    private Flywheel flywheelState = Flywheel.off;
 
     @Override
     public void init() {
+        triggered = false;
+        flywheelState = Flywheel.off;
         //"initializing" the motors
         motorLeft1 = hardwareMap.dcMotor.get("D1left");
         motorRight1 = hardwareMap.dcMotor.get("D1right");
@@ -69,7 +76,7 @@ public class DriverMode extends OpMode {
         // run flywheels by speed
         motorFlywheel.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         motorFlywheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-       // motorFlywheelLeft.setZeroPowerBehavior(Dc Motor.ZeroPowerBehavior.FLOAT);
+        // motorFlywheelLeft.setZeroPowerBehavior(Dc Motor.ZeroPowerBehavior.FLOAT);
 
         //setting the motors on the right side in reverse so both wheels spin the same way.
         motorLeft1.setDirection(DcMotor.Direction.REVERSE);
@@ -78,10 +85,14 @@ public class DriverMode extends OpMode {
     }
 
     public void start() {
-        servoBeaconPad = hardwareMap.servo.get("BeaconPad");
-        servoBeaconPad.setPosition(15/255.0);
+        Servo servoBeaconPad = hardwareMap.servo.get("BeaconPad");
+        servoBeaconPad.setPosition(15 / 255.0);
         servoBar = hardwareMap.servo.get("ServoBar");
-        servoBar.setPosition(215.0/255);
+        servoBar.setPosition(215.0 / 255);
+        kickServo2 = hardwareMap.servo.get("KickServo2");
+        kickServo2.setPosition(10.0 / 255);
+        kickServo3 = hardwareMap.servo.get("KickServo3");
+        kickServo3.setPosition(215.0 / 255);
     }
 
 
@@ -89,31 +100,29 @@ public class DriverMode extends OpMode {
     public void loop() {
 
         //Changing Brush State
-        if (gamepad1.x){
+        if (gamepad1.x) {
             inBrushBtnPressed = true;
-        } else if (gamepad1.b){
+        } else if (gamepad1.b) {
             outBrushBtnPressed = true;
 
-        }else{
-            if (inBrushBtnPressed){
+        } else {
+            if (inBrushBtnPressed) {
                 inBrushBtnPressed = false;
-                brushState = (brushState==0) ? -1 : 0;
-            }
-            else if (outBrushBtnPressed) {
+                brushState = (brushState == 0) ? -1 : 0;
+            } else if (outBrushBtnPressed) {
                 outBrushBtnPressed = false;
                 brushState = (brushState == 0) ? 1 : 0;
             }
         }
-        if (brushState == -1){
+        if (brushState == -1) {
             motorBrush.setPower(1);
             telemetry.addData("Brush", "Intake");
-        }
-        else if (brushState == 1){
+        } else if (brushState == 1) {
             motorBrush.setPower(-1);
             telemetry.addData("Brush", "Sweep Out");
             motorBelt.setPower(-1);
             telemetry.addData("Belt", "down");
-        } else{
+        } else {
             motorBrush.setPower(0);
             telemetry.addData("Brush", "Stopped");
         }
@@ -122,12 +131,11 @@ public class DriverMode extends OpMode {
         double rightForward;
 
         int sign = forward ? 1 : -1;
-        if (!gamepad1.y){
+        if (!gamepad1.y) {
             //Arcade Drive
-            rightForward = -(scaled(gamepad1.left_stick_y) + sign*scaled(gamepad1.left_stick_x));
-            leftForward = -(scaled(gamepad1.left_stick_y) - sign*scaled(gamepad1.left_stick_x));
-        }
-        else {
+            rightForward = -(scaled(gamepad1.left_stick_y) + sign * scaled(gamepad1.left_stick_x));
+            leftForward = -(scaled(gamepad1.left_stick_y) - sign * scaled(gamepad1.left_stick_x));
+        } else {
             //Tank Drive
             leftForward = -scaled(gamepad1.left_stick_y);
             rightForward = -scaled(gamepad1.right_stick_y);
@@ -144,50 +152,35 @@ public class DriverMode extends OpMode {
                 rightForward = -dpadSpeed;
                 leftForward = -dpadSpeed;
             } else if (gamepad1.dpad_left) {
-                rightForward = sign*dpadSpeed;
-                leftForward = -sign*dpadSpeed;
+                rightForward = sign * dpadSpeed;
+                leftForward = -sign * dpadSpeed;
             } else {
-                leftForward = sign*dpadSpeed;
-                rightForward = -sign*dpadSpeed;
+                leftForward = sign * dpadSpeed;
+                rightForward = -sign * dpadSpeed;
             }
         }
 
 
         //using the Gun
-        if (gamepad1.left_trigger > 0.7 || gamepad1.right_trigger > 0.7){
-            if (!triggered){
-                gunTimer.reset();
-            }
-            triggered = true;
-        }else {
-            triggered = false;
-        }
-        if (triggered){
-            powerFlywheels(true);
-            telemetry.addData("Gun", "Triggered");
-        }else{
-            powerFlywheels(false);
-            telemetry.addData("Gun", "Off");
-        }
+        handleFlywheel();
 
         //using the Belt
-        if(gamepad1.right_bumper || gamepad1.left_bumper){
-            if (triggered && gunTimer.milliseconds() < 1500){
+        if (gamepad1.right_bumper || gamepad1.left_bumper) {
+            if (flywheelState != Flywheel.readyToShoot) {
                 motorBelt.setPower(0);
             } else {
                 motorBelt.setPower(1);
                 telemetry.addData("Belt", "Up");
             }
-        }
-        else {
-            if(brushState!=1){
+        } else {
+            if (brushState != 1) {
                 motorBelt.setPower(0);
                 telemetry.addData("Belt", "Off");
             }
         }
 
         //driving backwards
-        if (!forward){
+        if (!forward) {
             leftForward = -leftForward;
             rightForward = -rightForward;
         }
@@ -196,12 +189,12 @@ public class DriverMode extends OpMode {
         if ((rightForward > -0.01) && (rightForward < 0.01))
             rightForward = 0;
         else if ((rightForward > -MINPOWER) && (rightForward < MINPOWER))
-            rightForward = MINPOWER * rightForward/Math.abs(rightForward);
+            rightForward = MINPOWER * rightForward / Math.abs(rightForward);
 
         if ((leftForward > -0.01) && (leftForward < 0.01))
             leftForward = 0;
         else if ((leftForward > -MINPOWER) && (leftForward < MINPOWER))
-            leftForward = MINPOWER * leftForward/Math.abs(leftForward);
+            leftForward = MINPOWER * leftForward / Math.abs(leftForward);
 
         rightForward = Range.clip(rightForward, -1, 1);
         leftForward = Range.clip(leftForward, -1, 1);
@@ -216,8 +209,8 @@ public class DriverMode extends OpMode {
         }
 
 
-        telemetry.addData("left",leftForward);
-        telemetry.addData("right",rightForward);
+        telemetry.addData("left", leftForward);
+        telemetry.addData("right", rightForward);
 
         telemetry.addData("back(Y) button pressed", backButtonPressed);
         telemetry.addData("forward", forward);
@@ -233,17 +226,41 @@ public class DriverMode extends OpMode {
         motorRight1.setPower(rightForward);
     }
 
-    private void powerFlywheels(boolean doPower) {
-        if (doPower) {
-            double maxPower = -0.70;
-            double ms = gunTimer.milliseconds();
-            if (ms < 1200){
-                motorFlywheel.setPower(-0.5 );
-            } else {
-                motorFlywheel.setPower(maxPower);//(-0.715)
+
+    private void handleFlywheel() {
+        if (gamepad1.left_trigger > 0.7 || gamepad1.right_trigger > 0.7) {
+            if (!triggered) {
+                if (flywheelState == Flywheel.off) {
+                    gunTimer.reset();
+                    motorFlywheel.setPower(-0.5);
+                    flywheelState = Flywheel.speedUp1;
+                } else {
+                    motorFlywheel.setPower(0);
+                    flywheelState = Flywheel.off;
+                }
             }
+            triggered = true;
         } else {
-            motorFlywheel.setPower(0);
+            triggered = false;
+        }
+
+        switch (flywheelState) {
+            case off:
+                break;
+            case speedUp1:
+                if (gunTimer.milliseconds()>1200){
+                    motorFlywheel.setPower(-0.7);
+                    flywheelState = Flywheel.speedUp2;
+                }
+                break;
+            case speedUp2:
+                if (gunTimer.milliseconds()>2000) {
+                    flywheelState = Flywheel.readyToShoot;
+                }
+                break;
+            case readyToShoot:
+                break;
+
         }
     }
 }
