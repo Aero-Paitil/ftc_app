@@ -19,6 +19,7 @@ import java.text.DecimalFormat;
 public class FlywheelTest extends LinearOpMode {
 
     private DcMotor motorFlywheel;
+    private DcMotor motorBelt;
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -29,6 +30,8 @@ public class FlywheelTest extends LinearOpMode {
         motorFlywheel.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         motorFlywheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
+        motorBelt = hardwareMap.dcMotor.get("Belt");
+
         while (!isStarted()) {
             idle();
         }
@@ -38,12 +41,56 @@ public class FlywheelTest extends LinearOpMode {
             return;
         }
 
-        testFlywheel(-0.68);
-        testFlywheel(-0.69);
-        testFlywheel(-0.7);
-        testFlywheel(-0.71);
-        testFlywheel(-0.72);
+        testLoadedFlywheel(-0.68);
+        testLoadedFlywheel(-0.69);
+        testLoadedFlywheel(-0.7);
+        testLoadedFlywheel(-0.71);
+        testLoadedFlywheel(-0.72);
 
+    }
+
+    private void testLoadedFlywheel(double power) {
+
+        motorFlywheel.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        motorFlywheel.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        motorFlywheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+
+        motorFlywheel.setPower(-0.5);
+        sleep(1200);
+        motorFlywheel.setPower(power);
+        sleep(1200);
+        //We think that the flywheel is stable now
+
+        ElapsedTime timer = new ElapsedTime();
+        StringBuffer sb = new StringBuffer("time,count\n");
+        int count;
+        double ms;
+        timer.reset();
+        int initCount = motorFlywheel.getCurrentPosition();
+
+        motorBelt.setPower(1);
+        DecimalFormat f = new DecimalFormat("0.##");
+        while(timer.milliseconds() < 10000){
+            ms = timer.milliseconds();
+            count = Math.abs(motorFlywheel.getCurrentPosition() - initCount);
+            sb.append(f.format(ms)).append(",").append(count).append("\n");
+            sleep(20);
+        }
+        motorBelt.setPower(0);
+        motorFlywheel.setPower(0);
+        try {
+            String powerStr = "" + (int) Math.round(power * 100);
+            File file = new File(Environment.getExternalStorageDirectory().getPath() + "/FIRST/flywheelCounts1" + powerStr + ".txt");
+            telemetry.addData("File", file.getAbsolutePath());
+
+            OutputStreamWriter outputStreamWriter = new OutputStreamWriter(new FileOutputStream(file));
+            outputStreamWriter.write(sb.toString());
+            outputStreamWriter.close();
+
+        } catch (Exception e) {
+            telemetry.addData("Exception", "File write failed: " + e.toString());
+        }
+        sleep(15000);
     }
 
     private void testFlywheel(double power) {
