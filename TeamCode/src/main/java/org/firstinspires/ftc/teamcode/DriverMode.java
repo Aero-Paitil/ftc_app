@@ -31,6 +31,12 @@ public class DriverMode extends OpMode {
 
     private DcMotor motorBelt;
     private DcMotor motorBrush;
+
+    private double lightIntensity = 0.75;
+    private DcMotor lightStrip1; //closer to blue wheels
+    private DcMotor lightStrip2; //closer to intake mechanism
+    private DcMotor lightStripGun;
+
     private Servo servoBar;
     private Servo kickServo2;
     private Servo kickServo3;
@@ -41,6 +47,8 @@ public class DriverMode extends OpMode {
     private ElapsedTime gunTimer = new ElapsedTime();
     private boolean triggered = false; //triggered= trigger pressed
 
+    private boolean isRedAlliance = true;
+    private double allianceColor = isRedAlliance ? lightIntensity : -lightIntensity;
 
     private boolean forward;
     private boolean backButtonPressed = false;
@@ -69,6 +77,10 @@ public class DriverMode extends OpMode {
         motorLeft1.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         motorRight1.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
+        lightStrip1 = hardwareMap.dcMotor.get("lightStrip1");
+        lightStrip2 = hardwareMap.dcMotor.get("lightStrip2");
+        lightStripGun = hardwareMap.dcMotor.get("lightStripGun");
+
         motorBrush = hardwareMap.dcMotor.get("Brush");
         motorBelt = hardwareMap.dcMotor.get("Belt");
         motorFlywheel = hardwareMap.dcMotor.get("GunRight");
@@ -93,6 +105,7 @@ public class DriverMode extends OpMode {
         kickServo2.setPosition(10.0 / 255);
         kickServo3 = hardwareMap.servo.get("KickServo3");
         kickServo3.setPosition(215.0 / 255);
+        lightStrip2.setPower(lightIntensity);
     }
 
 
@@ -180,9 +193,10 @@ public class DriverMode extends OpMode {
         }
 
         //driving backwards
-        if (!forward) {
+        if (!forward) { //when start, front direction is the intake side, lightStrip2
             leftForward = -leftForward;
             rightForward = -rightForward;
+
         }
 
         //todo adjust the deadband
@@ -206,8 +220,16 @@ public class DriverMode extends OpMode {
         } else if (backButtonPressed) {
             backButtonPressed = false;
             forward = !forward;
+            lightSwitch();
         }
 
+        if (gamepad1.back) {
+            if (allianceColor == lightIntensity) {
+                isRedAlliance = false;
+            } else { //allianceColor == -lightIntensity
+                isRedAlliance = true;
+            }
+        }
 
         telemetry.addData("left", leftForward);
         telemetry.addData("right", rightForward);
@@ -219,6 +241,16 @@ public class DriverMode extends OpMode {
         /* assigning the motors the scaled powers that we just calculated in the step above. */
         powerMotors(rightForward, leftForward);
 
+    }
+
+    private void lightSwitch() {
+        if (forward) {
+            lightStrip1.setPower(0);
+            lightStrip2.setPower(lightIntensity);
+        } else {
+            lightStrip1.setPower(lightIntensity);
+            lightStrip2.setPower(0);
+        }
     }
 
     private void powerMotors(double rightForward, double leftForward) {
@@ -234,9 +266,12 @@ public class DriverMode extends OpMode {
                     gunTimer.reset();
                     motorFlywheel.setPower(-0.5);
                     flywheelState = Flywheel.speedUp1;
+
+                    lightStripGun.setPower(allianceColor);
                 } else {
                     motorFlywheel.setPower(0);
                     flywheelState = Flywheel.off;
+                    lightStripGun.setPower(0);
                 }
             }
             triggered = true;
