@@ -341,7 +341,7 @@ abstract class AutonomousMode extends LinearOpMode {
         if (beaconSide != BeaconSide.none) {
 
             // if color is detected, move forward to hit the beacon
-            sleep(500); //Give time for pad to get  into position
+            sleep(450); //Give time for pad to get  into position
             kickServosIn();
 
             boolean atWall = driveUntilHit(5, -0.3);
@@ -424,7 +424,7 @@ abstract class AutonomousMode extends LinearOpMode {
         if (beaconSide != BeaconSide.none) {
 
             // if color is detected, move forward to hit the beacon
-            sleep(500); //Give time for pad to get  into position
+            sleep(450); //Give time for pad to get  into position
             kickServosIn();
 
             boolean atWall = driveUntilHit(5, -0.3);
@@ -560,7 +560,7 @@ abstract class AutonomousMode extends LinearOpMode {
         }
 
         // if color is detected, move forward to hit the beacon
-        sleep(500); //Give time for pad to get  into position
+        sleep(450); //Give time for pad to get  into position
         kickServosIn();
         boolean atWall = driveUntilHit(5, -0.3);
 
@@ -641,7 +641,7 @@ abstract class AutonomousMode extends LinearOpMode {
         kickServo2.setPosition(10.0/255);
         kickServo3.setPosition(215.0/255);
         if (withDelays) {
-            sleep(500);
+            sleep(300);
         }
     }
 
@@ -1034,12 +1034,13 @@ abstract class AutonomousMode extends LinearOpMode {
 
         int initialcount = motorLeft1.getCurrentPosition();
         double error, clockwiseSpeed;
+        double inchesForGradient = 5;
         double kp = 0.03; //experimental coefficient for proportional correction of the direction
         double countsSinceStart = Math.abs(motorLeft1.getCurrentPosition() - initialcount);
         //out.append("countsSinceStart = ").append(countsSinceStart).append("\n");
-        double slope = (endPower - startPower) / inchesToCounts(Math.min(10, maxInches)); // this slope is for calculating power
+        double slope = (endPower - startPower) / inchesToCounts(Math.min(inchesForGradient, maxInches)); // this slope is for calculating power
         //out.append("Slope = ").append(slope).append("\n");
-        double countsForGradient = (maxInches < 10) ? 0 : Math.abs(inchesToCounts(maxInches - 10));
+        double countsForGradient = (maxInches < inchesForGradient) ? 0 : Math.abs(inchesToCounts(maxInches - inchesForGradient));
         //out.append("countsForGradient = ").append(countsForGradient).append("\n");
         double motorPower = startPower;
         while (opModeIsActive() && countsSinceStart < inchesToCounts(maxInches)) {
@@ -1271,42 +1272,5 @@ abstract class AutonomousMode extends LinearOpMode {
             telemetry.update();
         }
     }
-
-    /*private double filterRangeSensorData(double curDistance, double preDistance,ArrayList<Double> rangeArray){
-        double rangeAvg = 0;
-        double lastRangeAvg = 0.0;
-        double sum = 0;
-        double lastSum = 0;
-
-        if((curDistance!=preDistance ) && curDistance < 130) {
-            rangeArray.add(curDistance);
-            for (double distance : rangeArray) {
-                sum += distance;
-            }
-            rangeAvg = sum / rangeArray.size();
-
-            //retrieve last 10 readings, if avg below 13, the robot is stuck with and object, return distance = 0 to stop the robot
-            telemetryout(" curDistance=" + curDistance + " preDist=" + preDistance + " sum=" + sum + " size=" + rangeArray.size() + " rArray=" + rangeArray + " rAvg=" + rangeAvg);
-
-            //filter exceptional readings from rangeSensor,  && Math.abs(curDistance-rangeAvg)> 15
-            if(curDistance <= 13 ){
-                if(rangeArray.size() >=20) {
-                    List<Double> last20 = rangeArray.subList(rangeArray.size() - 20, rangeArray.size());
-                    for (double reading : last20) {
-                        lastSum += reading;
-                    }
-                    lastRangeAvg = lastSum / 20;
-                    telemetryout("lastRangeAvg = " + lastRangeAvg + " return=>"+ (lastRangeAvg > 10 ? preDistance : 0));
-                    curDistance = lastRangeAvg > 10 ? preDistance : 0;
-                }else{
-                    telemetryout("obect is close to robot");
-                    curDistance = preDistance;
-                }
-            }
-        }
-        telemetryout("before exit, curDistance = "+ curDistance);
-        return curDistance;
-    }*/
-
 
 }
