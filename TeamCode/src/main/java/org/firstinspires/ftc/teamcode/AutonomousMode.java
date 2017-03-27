@@ -61,7 +61,8 @@ abstract class AutonomousMode extends LinearOpMode {
     private static final float IMAGE_HEIGHT_OVER_FLOOR = 146.05f; // millimeter
 
     private final static int ENCODER_COUNTS_PER_ROTATION = 2 * 1140;
-    private final static int SHOOT_DISTANCE1 = 11; //inches
+    private final static int SHOOT_DISTANCE1 = 5; //inches was 11
+    private final static int AFTER_SHOOT_MOVE1 = 6; // total needs to be 11
     private final static double SHOOT_POWER1 = -0.72; //flywheel power for shooting
     private final static double SHOOT_POWER2 = -0.695; //flywheel power for shooting
 
@@ -271,6 +272,7 @@ abstract class AutonomousMode extends LinearOpMode {
         sleep(2500);
         motorBelt.setPower(0);
         powerFlywheels(false);
+        moveByInches(-AFTER_SHOOT_MOVE1);
 
         telemetryout("After shooting");
 
@@ -548,8 +550,6 @@ abstract class AutonomousMode extends LinearOpMode {
         // detect color
         BeaconSide beaconSide = detectColor(true);
 
-        telemetryout("Color detected: " + beaconSide);
-
         if (beaconSide == BeaconSide.none && beaconSideFar == BeaconSide.none) {
             // if color is not detected stop and
             // show telemetry while op mode is active
@@ -626,10 +626,10 @@ abstract class AutonomousMode extends LinearOpMode {
         moveByInches(1.75 * TILE_LENGTH);
     }
     private void liftBar(){
-        servoBar.setPosition(95.0 / 255);
+        servoBar.setPosition(110.0 / 255);
     }
     private void lowerBar(){
-        servoBar.setPosition(215.0 / 255);
+        servoBar.setPosition(225.0 / 255);
     }
 
     private void kickServosIn() {
@@ -638,8 +638,8 @@ abstract class AutonomousMode extends LinearOpMode {
 
     private void kickServosIn(boolean withDelays) {
         //sleep(100);
-        kickServo2.setPosition(10.0/255);
-        kickServo3.setPosition(215.0/255);
+        kickServo2.setPosition(70.0/255); //10.0/255
+        kickServo3.setPosition(155.0/255); //215.0/255
         if (withDelays) {
             sleep(300);
         }
@@ -680,7 +680,6 @@ abstract class AutonomousMode extends LinearOpMode {
         while (opModeIsActive()) {
             // check color, if detected, keep shimmying
             beaconSide = detectColor();
-            telemetryout("Color detected: " + beaconSide);
             if (beaconSide == BeaconSide.none) {
                 return;
             }
@@ -802,7 +801,7 @@ abstract class AutonomousMode extends LinearOpMode {
             out.append("Time,Step,Optical Light,Gyro Reading,Distance,Wheel Encoder Position,Voltage,Color3c - R/G/B,Color3a - R/G/B").append("\n");
             firstTimeTelemetry = false;
         }
-        out.append("\n").append(new SimpleDateFormat("MMMdd_HHmm:ss").format(new Date())).append(",");
+        out.append("\n").append(new SimpleDateFormat("MMMdd_HHmm:ss.S").format(new Date())).append(",");
         out.append(step).append(",");
         out.append(opticalSensor.getLightDetected()).append(",");
         out.append(getGyroRawHeading()).append(",");
@@ -1216,17 +1215,49 @@ abstract class AutonomousMode extends LinearOpMode {
     }
 
     private void moveOnForShooting(double power, double distance, double shootPower) throws InterruptedException {
-        ElapsedTime timer = new ElapsedTime();
+        /*ElapsedTime timer = new ElapsedTime();
+        motorFlywheel.setPower(-0.4);
+        timer.reset();*/
 
-        motorFlywheel.setPower(-0.5);
-        timer.reset();
+        //modification for additional weight on flywheel
+        double startShootPower = -0.1;
+        double endShootPower = -0.65;
+        long delay = 2400;
+
+        motorFlywheel.setPower(startShootPower);
+        telemetryout("Flywheel start");
 
         this.powerMotors(-power, -power);
 
         int startPosition = motorLeft1.getCurrentPosition();
         int currentPosition = startPosition;
 
-        while (opModeIsActive() && Math.abs(currentPosition - startPosition) < inchesToCounts(distance) &&
+        long t0 = System.currentTimeMillis();
+        long curr = t0;
+        double multi = 1/(1-Math.sin(Math.PI/8));
+        while (opModeIsActive() && ((curr-t0)<delay || Math.abs(currentPosition - startPosition) < inchesToCounts(distance))) {
+            if (curr-t0 < delay) {
+                // linear
+                //double flywheelPower = startShootPower + (endShootPower - startShootPower) * (curr - t0) / delay;
+                double flywheelPower = startShootPower + (endShootPower - startShootPower) *
+                        (Math.sin((Math.PI/8) + (curr - t0)*3*Math.PI / (delay * 8))-Math.sin(Math.PI/8)) * multi;
+                //double flywheelPower = startShootPower + (endShootPower - startShootPower) * Math.sin(Math.PI * (curr-t0)/(delay * 2));
+                motorFlywheel.setPower(flywheelPower);
+            }
+            else {
+                motorFlywheel.setPower(endShootPower);
+            }
+            if (Math.abs(currentPosition - startPosition) >= inchesToCounts(distance)) {
+                powerMotors(0, 0);
+            }
+            curr = System.currentTimeMillis();
+            currentPosition = motorLeft1.getCurrentPosition();
+            idle();
+        }
+        motorFlywheel.setPower(endShootPower);
+        powerMotors(0, 0);
+        telemetryout("Stopped for shooting");
+        /*while (opModeIsActive() && Math.abs(currentPosition - startPosition) < inchesToCounts(distance) &&
                 timer.milliseconds()<1200) {
             currentPosition = motorLeft1.getCurrentPosition();
             idle();
@@ -1240,7 +1271,7 @@ abstract class AutonomousMode extends LinearOpMode {
         int currentms = (int)timer.milliseconds();
         if (currentms < 2400){
             sleep(2400-currentms);
-        }
+        }*/
     }
 
     /**

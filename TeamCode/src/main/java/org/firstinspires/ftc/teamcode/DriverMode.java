@@ -100,7 +100,7 @@ public class DriverMode extends OpMode {
         Servo servoBeaconPad = hardwareMap.servo.get("BeaconPad");
         servoBeaconPad.setPosition(15 / 255.0);
         servoBar = hardwareMap.servo.get("ServoBar");
-        servoBar.setPosition(215.0 / 255);
+        servoBar.setPosition(225.0 / 255);
         kickServo2 = hardwareMap.servo.get("KickServo2");
         kickServo2.setPosition(10.0 / 255);
         kickServo3 = hardwareMap.servo.get("KickServo3");
@@ -284,7 +284,7 @@ public class DriverMode extends OpMode {
                 break;
             case speedUp1:
                 if (gunTimer.milliseconds()>1200){
-                    motorFlywheel.setPower(-0.7);
+                    motorFlywheel.setPower(-0.64);
                     flywheelState = Flywheel.speedUp2;
                 }
                 break;
