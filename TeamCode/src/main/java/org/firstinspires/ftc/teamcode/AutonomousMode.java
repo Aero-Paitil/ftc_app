@@ -178,18 +178,18 @@ abstract class AutonomousMode extends LinearOpMode {
 
         gyro.resetZAxisIntegrator(); //reset gyro heading to 0
 
-        kickServo2 =  hardwareMap.servo.get("KickServo2");
-        kickServo3 = hardwareMap.servo.get("KickServo3");
-        kickServosIn();
+        servoBar = hardwareMap.servo.get("ServoBar");
+        // lower servo bar - do it first thing so that servo won't burn trying to get to 0 position
+        lowerBar();
 
         // put the servos in correct position
         servoBeaconPad = hardwareMap.servo.get("BeaconPad");
         setPadPosition(15); // to avoid pad covering camera
-        sleep(500);
 
-        servoBar = hardwareMap.servo.get("ServoBar");
-        // lower servo bar
-        lowerBar();
+        kickServo2 = hardwareMap.servo.get("KickServo2");
+        kickServo3 = hardwareMap.servo.get("KickServo3");
+        kickServo2.setPosition(10.0 / 255);
+        kickServo3.setPosition(215.0 / 255);
 
         telemetryout("Initial: " + (isBlue ? "blue; " : "red; ") + startTile +
                 "; delay: " + delay + "; after shoot: " + afterShootingBehavior);
@@ -282,7 +282,7 @@ abstract class AutonomousMode extends LinearOpMode {
             showTelemetry();
             return;
         }
-        if (afterShootingBehavior.equals("rampPark")){
+        if (afterShootingBehavior.equals("rampPark")) {
             parkOnRamp();
             return;
         }
@@ -446,7 +446,7 @@ abstract class AutonomousMode extends LinearOpMode {
 
         //first travel 1/10th of a circle with the radius of the tile length
         //red - clockwise; blue - counterclockwise
-        moveByArch(TILE_LENGTH, 1/10.0, !isBlue, 1.0);
+        moveByArch(TILE_LENGTH, 1 / 10.0, !isBlue, 1.0);
 
         angle = isBlue ? 45 : -45;
         moveByInchesGyro(0.92, angle, 43, 0.92);
@@ -493,7 +493,7 @@ abstract class AutonomousMode extends LinearOpMode {
         if (afterShootingBehavior.equals("ballPark")) {
             moveBallAndPark();
             return;
-        } else if (afterShootingBehavior.equals("rampPark")){
+        } else if (afterShootingBehavior.equals("rampPark")) {
             parkOnRamp();
             return;
         }
@@ -505,7 +505,7 @@ abstract class AutonomousMode extends LinearOpMode {
         rotate(angle, fromAngle);
 
         // Go backwards a quarter of a circle
-        moveByArch(2*TILE_LENGTH, 1/4.0, !isBlue, -0.6);
+        moveByArch(2 * TILE_LENGTH, 1 / 4.0, !isBlue, -0.6);
         powerMotors(0, 0);
 
         // blue: rotate 30 degrees CW from heading 0
@@ -564,7 +564,7 @@ abstract class AutonomousMode extends LinearOpMode {
         kickServosIn();
         boolean atWall = driveUntilHit(5, -0.3);
 
-        if (atWall){
+        if (atWall) {
             telemetryout("At the wall");
             // shimmy on the beacon side
             shimmy(beaconSide);
@@ -586,19 +586,19 @@ abstract class AutonomousMode extends LinearOpMode {
     private void moveByInchesGyroTest() throws InterruptedException {
         out.append("Moving from -0.92 power to -0.3").append("\n");
         moveByInchesGyro(-0.92, 0, 30, -0.3);
-        powerMotors(0,0);
+        powerMotors(0, 0);
         sleep(2000);
         out.append("Moving from 0.92 power to 0.3").append("\n");
         moveByInchesGyro(0.92, 0, 30, 0.3);
-        powerMotors(0,0);
+        powerMotors(0, 0);
         sleep(2000);
         out.append("Moving from -0.3 power to -0.92").append("\n");
         moveByInchesGyro(-0.3, 0, 30, -0.92);
-        powerMotors(0,0);
+        powerMotors(0, 0);
         sleep(2000);
         out.append("Moving from 0.3 power to 0.92").append("\n");
         moveByInchesGyro(0.3, 0, 30, 0.92);
-        powerMotors(0,0);
+        powerMotors(0, 0);
     }
 
     private void parkOnRamp() throws InterruptedException {
@@ -625,10 +625,12 @@ abstract class AutonomousMode extends LinearOpMode {
         motorBrush.setPower(-1);
         moveByInches(1.75 * TILE_LENGTH);
     }
-    private void liftBar(){
+
+    private void liftBar() {
         servoBar.setPosition(110.0 / 255);
     }
-    private void lowerBar(){
+
+    private void lowerBar() {
         servoBar.setPosition(225.0 / 255);
     }
 
@@ -638,15 +640,22 @@ abstract class AutonomousMode extends LinearOpMode {
 
     private void kickServosIn(boolean withDelays) {
         //sleep(100);
-        kickServo2.setPosition(70.0/255); //10.0/255
-        kickServo3.setPosition(155.0/255); //215.0/255
+        kickServo2.setPosition(10.0 / 255);
+        sleep(300);
+        kickServo3.setPosition(215.0 / 255);
         if (withDelays) {
             sleep(300);
         }
     }
 
+    private void kickServosHalfway() {
+        kickServo2.setPosition(70.0 / 255);
+        kickServo3.setPosition(155.0 / 255);
+    }
+
     private void kickServosOut() {
-        kickServo2.setPosition(230.0/255);
+        kickServo2.setPosition(230.0 / 255);
+        sleep(300);
         kickServo3.setPosition(0);
     }
 
@@ -759,7 +768,7 @@ abstract class AutonomousMode extends LinearOpMode {
         while (rangeSensor.getDistance(DistanceUnit.CM) > distincm) {
             idle();
             if (timer.milliseconds() > 4000) {
-                powerMotors(0,0);
+                powerMotors(0, 0);
                 return false;
             }
         }
@@ -797,7 +806,7 @@ abstract class AutonomousMode extends LinearOpMode {
     }
 
     private void telemetryout(String step) {
-       if (firstTimeTelemetry) {
+        if (firstTimeTelemetry) {
             out.append("Time,Step,Optical Light,Gyro Reading,Distance,Wheel Encoder Position,Voltage,Color3c - R/G/B,Color3a - R/G/B").append("\n");
             firstTimeTelemetry = false;
         }
@@ -1015,17 +1024,17 @@ abstract class AutonomousMode extends LinearOpMode {
         powerMotors(0, 0);
     }
 
-    private double inchesToCounts(double inches){
+    private double inchesToCounts(double inches) {
         return Math.abs(ENCODER_COUNTS_PER_ROTATION * inches / 26.5);
     }
 
     /**
      * Drive until white line
      *
-     * @param startPower        starting power (positive - forward, negative - backward)
+     * @param startPower          starting power (positive - forward, negative - backward)
      * @param headingToBeaconZone raw gyro heading
      * @param maxInches           - maximum inches to travel
-     * @param endPower - Ending desired power
+     * @param endPower            - Ending desired power
      * @return true if traveled distance, otherwise false
      * @throws InterruptedException
      */
@@ -1061,8 +1070,8 @@ abstract class AutonomousMode extends LinearOpMode {
             telemetry.update();
 
 
-            if (countsSinceStart > countsForGradient){
-                motorPower = slope * (countsSinceStart-inchesToCounts(maxInches)) + endPower;
+            if (countsSinceStart > countsForGradient) {
+                motorPower = slope * (countsSinceStart - inchesToCounts(maxInches)) + endPower;
                 //out.append(countsSinceStart).append(",").append(motorPower).append("\n");
             }
             powerMotors(Range.clip(motorPower - clockwiseSpeed, -1.0, 1.0), Range.clip(motorPower + clockwiseSpeed, -1.0, 1.0));
@@ -1168,6 +1177,8 @@ abstract class AutonomousMode extends LinearOpMode {
         I2cController.I2cPortReadyCallback gyroCallBack = gyroController.getI2cPortReadyCallback(gyro.getPort());
         gyroController.deregisterForPortReadyCallback(gyro.getPort());
 
+        kickServosHalfway();
+
         while (opModeIsActive() && distance > 15) {
 
             light = opticalSensor.getLightDetected();
@@ -1190,11 +1201,13 @@ abstract class AutonomousMode extends LinearOpMode {
         }
         powerMotors(0, 0);
 
-        kickServosOut();
-
         //enable sensors again
         gyroController.registerForI2cPortReadyCallback(gyroCallBack, gyro.getPort());
         sleep(150);
+
+        adjustRobotAngle();
+
+        kickServosOut();
 
         return beaconSide;
     }
@@ -1234,17 +1247,16 @@ abstract class AutonomousMode extends LinearOpMode {
 
         long t0 = System.currentTimeMillis();
         long curr = t0;
-        double multi = 1/(1-Math.sin(Math.PI/8));
-        while (opModeIsActive() && ((curr-t0)<delay || Math.abs(currentPosition - startPosition) < inchesToCounts(distance))) {
-            if (curr-t0 < delay) {
+        double multi = 1 / (1 - Math.sin(Math.PI / 8));
+        while (opModeIsActive() && ((curr - t0) < delay || Math.abs(currentPosition - startPosition) < inchesToCounts(distance))) {
+            if (curr - t0 < delay) {
                 // linear
                 //double flywheelPower = startShootPower + (endShootPower - startShootPower) * (curr - t0) / delay;
                 double flywheelPower = startShootPower + (endShootPower - startShootPower) *
-                        (Math.sin((Math.PI/8) + (curr - t0)*3*Math.PI / (delay * 8))-Math.sin(Math.PI/8)) * multi;
+                        (Math.sin((Math.PI / 8) + (curr - t0) * 3 * Math.PI / (delay * 8)) - Math.sin(Math.PI / 8)) * multi;
                 //double flywheelPower = startShootPower + (endShootPower - startShootPower) * Math.sin(Math.PI * (curr-t0)/(delay * 2));
                 motorFlywheel.setPower(flywheelPower);
-            }
-            else {
+            } else {
                 motorFlywheel.setPower(endShootPower);
             }
             if (Math.abs(currentPosition - startPosition) >= inchesToCounts(distance)) {
@@ -1276,15 +1288,16 @@ abstract class AutonomousMode extends LinearOpMode {
 
     /**
      * method for moving robot part of circle
-     * @param radius - radius of circle
-     * @param pCircle - fraction of circle
+     *
+     * @param radius    - radius of circle
+     * @param pCircle   - fraction of circle
      * @param clockwise - moving clockwise?
-     * @param power - power to outer wheel
+     * @param power     - power to outer wheel
      * @throws InterruptedException
      */
     private void moveByArch(double radius, double pCircle, boolean clockwise, double power) throws InterruptedException {
         double outerWheelDist = 2 * Math.PI * (radius + HALF_WIDTH) * pCircle;
-        double powerRatio = (radius - HALF_WIDTH)/(radius + HALF_WIDTH);
+        double powerRatio = (radius - HALF_WIDTH) / (radius + HALF_WIDTH);
         DcMotor outerMotor;
         int counts;
         if (!clockwise) {
@@ -1304,4 +1317,18 @@ abstract class AutonomousMode extends LinearOpMode {
         }
     }
 
+    private void adjustRobotAngle() throws InterruptedException {
+        int tolerance = 10;
+        int currentHeading = getGyroRawHeading();
+        int expectedValue = isBlue ? 90 : -90;
+        int currentDiff = currentHeading - expectedValue;
+        while (Math.abs(currentDiff) > tolerance) {
+            if (currentHeading > expectedValue) {
+                smallrotate("counterclockwise");
+            } else {
+                smallrotate("clockwise");
+            }
+            currentDiff = getGyroRawHeading() - expectedValue;
+        }
+    }
 }
