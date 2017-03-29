@@ -26,17 +26,17 @@ import java.io.FileWriter;
 
 public class FollowBeacon extends OpMode {
 
-    double DRIVE_POWER = 0.225;
+    private double DRIVE_POWER = 0.225;
 
-    DcMotor motorLeft, motorRight;
+    private DcMotor motorLeft, motorRight;
 
-    ColorSensor color3a, color3c;
-    ModernRoboticsI2cRangeSensor range; //range 1 - 255 cm
+    private ColorSensor color3a, color3c;
+    private ModernRoboticsI2cRangeSensor range; //range 1 - 255 cm
 
-    BufferedWriter bufferedWriter;
-    StringBuffer line = new StringBuffer("3a Red // 3a Blue // 3c Red // 3c Blue\n");
+    private BufferedWriter bufferedWriter;
+    private StringBuffer line = new StringBuffer("3a Red // 3a Blue // 3c Red // 3c Blue\n");
 
-    ElapsedTime time = new ElapsedTime();
+    //ElapsedTime time = new ElapsedTime();
 
     @Override
     public void init() {
@@ -61,7 +61,7 @@ public class FollowBeacon extends OpMode {
 
     @Override
     public void loop() {
-       long time = System.currentTimeMillis();
+       //long time = System.currentTimeMillis();
         int minRange = (int) range.getDistance(DistanceUnit.CM);
         if (minRange < 20 || color3a.blue() < 1 && color3c.blue() <1) {
             drive(0, 0);
@@ -96,12 +96,12 @@ public class FollowBeacon extends OpMode {
         }
     }
 
-    void drive(double powerLeft, double powerRight) {
+    private void drive(double powerLeft, double powerRight) {
         motorLeft.setPower(-powerLeft);
         motorRight.setPower(-powerRight);
     }
 
-    void writeToLine() {
+    private void writeToLine() {
         line.append(color3a.red() + " // " + color3a.blue() + " // " + color3c.red() + " // " + color3c.blue() + "\n");
     }
 }
