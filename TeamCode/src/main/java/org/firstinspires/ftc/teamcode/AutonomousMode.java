@@ -410,7 +410,7 @@ abstract class AutonomousMode extends LinearOpMode {
             moveByInches(pastLineInches);
             //moveByInchesGyro(-0.3, 0, Math.abs(pastLineInches), -0.3 );
             lowerBar();
-            moveByInches(5);
+            moveByInches(3); //ORIGINAL VALUE 5, CHANGING TO 3
         }
 
         telemetryout("Passed " + pastLineInches + " inches after white line 2");
@@ -637,7 +637,7 @@ abstract class AutonomousMode extends LinearOpMode {
     }
 
     private void lowerBar() {
-        servoBar.setPosition(230.0 / 255);
+        servoBar.setPosition(225.0 / 255);
     }
 
 
@@ -650,8 +650,8 @@ abstract class AutonomousMode extends LinearOpMode {
     }
 
     private void kickServosHalfway() {
-        kickServo2.setPosition(70.0 / 255);
-        kickServo3.setPosition(155.0 / 255);
+        kickServo2.setPosition(40.0 / 255);
+        kickServo3.setPosition(185.0 / 255);
     }
 
     private void kickServosOut() {
@@ -1200,6 +1200,8 @@ abstract class AutonomousMode extends LinearOpMode {
         sleep(150);
 
         kickServo3.setPosition(0); // stagger second kicker
+
+        sleep(500); //ORIGINAL VALUE ZERO, TESTED TO SEE WHAT WOULD HAPPEN IF SERVOS DEPLOYED ENTIRELY AND NOT JUST HALFWAY
 
         return BeaconSide.none;
     }
