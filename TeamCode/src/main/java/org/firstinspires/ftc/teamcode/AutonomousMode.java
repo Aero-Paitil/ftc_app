@@ -410,7 +410,11 @@ abstract class AutonomousMode extends LinearOpMode {
             moveByInches(pastLineInches);
             //moveByInchesGyro(-0.3, 0, Math.abs(pastLineInches), -0.3 );
             lowerBar();
-            moveByInches(3); //ORIGINAL VALUE 5, CHANGING TO 3
+            if(isBlue) {
+                moveByInches(3);
+            } else {
+                moveByInches(4);
+            } //distance for moving back is different. Red is 3.5, blue is 3
         }
 
         telemetryout("Passed " + pastLineInches + " inches after white line 2");
@@ -433,6 +437,8 @@ abstract class AutonomousMode extends LinearOpMode {
         if (beaconSide != BeaconSide.none) {
             // if color is detected, move forward to hit the beacon
             boolean atWall = driveUntilHit(5, -0.3);
+
+            //TODO: make the robot stop a leeetle bit farther from the wall
 
             if (atWall) {
                 telemetryout("At the wall 2");
@@ -482,7 +488,7 @@ abstract class AutonomousMode extends LinearOpMode {
         // to make a rotation of 45 degrees to shoot the ball from heading zero.
         // blue: rotate 45 degrees CW from heading 0
         // red: rotate -45 degrees CCW from heading 0
-        angle = isBlue ? 45 : -45;
+        angle = isBlue ? 45 : -45; //TODO: CHECK THIS ANGLE!! TTEST DIFF ONES??
         rotate(angle, 0);
 
         // shooting the ball(s)
