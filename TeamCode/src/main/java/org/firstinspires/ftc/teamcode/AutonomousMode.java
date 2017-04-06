@@ -54,7 +54,7 @@ abstract class AutonomousMode extends LinearOpMode {
     private double TILE_LENGTH = 23.5;
     private double HALF_WIDTH = 8.5;
     private double DRIVING_POWER = 0.4;
-    private double MID_POINT_LIGHT_BACK = 0.3;
+    private double MID_POINT_LIGHT_BACK = 0.25;
     //private double MAX_COUNTS_TO_WHITE = 2.26 * ENCODER_COUNTS_PER_ROTATION;
 
     private static final float FIELD_WIDTH = 2743.2f; //3580.0f; // millimeter
@@ -64,7 +64,7 @@ abstract class AutonomousMode extends LinearOpMode {
     private final static int SHOOT_DISTANCE1 = 11; //inches was 11
     //private final static int AFTER_SHOOT_MOVE1 = 0; // total needs to be 11
     private final static double SHOOT_POWER1 = -0.638; //-0.72; //flywheel power for shooting from main sequence
-    private final static double SHOOT_POWER2 = -0.635; //-0.695; //flywheel power for shooting from tile 4
+    private final static double SHOOT_POWER2 = -0.632; //-0.695; //flywheel power for shooting from tile 4
 
     private boolean isBlue = isBlueAlliance();
     private String startTile;
@@ -353,9 +353,11 @@ abstract class AutonomousMode extends LinearOpMode {
                 // shimmy(beaconSide);
                 moreShimmyIfNeeded();
                 telemetryout("After shimmy");
+                moveByInches(8);
             }
         } else {
             kickServosIn(false);
+            moveByInches(4);
         }
 
         // disable color
@@ -363,10 +365,6 @@ abstract class AutonomousMode extends LinearOpMode {
         color3cController.deregisterForPortReadyCallback(color3c.getPort());
         colorSensorsEnabled = false;
 
-
-        //TODO: write short distance gyro drive with large coefficient
-        // move 8 inches back
-        moveByInches(8);
 
         ballFlickerServo.setPosition(128.0/255); //turn off ball flicker
 
@@ -487,9 +485,12 @@ abstract class AutonomousMode extends LinearOpMode {
 
         // to make a rotation of 45 degrees to shoot the ball from heading zero.
         // blue: rotate 45 degrees CW from heading 0
-        // red: rotate -45 degrees CCW from heading 0
-        angle = isBlue ? 45 : -45; //TODO: CHECK THIS ANGLE!! TTEST DIFF ONES??
+        // red: rotate -35 degrees CCW from heading 0
+        angle = isBlue ? 45 : -35; //TODO: CHECK THIS ANGLE!! TTEST DIFF ONES??
         rotate(angle, 0);
+
+        //sleeping longer
+        sleep(3000);
 
         // shooting the ball(s)
         motorBelt.setPower(1);
@@ -620,17 +621,18 @@ abstract class AutonomousMode extends LinearOpMode {
             angle = isBlue ? -75 : 75;
             distance = isBlue ? 45 : 50;
         } else {
-            fromAngle = isBlue ? 45 : -45;
-            angle = isBlue ? -110 : 117;
+            fromAngle = isBlue ? 45 : -35;
+            angle = isBlue ? -110 : 107;
             distance = isBlue ? 70 : 75;
         }
         rotate(angle, fromAngle);
         lowerBar();
+        motorBrush.setPower(-1);
         moveByInches(distance, 0.5);
     }
 
     private void moveBallAndPark() throws InterruptedException {
-        sleep((10 - delay) * 1000);
+        sleep((7 - delay) * 1000);
         int fromAngle = isBlue ? 45 : -45;
         int angle = isBlue ? 170 : -170;
         rotate(angle, fromAngle);
