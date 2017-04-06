@@ -51,29 +51,30 @@ abstract class AutonomousMode extends LinearOpMode {
 
     enum BeaconSide {left, right, none}
 
-    private double TILE_LENGTH = 23.5;
-    private double HALF_WIDTH = 8.5;
-    private double DRIVING_POWER = 0.4;
-    private double MID_POINT_LIGHT_BACK = 0.25;
+    private double TILE_LENGTH = 23.5; //Length of one tile in inches
+    private double HALF_WIDTH = 8.5; //Half of the distance between the wheels in inches
+    private double DRIVING_POWER = 0.4; //The default driving power
+    private double MID_POINT_LIGHT_BACK = 0.3; //Optical distance sensor reading on the edge of the white line
     //private double MAX_COUNTS_TO_WHITE = 2.26 * ENCODER_COUNTS_PER_ROTATION;
 
-    private static final float FIELD_WIDTH = 2743.2f; //3580.0f; // millimeter
-    private static final float IMAGE_HEIGHT_OVER_FLOOR = 146.05f; // millimeter
+    private static final float FIELD_WIDTH = 2743.2f; //3580.0f; //Width of the field in millimeters
+    private static final float IMAGE_HEIGHT_OVER_FLOOR = 146.05f; //Height of the beacon images in millimeters
 
-    private final static int ENCODER_COUNTS_PER_ROTATION = 2 * 1140;
-    private final static int SHOOT_DISTANCE1 = 11; //inches was 11
-    //private final static int AFTER_SHOOT_MOVE1 = 0; // total needs to be 11
-    private final static double SHOOT_POWER1 = -0.638; //-0.72; //flywheel power for shooting from main sequence
-    private final static double SHOOT_POWER2 = -0.632; //-0.695; //flywheel power for shooting from tile 4
+    private final static int ENCODER_COUNTS_PER_ROTATION = 2 * 1140; //Encoder counts per rotation
+    private final static int SHOOT_DISTANCE1 = 11; //The distance moved before the robot shoots //inches was 11
+    private final static int AFTER_SHOOT_MOVE1 = 0; //Distance moved after shooting //total needs to be 11
+    private final static double SHOOT_POWER1 = -0.638; //-0.72; //flywheel power for shooting
+    private final static double SHOOT_POWER2 = -0.632; //-0.695; //flywheel power for shooting
 
-    private boolean isBlue = isBlueAlliance();
-    private String startTile;
+    private boolean isBlue = isBlueAlliance(); //Determines if the robot is running blue or red
+    private String startTile; //Tile the robot starts on before it moves
 
     private static final String TAG = "Autonomous Mode";
 
     private VuforiaTrackables allImages;
     private List<VuforiaTrackable> allTrackables;
 
+    private ModernRoboticsI2cGyro gyro = null;
     private ModernRoboticsI2cRangeSensor rangeSensor;
     private ColorSensor colorSensor3c;
     private ColorSensor colorSensor3a;
@@ -86,32 +87,33 @@ abstract class AutonomousMode extends LinearOpMode {
     private boolean colorSensorsEnabled = true;
 
     //defining the 4 motors
-    // the motors are slaved:
+    // the drive motors are slaved:
     // the power that goes to the first goes to the second
-    private DcMotor motorLeft1;
-    //private DcMotor motorLeft2;
-    private DcMotor motorRight1;
-    //private DcMotor motorRight2;
+    private DcMotor motorLeft1; //motorLeft2 is ganged
+    private DcMotor motorRight1; //motorRight2 is ganged
     private DcMotor motorBrush;
     private DcMotor motorBelt;
-    private Servo servoBeaconPad;
-    private ModernRoboticsI2cGyro gyro = null;
     private DcMotor motorFlywheel;
-    private Servo servoBar;
-    private Servo kickServo2;
-    private Servo kickServo3;
-    private Servo ballFlickerServo;
+
+    private Servo servoBeaconPad; // beacon pushing pad
+    private Servo servoBar; // the bar to push big ball away
+
+    // flippers on the bottom of the robot to kick small balls away
+    // if not removed, small balls can get stuck between the wall and the wheels of the robot
+    private Servo kickServo2; //First flipper on the bottom of the robot
+    private Servo kickServo3; //Second flipper on the bottom of the robot
 
     private double[] robotLocation = null;
 
-    abstract boolean isBlueAlliance();
+    private StringBuffer out = new StringBuffer(); //String Buffer
 
-    private StringBuffer out = new StringBuffer();
-
-    private int delay;
-    private boolean stopAfterShooting;
-    private String afterShootingBehavior;
+    private int delay; //option: delay seconds before autonomous sequence starts
+    private boolean stopAfterShooting; //option: should we stop after shooting
+    private String afterShootingBehavior; //option: what to do after shooting to do after the shooting
     private boolean firstTimeTelemetry = true;
+
+    // subclasses for red and blue should implement this method
+    abstract boolean isBlueAlliance();
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -156,7 +158,7 @@ abstract class AutonomousMode extends LinearOpMode {
         // reset encoders
         setRunMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
 
-        // use running by speed mode (to make robot move straight, when equal power is applied left and right)
+        // driving in speed mode (to make robot move straight, when equal power is applied left and right)
         setRunMode(DcMotor.RunMode.RUN_USING_ENCODER);
         setZeroPowerMode(DcMotor.ZeroPowerBehavior.BRAKE);
 
@@ -192,15 +194,11 @@ abstract class AutonomousMode extends LinearOpMode {
         kickServo2.setPosition(10.0 / 255);
         kickServo3.setPosition(215.0 / 255);
 
-        ballFlickerServo = hardwareMap.servo.get("ballFlicker");
-        ballFlickerServo.setPosition(128.0/255);
-
         telemetryout("Initial: " + (isBlue ? "blue; " : "red; ") + startTile +
                 "; delay: " + delay + "; after shoot: " + afterShootingBehavior);
         telemetry.update();
 
-        //waitForStart();
-        // Wait for the game to start (Display Gyro value), and reset gyro before we move..
+        // Wait for the game to start (display sensor values)
         while (!isStarted()) {
             telemetry();
             telemetry.update();
@@ -213,10 +211,12 @@ abstract class AutonomousMode extends LinearOpMode {
         }
 
         try {
+            // reset gyro before we move
             gyro.resetZAxisIntegrator(); //reset gyro heading to 0
             sleep(50);
 
-            //disable color: color sensors are only enabled when detecting color
+            // disable color: color sensors are only enabled when detecting color
+            // this is done to improve the update rate of all other sensors
             color3aController.deregisterForPortReadyCallback(color3a.getPort());
             color3cController.deregisterForPortReadyCallback(color3c.getPort());
             colorSensorsEnabled = false;
@@ -365,9 +365,6 @@ abstract class AutonomousMode extends LinearOpMode {
         color3cController.deregisterForPortReadyCallback(color3c.getPort());
         colorSensorsEnabled = false;
 
-
-        ballFlickerServo.setPosition(128.0/255); //turn off ball flicker
-
         telemetryout("Moved back 8 inches");
         // blue: rotate -90 degrees from heading 90
         // red: rotate 90 degrees from heading -90
@@ -436,8 +433,6 @@ abstract class AutonomousMode extends LinearOpMode {
             // if color is detected, move forward to hit the beacon
             boolean atWall = driveUntilHit(5, -0.3);
 
-            //TODO: make the robot stop a leeetle bit farther from the wall
-
             if (atWall) {
                 telemetryout("At the wall 2");
                 // shimmy on the beacon side
@@ -485,11 +480,11 @@ abstract class AutonomousMode extends LinearOpMode {
 
         // to make a rotation of 45 degrees to shoot the ball from heading zero.
         // blue: rotate 45 degrees CW from heading 0
-        // red: rotate -35 degrees CCW from heading 0
+        // red: rotate -35 degrees CCW from heading 0 (because the shooter is on the side)
         angle = isBlue ? 45 : -35; //TODO: CHECK THIS ANGLE!! TTEST DIFF ONES??
         rotate(angle, 0);
 
-        //sleeping longer
+        //sleeping longer to give flywheel time to settle
         sleep(3000);
 
         // shooting the ball(s)
@@ -1168,8 +1163,6 @@ abstract class AutonomousMode extends LinearOpMode {
         I2cController gyroController = gyro.getI2cController();
         I2cController.I2cPortReadyCallback gyroCallBack = gyroController.getI2cPortReadyCallback(gyro.getPort());
         gyroController.deregisterForPortReadyCallback(gyro.getPort());
-
-        ballFlickerServo.setPosition(0); //Start the ball flicker rotation
 
         while (opModeIsActive() && distance > 15) {
 
