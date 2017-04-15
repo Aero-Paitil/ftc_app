@@ -36,7 +36,44 @@ public class AutonomooseTesting extends AutonomousMode {
 
     @Override
     protected void testSequence() throws InterruptedException {
-        //testMoveByInchesGyro(0.03, -0.92, 0, 32, -0.3);
+        testRotate(360);
+        testRotate(-360);
+        testRotate(90);
+        testRotate(-90);
+        testRotate(45);
+        testRotate(-45);
+        testRotate(30);
+        testRotate(-30);
+        testRotate(20);
+        testRotate(-20);
+        testRotate(10);
+        testRotate(-10);
+        testRotate(5);
+        testRotate(-5);
+
+
+        //testProportionalGyroDrive();
+        //testOpticalDistanceSensor();
+        //movePartCircle(1.5 * TILE_LENGTH, 1, false, 0.6);
+
+    }
+
+    void testRotate(int angle) throws InterruptedException {
+        gyro.resetZAxisIntegrator();
+        int initHeading = getGyroRawHeading();
+        rotate(angle, 0);
+        sleep(100);
+        int endHeading = getGyroRawHeading();
+        telemetry.addData("expected: " + angle + "; actual: ", endHeading - initHeading);
+        telemetry.update();
+        sleep(5000);
+    }
+
+    /**
+     * trying to find the best proportional coefficient for straight drive with gyro, MoveByInchesGyro
+     * @throws InterruptedException
+     */
+    private void testProportionalGyroDrive() throws InterruptedException {
         int head = 10; //20; //8;
         double speed = 0.92;
         double finalspeed = 0.3;
@@ -56,10 +93,6 @@ public class AutonomooseTesting extends AutonomousMode {
         idx = 0;
         testMoveByInchesGyro(0.05, speed, head, 56, finalspeed);
         testMoveByInchesGyro(0.05, -speed, -head, 56, -finalspeed);
-
-
-        //testOpticalDistanceSensor();
-        //movePartCircle(1.5 * TILE_LENGTH, 1, false, 0.6);
 
     }
 

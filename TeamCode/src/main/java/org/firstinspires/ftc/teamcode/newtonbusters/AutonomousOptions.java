@@ -42,8 +42,7 @@ public class AutonomousOptions extends OpMode {
 
     private static final String[] DELAYS = {"0 sec", "3 sec", "5 sec", "7 sec"};
     private static final String[] START_POS = {"3rd tile from corner", "4th tile from corner"};
-    //private static final String[] STOP_AFTER_SHOOTING = {"true", "false"};
-    private static final String[] STOP_AFTER_SHOOTING = {"stop", "ballPark","beacon","rampPark"};
+    private static final String[] AFTER_SHOOTING_BEHAVIOUR = {"stop", "ballPark","beacon","rampPark"};
 
     public static SharedPreferences getSharedPrefs(HardwareMap hardwareMap) {
         return hardwareMap.appContext.getSharedPreferences("autonomous", 0);
@@ -54,7 +53,7 @@ public class AutonomousOptions extends OpMode {
     static {
         prefMap.put(DELAY_PREF, DELAYS);
         prefMap.put(START_TILE_PREF, START_POS);
-        prefMap.put(AFTER_SHOOTING_BEHAVIOR_PREF, STOP_AFTER_SHOOTING);
+        prefMap.put(AFTER_SHOOTING_BEHAVIOR_PREF, AFTER_SHOOTING_BEHAVIOUR);
     }
     private static String[] prefKeys = prefMap.keySet().toArray(new String[prefMap.keySet().size()]);
     static {

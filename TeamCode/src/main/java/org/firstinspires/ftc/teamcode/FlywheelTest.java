@@ -64,11 +64,11 @@ public class FlywheelTest extends LinearOpMode {
 //        testLoadedFlywheel(-0.70);
 
         // test flywheel settling with speed ramped to the desired
-        testRampedSettling(-0.638, 2600, -0.25);
-        testRampedSettling(-0.638, 2600, -0.28);
-        testRampedSettling(-0.638, 2600, -0.30);
-        testRampedSettling(-0.638, 2600, -0.32);
-        testRampedSettling(-0.638, 2600, -0.35);
+        testRampedSettling(-0.638, 2300, -0.1);
+        testRampedSettling(-0.638, 2300, -0.2);
+        testRampedSettling(-0.638, 2300, -0.3);
+        testRampedSettling(-0.638, 2300, -0.4);
+        testRampedSettling(-0.638, 2300, -0.5);
 
         // test flywheel when max power is applied first the switched to speed mode
 //        testMaxPowerSettling(675);
@@ -302,7 +302,7 @@ public class FlywheelTest extends LinearOpMode {
         try {
             String powerStr = "" + (int) Math.round(power * 100);
             String initPowerStr = "" + (int) Math.round(initPower * 100);
-            File file = new File(Environment.getExternalStorageDirectory().getPath() + "/FIRST/flywheelLinear"+settlingMs+"msRamp"+initPowerStr+ powerStr);
+            File file = new File(Environment.getExternalStorageDirectory().getPath() + "/FIRST/flywheelLinear"+settlingMs+"msRamp"+initPowerStr+powerStr);
             telemetry.addData("File", file.getAbsolutePath());
 
             OutputStreamWriter outputStreamWriter = new OutputStreamWriter(new FileOutputStream(file));

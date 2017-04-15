@@ -868,7 +868,7 @@ abstract class AutonomousMode extends LinearOpMode {
     }
 
     /**
-     * Rotate robot from current position by an angle with the default driving power.
+     * Rotate robot from current position by an angle with the given driving power.
      * Gyro sensor update rate is too slow, so we use wheel encoder counts to track rotation.
      * In order to avoid accumulated errors, we compare our current robot heading with the expected
      * heading and adjust the rotation angle for the difference.
@@ -1063,7 +1063,6 @@ abstract class AutonomousMode extends LinearOpMode {
 
             powerMotors(drivingPower - clockwiseSpeed, drivingPower + clockwiseSpeed);
             distance = rangeSensor.getDistance(DistanceUnit.CM);
-            //TODO: do we need idle() here?
         }
         powerMotors(0, 0);
 
@@ -1122,7 +1121,8 @@ abstract class AutonomousMode extends LinearOpMode {
      void moveOnForShooting(double power, double distance, double shootPower) throws InterruptedException {
 
         //modification for additional weight on flywheel
-        double startShootPower = -0.1; //TODO: test what is the best initial power
+         //Found that instead of -0.1, -0.3 initial speed creates a smaller settling time & lower variation in speed
+        double startShootPower = -0.3;
         long rampTime = 2300; // best for linear to avoid the humps and dips in the flywheel speed
 
         motorFlywheel.setPower(startShootPower); //turn on the flywheel
