@@ -44,6 +44,12 @@ public class FlywheelTest extends LinearOpMode {
         }
 
 
+//        testSettling(-0.63, 1300);
+//        testSettling(-0.63, 1400);
+//        testSettling(-0.63, 1500);
+//        testSettling(-0.63, 1600);
+
+
         // test initial settling of the flywheel at different speeds
 //        testSettling(-0.5);
 //        testSettling(-0.6);
@@ -58,11 +64,14 @@ public class FlywheelTest extends LinearOpMode {
 //        testLoadedFlywheel(-0.70);
 
         // test flywheel settling with speed ramped to the desired
-//        testRampedSettling(-0.6);
-//        testRampedSettling(-0.67);
+        testRampedSettling(-0.638, 2600, -0.25);
+        testRampedSettling(-0.638, 2600, -0.28);
+        testRampedSettling(-0.638, 2600, -0.30);
+        testRampedSettling(-0.638, 2600, -0.32);
+        testRampedSettling(-0.638, 2600, -0.35);
 
         // test flywheel when max power is applied first the switched to speed mode
-        testMaxPowerSettling(675);
+//        testMaxPowerSettling(675);
     }
 
     /**
@@ -77,9 +86,6 @@ public class FlywheelTest extends LinearOpMode {
         motorFlywheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER); // run flywheel in power mode
         motorFlywheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT); // do not use brake, when 0 power is applied
 
-        //start with small power, easier for motor than to start with full
-        motorFlywheel.setPower(-0.2);
-        sleep(100); //wait 100 milliseconds
         motorFlywheel.setPower(-1); //set full power
 
         ArrayList<Integer> counts = new ArrayList<>(21);
@@ -187,7 +193,7 @@ public class FlywheelTest extends LinearOpMode {
 
     }
 
-    private void testSettling(double power) {
+    private void testSettling(double power, int msWait) {
         DecimalFormat f = new DecimalFormat("0.##");
         ElapsedTime timer = new ElapsedTime();
         StringBuffer sb = new StringBuffer("time,count\n");
@@ -199,7 +205,7 @@ public class FlywheelTest extends LinearOpMode {
         motorFlywheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
         motorFlywheel.setPower(-1);
-        sleep(1200);
+        sleep(msWait);
         motorFlywheel.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         motorFlywheel.setPower(power);
 
@@ -208,8 +214,8 @@ public class FlywheelTest extends LinearOpMode {
         int count;
         double ms;
         timer.reset();
-        int initCount = motorFlywheel.getCurrentPosition();;
-        while(timer.milliseconds() < 10000){
+        int initCount = motorFlywheel.getCurrentPosition();
+        while(timer.milliseconds() < 15000){
             ms = timer.milliseconds();
             count = Math.abs(motorFlywheel.getCurrentPosition() - initCount);
             sb.append(f.format(ms)).append(",").append(count).append("\n");
@@ -225,7 +231,7 @@ public class FlywheelTest extends LinearOpMode {
         motorFlywheel.setPower(0);
         try {
             String powerStr = "" + (int) Math.round(power * 100);
-            File file = new File(Environment.getExternalStorageDirectory().getPath() + "/FIRST/flywheelSettle" + powerStr + ".txt");
+            File file = new File(Environment.getExternalStorageDirectory().getPath() + "/FIRST/flywheelMaxSpeedThenSpeed" + msWait +"ms"+powerStr + ".txt");
             //telemetry.addData("File", file.getAbsolutePath());
 
             OutputStreamWriter outputStreamWriter = new OutputStreamWriter(new FileOutputStream(file));
@@ -241,13 +247,12 @@ public class FlywheelTest extends LinearOpMode {
 
     }
 
-    private void testRampedSettling(double power) {
+    private void testRampedSettling(double power, int settlingMs, double initPower) {
 
         motorFlywheel.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         motorFlywheel.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         motorFlywheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
-        double initPower = -0.2;
         motorFlywheel.setPower(initPower);
 
         DecimalFormat f = new DecimalFormat("0.##");
@@ -257,7 +262,6 @@ public class FlywheelTest extends LinearOpMode {
         double ms;
         timer.reset();
         int initCount = motorFlywheel.getCurrentPosition();
-        double settlingMs = 2200.0;//2500.0; //2000.0
         while(timer.milliseconds() < settlingMs){
             ms = timer.milliseconds();
             count = Math.abs(motorFlywheel.getCurrentPosition() - initCount);
@@ -297,7 +301,8 @@ public class FlywheelTest extends LinearOpMode {
         // measure average speed counts/sec
         try {
             String powerStr = "" + (int) Math.round(power * 100);
-            File file = new File(Environment.getExternalStorageDirectory().getPath() + "/FIRST/flywheelLinear2200msRamp" + powerStr);
+            String initPowerStr = "" + (int) Math.round(initPower * 100);
+            File file = new File(Environment.getExternalStorageDirectory().getPath() + "/FIRST/flywheelLinear"+settlingMs+"msRamp"+initPowerStr+ powerStr);
             telemetry.addData("File", file.getAbsolutePath());
 
             OutputStreamWriter outputStreamWriter = new OutputStreamWriter(new FileOutputStream(file));

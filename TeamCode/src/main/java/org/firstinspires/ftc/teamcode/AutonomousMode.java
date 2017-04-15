@@ -34,12 +34,19 @@ import java.util.Date;
 
 abstract class AutonomousMode extends LinearOpMode {
 
+    boolean TESTING = false;
+
+    void testSequence() throws InterruptedException {}
+
+    // subclasses for red and blue should implement this method
+    abstract boolean isBlueAlliance();
+    
     enum BeaconSide {left, right, none}
 
-    private double TILE_LENGTH = 23.5; //Length of one tile in inches
-    private double HALF_WIDTH = 8.5; //Half of the distance between the wheels in inches
-    private double DRIVING_POWER = 0.4; //The default driving power
-    private double MID_POINT_LIGHT_BACK = 0.3; //Optical distance sensor reading on the edge of the white line
+    final double TILE_LENGTH = 23.5; //Length of one tile in inches
+    final double HALF_WIDTH = 7.5; //Half of the distance between the wheels in inches
+    final double DRIVING_POWER = 0.4; //The default driving power
+    final double MID_POINT_LIGHT_BACK = 0.2; //Optical distance sensor reading on the edge of the white line
 
     private final static int ENCODER_COUNTS_PER_ROTATION = 2 * 1140; //Encoder counts per rotation
     private final static int SHOOT_DISTANCE1 = 11; //The distance moved before the robot shoots //inches was 11
@@ -50,43 +57,40 @@ abstract class AutonomousMode extends LinearOpMode {
     private String startTile; //Tile the robot starts on before it moves
 
     //Sensor Variables
-    private ModernRoboticsI2cGyro gyro = null;
-    private ModernRoboticsI2cRangeSensor rangeSensor;
-    private ModernRoboticsI2cColorSensor colorSensor3a, colorSensor3c;
-    private OpticalDistanceSensor opticalSensor;
+     ModernRoboticsI2cGyro gyro = null;
+     ModernRoboticsI2cRangeSensor rangeSensor;
+     ModernRoboticsI2cColorSensor colorSensor3a, colorSensor3c;
+     OpticalDistanceSensor opticalSensor;
 
     //Controllers to enable and disable the colour sensors
     //The update rate of the sensors slows with every new  sensor added,
     //so this allows for a quicker update rate when needed.
-    private I2cController color3aController, color3cController;
-    private I2cController.I2cPortReadyCallback color3aCallBack, color3cCallBack;
-    private boolean colorSensorsEnabled = true;
+     private I2cController color3aController, color3cController;
+     private I2cController.I2cPortReadyCallback color3aCallBack, color3cCallBack;
+     private boolean colorSensorsEnabled = true;
 
     //defining the 4 motors
     // the drive motors are slaved:
     // the power that goes to the first goes to the second
-    private DcMotor motorLeft1; //motorLeft2 is ganged
-    private DcMotor motorRight1; //motorRight2 is ganged
-    private DcMotor motorBrush; //intake brush
-    private DcMotor motorBelt; //intake belt
-    private DcMotor motorFlywheel; //flywheel shooter
+     DcMotor motorLeft1; //motorLeft2 is ganged
+     DcMotor motorRight1; //motorRight2 is ganged
+     DcMotor motorBrush; //intake brush
+     DcMotor motorBelt; //intake belt
+     DcMotor motorFlywheel; //flywheel shooter
 
-    private Servo servoBeaconPad; // beacon pushing pad
-    private Servo servoBar; // the bar to push big ball away
+     Servo servoBeaconPad; // beacon pushing pad
+     Servo servoBar; // the bar to push big ball away
 
     // flippers on the bottom of the robot to kick small balls away
     // if not removed, small balls can get stuck between the wall and the wheels of the robot
-    private Servo kickServo2; //First flipper on the bottom of the robot
-    private Servo kickServo3; //Second flipper on the bottom of the robot
+     Servo kickServo2; //First flipper on the bottom of the robot
+     Servo kickServo3; //Second flipper on the bottom of the robot
 
-    private StringBuffer out = new StringBuffer(); //String Buffer
+     StringBuffer out = new StringBuffer(); //String Buffer
 
     private int delay; //option: delay seconds before autonomous sequence starts
     private boolean stopAfterShooting; //option: should we stop after shooting
     private String afterShootingBehavior; //option: what to do after shooting to do after the shooting
-
-    // subclasses for red and blue should implement this method
-    abstract boolean isBlueAlliance();
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -107,6 +111,10 @@ abstract class AutonomousMode extends LinearOpMode {
             stopAfterShooting = afterShootingBehavior.equalsIgnoreCase("stop");
         } catch (Exception e) {
             stopAfterShooting = false;
+        }
+        if (startTile.startsWith("4th") && afterShootingBehavior != null && afterShootingBehavior.equals("beacon")) {
+            telemetry.addData("ERROR" , "beacon is not supported from 4th tile");
+            telemetry.update();
         }
 
         gyro = (ModernRoboticsI2cGyro) hardwareMap.gyroSensor.get("Gyro Sensor ");
@@ -196,24 +204,27 @@ abstract class AutonomousMode extends LinearOpMode {
             color3cController.deregisterForPortReadyCallback(colorSensor3c.getPort());
             colorSensorsEnabled = false;
 
-            // raise servoBar
-            liftBar();
-
-            if (delay > 0) {
-                sleep(1000 * delay);
-            }
-
-            //moveByInchesGyroTest();
-            if (startTile.startsWith("3rd")) {
-                sequenceFromTile3();
+            if (TESTING) {
+                testSequence();
             } else {
-                sequenceFromTile4();
-            }
+                // raise servoBar
+                liftBar();
 
+                if (delay > 0) {
+                    sleep(1000 * delay);
+                }
+                
+                if (startTile.startsWith("3rd")) {
+                    sequenceFromTile3();
+                } else {
+                    sequenceFromTile4();
+                }
+            }
         } finally {
             try {
+                String name = TESTING ? "testrun" : "lastrun";
                 //log file without the time stamp to find it easier
-                File file = new File(Environment.getExternalStorageDirectory().getPath() + "/FIRST/lastrun.txt");
+                File file = new File(Environment.getExternalStorageDirectory().getPath() + "/FIRST/"+name+".txt");
 
                 //saving the log file into a file
                 OutputStreamWriter outputStreamWriter = new OutputStreamWriter(new FileOutputStream(file));
@@ -222,7 +233,7 @@ abstract class AutonomousMode extends LinearOpMode {
 
                 //log file with the time stamp for history
                 String timestamp = new SimpleDateFormat("MMMdd_HHmm").format(new Date());
-                file = new File(Environment.getExternalStorageDirectory().getPath() + "/FIRST/lastrun_" + timestamp + ".txt");
+                file = new File(Environment.getExternalStorageDirectory().getPath() + "/FIRST/"+name+"_" + timestamp + ".txt");
                 telemetry.addData("File", file.getAbsolutePath());
 
                 //saving the log file into a file
@@ -268,8 +279,8 @@ abstract class AutonomousMode extends LinearOpMode {
             parkOnRamp(); //park on the ramp
             return;
         }
-        // blue: rotate 46 from heading 0
-        // red: rotate -46 from heading 0
+        // blue: rotate cc from heading 0
+        // red: rotate ccw from heading 0
         angle = isBlue ? 43 : -47;
         rotate(angle, 0);
 
@@ -306,8 +317,8 @@ abstract class AutonomousMode extends LinearOpMode {
         moveByInches(pastLineInches, 0.3);
 
         telemetryout("Passed " + pastLineInches + " inches after white line");
-        // blue: rotate ~30 degrees CW from heading 45
-        // red: rotate ~30 degrees CCW from heading -45
+        // blue: rotate CW from expected heading
+        // red: rotate CCW from expected heading
         fromAngle = angle;
         angle = isBlue ? 30 : -30;
         rotate(angle, fromAngle, 0.3);
@@ -346,8 +357,8 @@ abstract class AutonomousMode extends LinearOpMode {
         color3cController.deregisterForPortReadyCallback(colorSensor3c.getPort());
         colorSensorsEnabled = false;
 
-        // blue: rotate -90 degrees from heading 90
-        // red: rotate 90 degrees from heading -90
+        // blue: rotate CW from expected heading
+        // red: rotate CCW from expected heading
         fromAngle = isBlue ? 90 : -90;
         angle = isBlue ? -90 : 90;
         rotate(angle, fromAngle);
@@ -370,7 +381,9 @@ abstract class AutonomousMode extends LinearOpMode {
         }
 
         // go to white line (second beacon)
-        foundWhiteLine = driveUntilWhite(-0.3, 0, 20);
+        // if we miss white line, we don't want optical sensor to detect red
+        // so the distance when we search for white line is limited to 15 inches
+        foundWhiteLine = driveUntilWhite(-0.3, 0, 15);
         telemetryout("Found white line 2: " + foundWhiteLine);
         if (!foundWhiteLine) {
             // if line is not detected stop and
@@ -380,7 +393,7 @@ abstract class AutonomousMode extends LinearOpMode {
             showTelemetry();
             return;
         } else {
-            // go 8 inches past white line
+            // go half robot length past white line
             pastLineInches = -8 - 5; // extra 5 inches to clear space for the turn
             moveByInches(pastLineInches);
             lowerBar();
@@ -390,8 +403,8 @@ abstract class AutonomousMode extends LinearOpMode {
 
         telemetryout("Passed " + pastLineInches + " inches after white line 2");
 
-        // blue: rotate 90 degrees CW from heading 0
-        // red: rotate 90 degrees CCW from heading 0
+        // blue: rotate CW from expected heading
+        // red: rotate CCW from expected heading
         fromAngle = 0;
         angle = isBlue ? 65 : -65;
         rotate(angle, fromAngle);
@@ -429,7 +442,7 @@ abstract class AutonomousMode extends LinearOpMode {
 
         //first travel 1/10th of a circle with the radius of the tile length
         //red - clockwise; blue - counterclockwise
-        moveByArch(TILE_LENGTH, 1 / 10.0, !isBlue, 1.0);
+        movePartCircle(TILE_LENGTH, 1 / 10.0, !isBlue, 1.0);
 
         angle = isBlue ? 45 : -45;
         moveByInchesGyro(0.94, angle, 43, 0.94);
@@ -472,121 +485,24 @@ abstract class AutonomousMode extends LinearOpMode {
         if (stopAfterShooting) {
             powerMotors(0, 0);
             showTelemetry();
-            return;
-        }
-
-
-        if (afterShootingBehavior.equals("ballPark")) {
+        } else if (afterShootingBehavior.equals("ballPark")) {
             moveBallAndPark();
-            return;
         } else if (afterShootingBehavior.equals("rampPark")) {
             parkOnRamp();
-            return;
+        } else {
+            telemetry.addData(afterShootingBehavior, "not supported");
+            telemetry.update();
+            while (opModeIsActive()) {
+                idle();
+            }
         }
-
-        // blue: rotate 90 degrees CW from heading 45
-        // red: rotate -90 degrees CCW from heading -45
-        fromAngle = angle;
-        angle = isBlue ? 43 : -43;
-        rotate(angle, fromAngle);
-
-        // Go backwards a quarter of a circle
-        moveByArch(2 * TILE_LENGTH, 1 / 4.0, !isBlue, -0.6);
-        powerMotors(0, 0);
-
-        // blue: rotate 30 degrees CW from heading 0
-        // red: rotate -26 degrees CCW from heading 0 (red does not get as close)
-        angle = isBlue ? 30 : -26;
-        rotate(angle, 0);
-
-        //Move 18 inches
-        moveByInches(18, -0.5);
-
-        // go to white line
-        boolean foundWhiteLine = driveUntilWhite(-0.2, angle, 32);
-        telemetryout("Found white line: " + foundWhiteLine);
-        if (!foundWhiteLine) {
-            // if line is not detected stop and
-            // show telemetry while op mode is active
-            powerMotors(0, 0);
-            showTelemetry();
-            return;
-        }
-
-        // go 8 inches past white line
-        double pastLineInches = -8; //
-        moveByInches(pastLineInches);
-
-        telemetryout("Passed " + pastLineInches + " inches after white line");
-
-        // blue: rotate 35 degrees CW from heading 45
-        // red: rotate 35 degrees CCW from heading -45
-        fromAngle = angle;
-        angle = isBlue ? 35 : -35;
-        rotate(angle, fromAngle);
-
-        telemetryout("Rotated to white line");
-
-        lowerBar();
-
-        BeaconSide beaconSideFar = followLine(-0.3, MID_POINT_LIGHT_BACK);
-
-        telemetryout("After followed line");
-
-        // detect color
-        BeaconSide beaconSide = detectColor(true);
-
-        if (beaconSide == BeaconSide.none && beaconSideFar == BeaconSide.none) {
-            // if color is not detected stop and
-            // show telemetry while op mode is active
-            powerMotors(0, 0);
-            showTelemetry();
-            kickServosIn(false);
-            return;
-        }
-
-        // if color is detected, move forward to hit the beacon
-        boolean atWall = driveUntilHit(5, -0.3);
-
-        if (atWall) {
-            telemetryout("At the wall");
-            // shimmy on the beacon side
-            shimmy(beaconSide);
-            moreShimmyIfNeeded();
-            telemetryout("After shimmy");
-        }
-
-        // move away from beacon
-        moveByInches(8);
-
-        telemetryout("Moved back 8 inches");
-
-        powerMotors(0, 0);
-    }
-
-    private void moveByInchesGyroTest() throws InterruptedException {
-        out.append("Moving from -0.92 power to -0.3").append("\n");
-        moveByInchesGyro(-0.92, 0, 30, -0.3);
-        powerMotors(0, 0);
-        sleep(2000);
-        out.append("Moving from 0.92 power to 0.3").append("\n");
-        moveByInchesGyro(0.92, 0, 30, 0.3);
-        powerMotors(0, 0);
-        sleep(2000);
-        out.append("Moving from -0.3 power to -0.92").append("\n");
-        moveByInchesGyro(-0.3, 0, 30, -0.92);
-        powerMotors(0, 0);
-        sleep(2000);
-        out.append("Moving from 0.3 power to 0.92").append("\n");
-        moveByInchesGyro(0.3, 0, 30, 0.92);
-        powerMotors(0, 0);
     }
 
     /**
      * Rotate the robot front towards the ramp, start the brush and move there.
      * @throws InterruptedException
      */
-    private void parkOnRamp() throws InterruptedException {
+    void parkOnRamp() throws InterruptedException {
         int fromAngle, angle, distance;
         if (startTile.startsWith("3rd")) {
             fromAngle = 0;
@@ -608,7 +524,7 @@ abstract class AutonomousMode extends LinearOpMode {
      * Rotate robot front to the center parking, turn on the brush to move the cap ball, and park there after a delay.
      * @throws InterruptedException
      */
-    private void moveBallAndPark() throws InterruptedException {
+     void moveBallAndPark() throws InterruptedException {
         //delay so that we do not have the cap ball potentially interfere with our alliance partners' robot
         sleep((7 - delay) * 1000);
         int fromAngle = isBlue ? 45 : -45;
@@ -621,14 +537,14 @@ abstract class AutonomousMode extends LinearOpMode {
     /**
      * Lift the bar to repel the cap ball.
      */
-    private void liftBar() {
+     void liftBar() {
         servoBar.setPosition(110.0 / 255);
     }
 
     /**
      * Lower the bar when we are approaching the beacon area.
      */
-    private void lowerBar() {
+     void lowerBar() {
         servoBar.setPosition(225.0 / 255);
     }
 
@@ -638,7 +554,7 @@ abstract class AutonomousMode extends LinearOpMode {
      * Brings the kick handles back into the robot.
      * @param withDelays if true, waits for the handles to return into the robot
      */
-    private void kickServosIn(boolean withDelays) {
+     void kickServosIn(boolean withDelays) {
         kickServo2.setPosition(10.0 / 255);
         kickServo3.setPosition(215.0 / 255);
         if (withDelays) {
@@ -650,7 +566,7 @@ abstract class AutonomousMode extends LinearOpMode {
      * Takes 600+ mlliseconds for the kick handles to come all the way out.
      * Kicks the handles halfway out to save time.
      */
-    private void kickServosHalfway() {
+     void kickServosHalfway() {
         kickServo2.setPosition(40.0 / 255);
         kickServo3.setPosition(185.0 / 255);
     }
@@ -659,7 +575,7 @@ abstract class AutonomousMode extends LinearOpMode {
      * We do not use this method anymore since we stagger the kick handles' push out
      * so a small ball is not caught in between.
      */
-    private void kickServosOut() {
+     void kickServosOut() {
         kickServo2.setPosition(230.0 / 255);
         kickServo3.setPosition(0);
     }
@@ -670,7 +586,7 @@ abstract class AutonomousMode extends LinearOpMode {
      * @param direction "clockwise" for a clockwise direction
      * @throws InterruptedException
      */
-    private void smallrotate(String direction) throws InterruptedException {
+     void smallrotate(String direction) throws InterruptedException {
         telemetryout("before small rotate " + direction);
         if (direction.equals("clockwise")) {
             powerMotors(0.3, -0.3);
@@ -688,7 +604,7 @@ abstract class AutonomousMode extends LinearOpMode {
      * @param beaconSide side of the beacon
      * @throws InterruptedException
      */
-    private void shimmy(BeaconSide beaconSide) throws InterruptedException {
+     void shimmy(BeaconSide beaconSide) throws InterruptedException {
         if (beaconSide == BeaconSide.left) {
             powerMotors(0.3, -0.3);
         } else {
@@ -703,7 +619,7 @@ abstract class AutonomousMode extends LinearOpMode {
      * If the beacon button is still not pressed, repeat the shimmy towards the curved part of the beacon.
      * @throws InterruptedException
      */
-    private void moreShimmyIfNeeded() throws InterruptedException {
+     void moreShimmyIfNeeded() throws InterruptedException {
         BeaconSide beaconSide;
         while (opModeIsActive()) {
             // check color, if detected, keep shimmying
@@ -731,7 +647,7 @@ abstract class AutonomousMode extends LinearOpMode {
      * @return side of the beacon with our alliance colour
      * @throws InterruptedException
      */
-    private BeaconSide detectColor(boolean handleUnknown) throws InterruptedException {
+     BeaconSide detectColor(boolean handleUnknown) throws InterruptedException {
 
         int padPosition = 0;
         // detect color (red alliance
@@ -770,7 +686,6 @@ abstract class AutonomousMode extends LinearOpMode {
                 }
             }
             telemetry();
-            idle(); //gives control back to the SDK to update the sensors
         }
 
         if (colorDetected) {
@@ -789,7 +704,7 @@ abstract class AutonomousMode extends LinearOpMode {
      * @return true if the robot could approach the wall, false if not
      * @throws InterruptedException
      */
-    private boolean driveUntilHit(int distancecm, double drivingPower) throws InterruptedException {
+     boolean driveUntilHit(int distancecm, double drivingPower) throws InterruptedException {
 
         //makes sure the area before the beacon is clear of small balls
         // we need to delay 450ms for pad to get into position
@@ -803,8 +718,7 @@ abstract class AutonomousMode extends LinearOpMode {
         ElapsedTime timer = new ElapsedTime();
         timer.reset();
         //time out if robot cannot approach wall
-        while (rangeSensor.getDistance(DistanceUnit.CM) > distancecm) {
-            idle();
+        while (opModeIsActive() && rangeSensor.getDistance(DistanceUnit.CM) > distancecm) {
             if (timer.milliseconds() > 4000) {
                 powerMotors(0, 0);
                 return false;
@@ -819,7 +733,7 @@ abstract class AutonomousMode extends LinearOpMode {
      * Set beacon pushing pad position
      * @param pos servo position from zero to 255
      */
-    private void setPadPosition(int pos) {
+     void setPadPosition(int pos) {
         servoBeaconPad.setPosition(pos / 255.0);
     } // from 0 to 255
 
@@ -827,10 +741,9 @@ abstract class AutonomousMode extends LinearOpMode {
      * Shows the sensor readings on the driver station, and continues to update them as we run.
      * @throws InterruptedException
      */
-    private void showTelemetry() throws InterruptedException {
+     void showTelemetry() throws InterruptedException {
         while (opModeIsActive()) {
             telemetry();
-            idle();
         }
     }
 
@@ -855,7 +768,7 @@ abstract class AutonomousMode extends LinearOpMode {
      * Add the log line of the telemetry [includes all sensor readings]
      * @param step description of the current step.
      */
-    private void telemetryout(String step) {
+     void telemetryout(String step) {
         out.append("\n").append(new SimpleDateFormat("MMMdd_HHmm:ss.S").format(new Date())).append(",");
         out.append(step).append(",");
         out.append(opticalSensor.getLightDetected()).append(",");
@@ -879,7 +792,7 @@ abstract class AutonomousMode extends LinearOpMode {
      * @param rightForward forward power for the right side motors
      * @throws InterruptedException
      */
-    private void powerMotors(double leftForward, double rightForward) throws InterruptedException {
+     void powerMotors(double leftForward, double rightForward) throws InterruptedException {
         // the left side direction is reversed
         motorLeft1.setPower(-leftForward);
         motorRight1.setPower(rightForward);
@@ -890,7 +803,7 @@ abstract class AutonomousMode extends LinearOpMode {
      * Set run mode (by speed, power, or position) for the drive motors
      * @param runMode DcMotor run mode
      */
-    private void setRunMode(DcMotor.RunMode runMode) {
+     void setRunMode(DcMotor.RunMode runMode) {
         motorLeft1.setMode(runMode);
         motorRight1.setMode(runMode);
     }
@@ -900,7 +813,7 @@ abstract class AutonomousMode extends LinearOpMode {
      * or keep rotating until friction stops them?
      * @param behavior break or float
      */
-    private void setZeroPowerMode(DcMotor.ZeroPowerBehavior behavior) {
+     void setZeroPowerMode(DcMotor.ZeroPowerBehavior behavior) {
         motorLeft1.setZeroPowerBehavior(behavior);
         motorRight1.setZeroPowerBehavior(behavior);
     }
@@ -910,7 +823,7 @@ abstract class AutonomousMode extends LinearOpMode {
      * @param hardwareMap object that stores hardware devices
      * @return preference data
      */
-    private static SharedPreferences getSharedPrefs(HardwareMap hardwareMap) {
+     static SharedPreferences getSharedPrefs(HardwareMap hardwareMap) {
         return hardwareMap.appContext.getSharedPreferences("autonomous", 0);
     }
 
@@ -919,7 +832,7 @@ abstract class AutonomousMode extends LinearOpMode {
      * @param inches number of inches
      * @throws InterruptedException
      */
-    private void moveByInches(double inches) throws InterruptedException {
+     void moveByInches(double inches) throws InterruptedException {
         moveByInches(inches, DRIVING_POWER);
     }
 
@@ -929,13 +842,12 @@ abstract class AutonomousMode extends LinearOpMode {
      * @param drivingPower driving power
      * @throws InterruptedException
      */
-    private void moveByInches(double inches, double drivingPower) throws InterruptedException { // moves 26.5 in one rotation
+     void moveByInches(double inches, double drivingPower) throws InterruptedException { // moves 26.5 in one rotation
         telemetry();
         int counts = motorRight1.getCurrentPosition();
         double sign = Math.round(inches / Math.abs(inches));
         powerMotors(sign * drivingPower, sign * drivingPower);
         while (opModeIsActive() && Math.abs(motorRight1.getCurrentPosition() - counts) < inchesToCounts(inches)) {
-            idle();
             telemetry.addData("Raw heading", getGyroRawHeading());
             telemetry.update();
         }
@@ -951,7 +863,7 @@ abstract class AutonomousMode extends LinearOpMode {
      * @param fromRawHeading expected gyro heading,
      * @throws InterruptedException
      */
-    private void rotate(int angle, int fromRawHeading) throws InterruptedException {
+     void rotate(int angle, int fromRawHeading) throws InterruptedException {
         rotate(angle, fromRawHeading, DRIVING_POWER);
     }
 
@@ -965,7 +877,7 @@ abstract class AutonomousMode extends LinearOpMode {
      * @param power driving power for rotation
      * @throws InterruptedException
      */
-    private void rotate(int angle, int fromRawHeading, double power) throws InterruptedException {
+     void rotate(int angle, int fromRawHeading, double power) throws InterruptedException {
         sleep(100); // to make sure robot stopped moving because we are taking gyro reading
 
         int counts = motorRight1.getCurrentPosition();
@@ -981,8 +893,8 @@ abstract class AutonomousMode extends LinearOpMode {
         double sign = Math.round(pcircle / Math.abs(pcircle));
         powerMotors(sign * power, -sign * power);
         // assuming 15.5 inches between wheels, 7.75 inches radius - 48.67 inches circumference
-        while (Math.abs(motorRight1.getCurrentPosition() - counts) < Math.abs(pcircle) * inchesToCounts(48.67)) {
-            idle();
+        while (opModeIsActive() && Math.abs(motorRight1.getCurrentPosition() - counts) < Math.abs(pcircle) * inchesToCounts(48.67)) {
+            //continue;
         }
         powerMotors(0, 0);
     }
@@ -992,51 +904,48 @@ abstract class AutonomousMode extends LinearOpMode {
      * @param inches number of inches
      * @return encoder counts
      */
-    private double inchesToCounts(double inches) {
+     double inchesToCounts(double inches) {
         //robot moves 26.5 inches in one motor rotation
         //because of the gear ratio, motor and wheel rotation may be different
         return Math.abs(ENCODER_COUNTS_PER_ROTATION * inches / 26.5);
     }
 
     /**
-     * Drive until white line
+     * Drive straight using gyro. This method does a gradient at the end from start to end power.
      *
-     * @param startPower          starting power (positive - forward, negative - backward)
-     * @param headingToBeaconZone raw gyro heading
+     * @param startPower          - starting power (positive - forward, negative - backward)
+     * @param heading             - raw gyro heading in degrees
      * @param maxInches           - maximum inches to travel
      * @param endPower            - Ending desired power
      * @return true if traveled distance, otherwise false
      * @throws InterruptedException
      */
-    private boolean moveByInchesGyro(double startPower, int headingToBeaconZone, double maxInches, double endPower) throws InterruptedException {
+     boolean moveByInchesGyro(double startPower, int heading, double maxInches, double endPower) throws InterruptedException {
 
         int initialcount = motorLeft1.getCurrentPosition();
-        double error, clockwiseSpeed;
-        double inchesForGradient = 5;
-        double kp = 0.03; //experimental coefficient for proportional correction of the direction
+        double error, steerSpeed; // counterclockwise speed
+        double inchesForGradient = 7;
+        double kp = 0.04; //experimental coefficient for proportional correction of the direction
         double countsSinceStart = Math.abs(motorLeft1.getCurrentPosition() - initialcount);
         double slope = (endPower - startPower) / inchesToCounts(Math.min(inchesForGradient, maxInches)); // this slope is for calculating power
         double countsForGradient = (maxInches < inchesForGradient) ? 0 : Math.abs(inchesToCounts(maxInches - inchesForGradient));
         double motorPower = startPower;
         while (opModeIsActive() && countsSinceStart < inchesToCounts(maxInches)) {
             // error CCW - negative, CW - positive
-            error = getRawHeadingError(headingToBeaconZone);
+            error = getRawHeadingError(heading);
 
             if (Math.abs(error) < 1) {
-                clockwiseSpeed = 0;
-            } else if (Math.abs(error) >= 1 && Math.abs(error) <= 20) {
-                clockwiseSpeed = kp * error / 4;
+                steerSpeed = 0;
             } else {
-                clockwiseSpeed = kp * Math.abs(error) / error;
+                steerSpeed = kp * error / 4;
             }
             telemetry.addData("Error", error);
             telemetry.update();
 
-
             if (countsSinceStart > countsForGradient) {
                 motorPower = slope * (countsSinceStart - inchesToCounts(maxInches)) + endPower;
             }
-            powerMotors(Range.clip(motorPower - clockwiseSpeed, -1.0, 1.0), Range.clip(motorPower + clockwiseSpeed, -1.0, 1.0));
+            powerMotors(Range.clip(motorPower - steerSpeed, -1.0, 1.0), Range.clip(motorPower + steerSpeed, -1.0, 1.0));
 
             countsSinceStart = Math.abs(motorLeft1.getCurrentPosition() - initialcount);
         }
@@ -1052,12 +961,11 @@ abstract class AutonomousMode extends LinearOpMode {
      * @return true is white is detected, false otherwise
      * @throws InterruptedException
      */
-    private boolean driveUntilWhite(double drivingPower, int headingToBeaconZone, double maxInches) throws InterruptedException {
-
+     boolean driveUntilWhite(double drivingPower, int headingToBeaconZone, double maxInches) throws InterruptedException {
 
         int initialcount = motorLeft1.getCurrentPosition();
         double error, clockwiseSpeed;
-        double kp = 0.03; //experimental coefficient for proportional correction of the direction
+        double kp = 0.04; //experimental coefficient for proportional correction of the direction
         //maintain the direction until robot "sees" the edge of white line/touches/close to some other object
         double light = opticalSensor.getLightDetected();
         while (opModeIsActive() && light < MID_POINT_LIGHT_BACK && Math.abs(motorLeft1.getCurrentPosition() - initialcount) < inchesToCounts(maxInches)) {
@@ -1067,10 +975,8 @@ abstract class AutonomousMode extends LinearOpMode {
             //if heading error < 1 degree
             if (Math.abs(error) < 1) {
                 clockwiseSpeed = 0;
-            } else if (Math.abs(error) >= 1 && Math.abs(error) <= 20) {
-                clockwiseSpeed = kp * error / 4;
             } else {
-                clockwiseSpeed = kp * Math.abs(error) / error;
+                clockwiseSpeed = kp * error / 4;
             }
             telemetry.addData("Error", error);
             telemetry.update();
@@ -1088,7 +994,7 @@ abstract class AutonomousMode extends LinearOpMode {
      * @return beacon side (currently always none) at which the alliance color was detected (before line follow)
      * @throws InterruptedException
      */
-    private BeaconSide followLine(double drivingPower, double targetWhiteValue) throws InterruptedException {
+     BeaconSide followLine(double drivingPower, double targetWhiteValue) throws InterruptedException {
 
         //prepare kick handles to be deployed
         kickServosHalfway();
@@ -1106,7 +1012,6 @@ abstract class AutonomousMode extends LinearOpMode {
             }
             light = opticalSensor.getLightDetected();
             while (opModeIsActive() && light < targetWhiteValue) {
-                idle();
                 light = opticalSensor.getLightDetected();
             }
             powerMotors(0, 0);
@@ -1125,7 +1030,6 @@ abstract class AutonomousMode extends LinearOpMode {
             sleep(25); // let it move a bit back
             light = opticalSensor.getLightDetected();
             while (opModeIsActive() && light < targetWhiteValue) {
-                idle();
                 light = opticalSensor.getLightDetected();
             }
             powerMotors(0, 0);
@@ -1192,7 +1096,7 @@ abstract class AutonomousMode extends LinearOpMode {
      * When the robot turns counterclockwise, the angle decreases.
      * @return  return gyro's integrated heading
      */
-    private int getGyroRawHeading() {
+     int getGyroRawHeading() {
         //getIntegratedZValue is positive when moving ccw.
         // We want it to behave the same way as getGyroHeading, so we changed the sign.
         return -gyro.getIntegratedZValue();
@@ -1203,9 +1107,9 @@ abstract class AutonomousMode extends LinearOpMode {
      * @param requiredRawHeading expected robot heading
      * @return error between current and expected robot heading
      */
-    private double getRawHeadingError(double requiredRawHeading) {
-        double diffInHeading = getGyroRawHeading() - requiredRawHeading;
-        return diffInHeading;
+     double getRawHeadingError(double requiredRawHeading) {
+         // difference between current and expected heading
+        return getGyroRawHeading() - requiredRawHeading;
     }
 
     /**
@@ -1215,7 +1119,7 @@ abstract class AutonomousMode extends LinearOpMode {
      * @param shootPower shooting power, should be negative
      * @throws InterruptedException
      */
-    private void moveOnForShooting(double power, double distance, double shootPower) throws InterruptedException {
+     void moveOnForShooting(double power, double distance, double shootPower) throws InterruptedException {
 
         //modification for additional weight on flywheel
         double startShootPower = -0.1; //TODO: test what is the best initial power
@@ -1246,7 +1150,6 @@ abstract class AutonomousMode extends LinearOpMode {
             }
             currentms = System.currentTimeMillis();
             currentPosition = motorLeft1.getCurrentPosition();
-            idle();
         }
         motorFlywheel.setPower(shootPower); //set power of flywheel to final power
         powerMotors(0, 0); //stop robot if it didn't stop before
@@ -1256,29 +1159,28 @@ abstract class AutonomousMode extends LinearOpMode {
     /**
      * method for moving robot part of circle
      *
-     * @param radius    - radius of circle
+     * @param radius    - radius of circle in inches
      * @param pCircle   - fraction of circle
      * @param clockwise - moving clockwise?
      * @param power     - power to outer wheel
      * @throws InterruptedException
      */
-    private void moveByArch(double radius, double pCircle, boolean clockwise, double power) throws InterruptedException {
+    void movePartCircle(double radius, double pCircle, boolean clockwise, double power) throws InterruptedException {
         double outerWheelDist = 2 * Math.PI * (radius + HALF_WIDTH) * pCircle;
         double powerRatio = (radius - HALF_WIDTH) / (radius + HALF_WIDTH);
         DcMotor outerMotor;
         int counts;
-        if (!clockwise) {
+        if ((!clockwise && power > 0) || (clockwise && power < 0)) {
             outerMotor = motorRight1;
-            powerMotors(powerRatio, power);
+            powerMotors(powerRatio * power, power);
         } else {
             outerMotor = motorLeft1;
-            powerMotors(power, powerRatio);
-        }
+            powerMotors(power, powerRatio * power);
 
+        }
         counts = outerMotor.getCurrentPosition();
 
         while (opModeIsActive() && Math.abs(outerMotor.getCurrentPosition() - counts) < inchesToCounts(outerWheelDist)) {
-            idle();
             telemetry.addData("Raw heading", getGyroRawHeading());
             telemetry.update();
         }
@@ -1289,7 +1191,7 @@ abstract class AutonomousMode extends LinearOpMode {
      * adjust robot heading to be within the 10 degrees tolerance.
      * @throws InterruptedException
      */
-    private void adjustRobotAngle() throws InterruptedException {
+     void adjustRobotAngle() throws InterruptedException {
         int tolerance = 10;
         int currentHeading = getGyroRawHeading();
         int expectedValue = isBlue ? 90 : -90;
