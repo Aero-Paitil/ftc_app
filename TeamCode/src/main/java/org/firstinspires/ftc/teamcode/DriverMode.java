@@ -128,10 +128,10 @@ public class DriverMode extends OpMode {
             }
         }
         if (brushState == -1) {
-            motorBrush.setPower(1);
+            motorBrush.setPower(-1);
             telemetry.addData("Brush", "Intake");
         } else if (brushState == 1) {
-            motorBrush.setPower(-1);
+            motorBrush.setPower(1);
             telemetry.addData("Brush", "Sweep Out");
             motorBelt.setPower(-1);
             telemetry.addData("Belt", "down");

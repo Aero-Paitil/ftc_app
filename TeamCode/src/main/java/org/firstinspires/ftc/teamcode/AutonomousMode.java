@@ -448,7 +448,7 @@ abstract class AutonomousMode extends LinearOpMode {
         color3cController.deregisterForPortReadyCallback(colorSensor3c.getPort());
         colorSensorsEnabled = false;
 
-        motorBrush.setPower(-1);
+        motorBrush.setPower(1);
 
         //first travel 1/10th of a circle with the radius of the tile length
         //red - clockwise; blue - counterclockwise
@@ -526,7 +526,7 @@ abstract class AutonomousMode extends LinearOpMode {
         rotate(angle, fromAngle);
         lowerBar();
         //want to remove the small balls that might be blocking our way in the front
-        motorBrush.setPower(-1);
+        motorBrush.setPower(1);
         moveByInches(distance, 0.5);
     }
 
@@ -540,7 +540,7 @@ abstract class AutonomousMode extends LinearOpMode {
         int fromAngle = isBlue ? 45 : -45;
         int angle = isBlue ? 170 : -170;
         rotate(angle, fromAngle);
-        motorBrush.setPower(-1);
+        motorBrush.setPower(1);
         moveByInches(1.25 * TILE_LENGTH);
     }
 
