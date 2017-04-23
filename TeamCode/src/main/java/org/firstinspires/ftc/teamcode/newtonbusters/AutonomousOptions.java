@@ -21,7 +21,6 @@ import java.util.Map;
 
 public class AutonomousOptions extends OpMode {
 
-    //enum State  {DisplayAll, DisplayDelay, DisplayEndPos}
     enum State  {DisplayAll, DisplaySingle}
 
     private State menuState = State.DisplayAll;
@@ -29,14 +28,10 @@ public class AutonomousOptions extends OpMode {
     private SharedPreferences prefs;
     private SharedPreferences.Editor editor;
 
-    //private static final Map<String, String[]> OPTIONS = createMap();
-    //Iterator<Map.Entry<String, String[]>> it  = OPTIONS.entrySet().iterator();;
-
     private int selectionIdx = 0;
 
     public static final String DELAY_PREF = "delay";
     public static final String START_TILE_PREF = "startTile";
-    //public static final String STOP_AFTER_SHOOTING_PREF = "stopAfterShooting";
     public static final String AFTER_SHOOTING_BEHAVIOR_PREF = "afterShootingBehavior";
     private static final String NONE = "none";
 
@@ -47,7 +42,6 @@ public class AutonomousOptions extends OpMode {
     public static SharedPreferences getSharedPrefs(HardwareMap hardwareMap) {
         return hardwareMap.appContext.getSharedPreferences("autonomous", 0);
     }
-
 
     private static Map<String, String[]> prefMap = new HashMap<>();
     static {

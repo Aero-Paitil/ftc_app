@@ -24,6 +24,7 @@ import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Locale;
 
 /**
  * Created by Brandon Lee on 10/30/2016.
@@ -44,13 +45,13 @@ abstract class AutonomousMode extends LinearOpMode {
     enum BeaconSide {left, right, none}
 
     final double TILE_LENGTH = 23.5; //Length of one tile in inches
-    final double HALF_WIDTH = 7.5; //Half of the distance between the wheels in inches
+    final double HALF_WIDTH = 7.6; //Half of the distance between the wheels in inches
     final double DRIVING_POWER = 0.4; //The default driving power
     final double MID_POINT_LIGHT_BACK = 0.2; //Optical distance sensor reading on the edge of the white line
 
     private final static int ENCODER_COUNTS_PER_ROTATION = 2 * 1140; //Encoder counts per rotation
     private final static int SHOOT_DISTANCE1 = 11; //The distance moved before the robot shoots //inches was 11
-    private final static double SHOOT_POWER1 = -0.638; //-0.72; //flywheel power for shooting
+    private final static double SHOOT_POWER1 = -0.645; //-0.72; //flywheel power for shooting
     private final static double SHOOT_POWER2 = -0.632; //-0.695; //flywheel power for shooting
 
     private boolean isBlue = isBlueAlliance(); //Determines if the robot is running blue or red
@@ -232,7 +233,7 @@ abstract class AutonomousMode extends LinearOpMode {
                 outputStreamWriter.close();
 
                 //log file with the time stamp for history
-                String timestamp = new SimpleDateFormat("MMMdd_HHmm").format(new Date());
+                String timestamp = new SimpleDateFormat("MMMdd_HHmm", Locale.US).format(new Date());
                 file = new File(Environment.getExternalStorageDirectory().getPath() + "/FIRST/"+name+"_" + timestamp + ".txt");
                 telemetry.addData("File", file.getAbsolutePath());
 
@@ -342,12 +343,16 @@ abstract class AutonomousMode extends LinearOpMode {
                 // shimmy(beaconSide);
                 moreShimmyIfNeeded();
                 telemetryout("After shimmy");
-                moveByInches(8); //move forward eight inches, away from the beacon
+                //moveByInches(8); //move forward eight inches, away from the beacon
+                moveByInchesGyro(DRIVING_POWER, isBlue ? 90 : -90, 8, DRIVING_POWER);
+                powerMotors(0, 0);
             }
         } else {
             kickServosIn(false); //do not want to wait for the kick servos to return all the way in
             //We move only four since we did not go all the way to the beacon, so we have to back up less.
-            moveByInches(4); //move forward, away from the beacon four inches
+            //moveByInches(4); //move forward, away from the beacon four inches
+            moveByInchesGyro(DRIVING_POWER, isBlue ? 90 : -90, 4, DRIVING_POWER);
+            powerMotors(0,0);
         }
 
         telemetryout("Moved back 8 inches");
@@ -360,7 +365,7 @@ abstract class AutonomousMode extends LinearOpMode {
         // blue: rotate CW from expected heading
         // red: rotate CCW from expected heading
         fromAngle = isBlue ? 90 : -90;
-        angle = isBlue ? -90 : 90;
+        angle = isBlue ? -88 : 88; // 90 degree turn usually makes 92
         rotate(angle, fromAngle);
 
         telemetryout("Rotated along the wall");
@@ -394,11 +399,16 @@ abstract class AutonomousMode extends LinearOpMode {
             return;
         } else {
             // go half robot length past white line
-            pastLineInches = -8 - 5; // extra 5 inches to clear space for the turn
-            moveByInches(pastLineInches);
+            pastLineInches = 8 + 5; // extra 5 inches to clear space for the turn
+            //moveByInches(-pastLineInches);
+            moveByInchesGyro(-DRIVING_POWER, 0, pastLineInches, -DRIVING_POWER);
+            powerMotors(0,0);
             lowerBar();
-            double distanceToBack = isBlue ? 3:4;  //distance for moving back is different. Red is 3.5, blue is 3
-            moveByInches(distanceToBack);
+            double distanceToBack = 3;
+            //moveByInches(distanceToBack);
+            moveByInchesGyro(DRIVING_POWER, 0, distanceToBack, DRIVING_POWER);
+            powerMotors(0,0);
+
         }
 
         telemetryout("Passed " + pastLineInches + " inches after white line 2");
@@ -445,7 +455,7 @@ abstract class AutonomousMode extends LinearOpMode {
         movePartCircle(TILE_LENGTH, 1 / 10.0, !isBlue, 1.0);
 
         angle = isBlue ? 45 : -45;
-        moveByInchesGyro(0.94, angle, 43, 0.94);
+        moveByInchesGyro(0.94, angle, 44, 0.94);
 
         powerMotors(0, 0);
         motorBrush.setPower(0);
@@ -719,7 +729,7 @@ abstract class AutonomousMode extends LinearOpMode {
         timer.reset();
         //time out if robot cannot approach wall
         while (opModeIsActive() && rangeSensor.getDistance(DistanceUnit.CM) > distancecm) {
-            if (timer.milliseconds() > 4000) {
+            if (timer.milliseconds() > 2000) {
                 powerMotors(0, 0);
                 return false;
             }
@@ -769,7 +779,7 @@ abstract class AutonomousMode extends LinearOpMode {
      * @param step description of the current step.
      */
      void telemetryout(String step) {
-        out.append("\n").append(new SimpleDateFormat("MMMdd_HHmm:ss.S").format(new Date())).append(",");
+        out.append("\n").append(new SimpleDateFormat("MMMdd_HHmm:ss.S", Locale.US).format(new Date())).append(",");
         out.append(step).append(",");
         out.append(opticalSensor.getLightDetected()).append(",");
         out.append(getGyroRawHeading()).append(",");
@@ -892,8 +902,8 @@ abstract class AutonomousMode extends LinearOpMode {
 
         double sign = Math.round(pcircle / Math.abs(pcircle));
         powerMotors(sign * power, -sign * power);
-        // assuming 15.5 inches between wheels, 7.75 inches radius - 48.67 inches circumference
-        while (opModeIsActive() && Math.abs(motorRight1.getCurrentPosition() - counts) < Math.abs(pcircle) * inchesToCounts(48.67)) {
+        double circumference = 2 * Math.PI * HALF_WIDTH;
+        while (opModeIsActive() && Math.abs(motorRight1.getCurrentPosition() - counts) < Math.abs(pcircle) * inchesToCounts(circumference)) {
             //continue;
         }
         powerMotors(0, 0);
@@ -924,8 +934,8 @@ abstract class AutonomousMode extends LinearOpMode {
 
         int initialcount = motorLeft1.getCurrentPosition();
         double error, steerSpeed; // counterclockwise speed
-        double inchesForGradient = 7;
-        double kp = 0.04; //experimental coefficient for proportional correction of the direction
+        double inchesForGradient = 5;
+        double kp = 0.033; //experimental coefficient for proportional correction of the direction
         double countsSinceStart = Math.abs(motorLeft1.getCurrentPosition() - initialcount);
         double slope = (endPower - startPower) / inchesToCounts(Math.min(inchesForGradient, maxInches)); // this slope is for calculating power
         double countsForGradient = (maxInches < inchesForGradient) ? 0 : Math.abs(inchesToCounts(maxInches - inchesForGradient));
@@ -965,7 +975,7 @@ abstract class AutonomousMode extends LinearOpMode {
 
         int initialcount = motorLeft1.getCurrentPosition();
         double error, clockwiseSpeed;
-        double kp = 0.04; //experimental coefficient for proportional correction of the direction
+        double kp = 0.033; //experimental coefficient for proportional correction of the direction
         //maintain the direction until robot "sees" the edge of white line/touches/close to some other object
         double light = opticalSensor.getLightDetected();
         while (opModeIsActive() && light < MID_POINT_LIGHT_BACK && Math.abs(motorLeft1.getCurrentPosition() - initialcount) < inchesToCounts(maxInches)) {
@@ -1056,7 +1066,7 @@ abstract class AutonomousMode extends LinearOpMode {
             if (!isBlue) {
                 clockwiseSpeed = -clockwiseSpeed;
             }
-            out.append(light).append(",").append(error).append("\n");
+            //out.append(light).append(",").append(error).append("\n");
 
             telemetry.addData("Error", error);
             telemetry.update();

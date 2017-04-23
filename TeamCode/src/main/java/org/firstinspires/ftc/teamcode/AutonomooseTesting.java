@@ -36,20 +36,18 @@ public class AutonomooseTesting extends AutonomousMode {
 
     @Override
     protected void testSequence() throws InterruptedException {
+
         testRotate(360);
-        testRotate(-360);
         testRotate(90);
-        testRotate(-90);
         testRotate(45);
-        testRotate(-45);
         testRotate(30);
+        testRotate(15);
+
+        testRotate(-360);
+        testRotate(-90);
+        testRotate(-45);
         testRotate(-30);
-        testRotate(20);
-        testRotate(-20);
-        testRotate(10);
-        testRotate(-10);
-        testRotate(5);
-        testRotate(-5);
+        testRotate(-15);
 
 
         //testProportionalGyroDrive();
@@ -62,7 +60,7 @@ public class AutonomooseTesting extends AutonomousMode {
         gyro.resetZAxisIntegrator();
         int initHeading = getGyroRawHeading();
         rotate(angle, 0);
-        sleep(100);
+        sleep(1000);
         int endHeading = getGyroRawHeading();
         telemetry.addData("expected: " + angle + "; actual: ", endHeading - initHeading);
         telemetry.update();
