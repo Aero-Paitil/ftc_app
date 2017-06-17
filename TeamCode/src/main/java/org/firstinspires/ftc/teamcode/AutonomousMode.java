@@ -548,14 +548,16 @@ abstract class AutonomousMode extends LinearOpMode {
      * Lift the bar to repel the cap ball.
      */
      void liftBar() {
-        servoBar.setPosition(110.0 / 255);
+        //servoBar.setPosition(110.0 / 255);
+         servoBar.setPosition(30.0 / 255);
     }
 
     /**
      * Lower the bar when we are approaching the beacon area.
      */
      void lowerBar() {
-        servoBar.setPosition(225.0 / 255);
+        //servoBar.setPosition(225.0 / 255);
+         servoBar.setPosition(145.0 / 255);
     }
 
 

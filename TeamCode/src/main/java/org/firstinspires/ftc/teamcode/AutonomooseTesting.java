@@ -37,17 +37,25 @@ public class AutonomooseTesting extends AutonomousMode {
     @Override
     protected void testSequence() throws InterruptedException {
 
-        testRotate(360);
-        testRotate(90);
-        testRotate(45);
-        testRotate(30);
-        testRotate(15);
+        double[] pos = {30, 50, 100, 120, 145};
+        for (double p : pos) {
+            servoBar.setPosition(p / 255);
+            telemetry.addData("Position: ", p);
+            telemetry.update();
+            sleep(4000);
+        }
 
-        testRotate(-360);
-        testRotate(-90);
-        testRotate(-45);
-        testRotate(-30);
-        testRotate(-15);
+//        testRotate(360);
+//        testRotate(90);
+//        testRotate(45);
+//        testRotate(30);
+//        testRotate(15);
+//
+//        testRotate(-360);
+//        testRotate(-90);
+//        testRotate(-45);
+//        testRotate(-30);
+//        testRotate(-15);
 
 
         //testProportionalGyroDrive();
